@@ -84,12 +84,12 @@ export function AppShell() {
               key={it.to}
               to={it.to}
               className={cn(
-                "flex flex-col items-center gap-1 py-3 text-xs font-medium",
+                "flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <it.icon className="h-5 w-5" />
-              {it.label}
+              <it.icon className="h-4 w-4" />
+              <span className="truncate max-w-full px-0.5">{it.label}</span>
             </Link>
           );
         })}
