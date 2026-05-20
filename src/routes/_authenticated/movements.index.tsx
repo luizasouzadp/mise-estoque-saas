@@ -561,6 +561,44 @@ function MovementsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!quick} onOpenChange={(o) => !o && setQuick(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar movimentação</DialogTitle>
+          </DialogHeader>
+          {quick && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                {sourceBadge(quick.source)} <span className="ml-2">{ingMap.get(quick.ingredient_id)?.name}</span>
+              </div>
+              <div>
+                <Label>Quantidade ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
+                <Input
+                  type="number"
+                  step="0.001"
+                  value={quickQty}
+                  onChange={(e) => setQuickQty(e.target.value)}
+                />
+              </div>
+              {quick.source === "inventory" && (
+                <p className="text-xs text-muted-foreground">
+                  A contagem do inventário será ajustada mantendo a direção ({quick.type === "in" ? "entrada" : "saída"}).
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex !justify-between sm:!justify-between">
+            <Button variant="destructive" onClick={quickDelete}>
+              <Trash2 className="h-4 w-4" /> Excluir
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setQuick(null)}>Cancelar</Button>
+              <Button onClick={quickSave}>Salvar</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
