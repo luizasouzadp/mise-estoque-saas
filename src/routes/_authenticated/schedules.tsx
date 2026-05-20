@@ -70,26 +70,46 @@ function SchedulesPage() {
     const { data: userData } = await supabase.auth.getUser();
     if (!profile?.restaurant_id) return toast.error("Restaurante não encontrado");
 
-    let ingQuery = supabase.from("ingredients").select("id, name, unit, current_stock").eq("restaurant_id", profile.restaurant_id);
-    if (s.group_id) ingQuery = ingQuery.eq("group_id", s.group_id);
-    const { data: ings } = await ingQuery;
-    if (!ings || ings.length === 0) return toast.error("Nenhum insumo neste grupo");
+    // Fetch ingredients linked to this group via junction table
+    let ings: Array<{ id: string; name: string; unit: string; current_stock: number }> = [];
+    if (s.group_id) {
+      const { data: members } = await supabase
+        .from("ingredient_group_members")
+        .select("ingredients!inner(id, name, unit, current_stock, restaurant_id)")
+        .eq("group_id", s.group_id);
+      ings = (members ?? [])
+        .map((m) => (m as { ingredients: { id: string; name: string; unit: string; current_stock: number; restaurant_id: string } }).ingredients)
+        .filter((i) => i.restaurant_id === profile.restaurant_id)
+        .map((i) => ({ id: i.id, name: i.name, unit: i.unit, current_stock: Number(i.current_stock) || 0 }));
+    } else {
+      const { data } = await supabase.from("ingredients")
+        .select("id, name, unit, current_stock")
+        .eq("restaurant_id", profile.restaurant_id);
+      ings = (data ?? []).map((i) => ({ ...i, current_stock: Number(i.current_stock) || 0 }));
+    }
+    if (ings.length === 0) return toast.error("Nenhum insumo neste grupo");
 
     const { data: inv, error } = await supabase.from("inventories").insert({
       restaurant_id: profile.restaurant_id,
       group_id: s.group_id,
       created_by: userData.user?.id ?? null,
-    }).select("id, public_token").single();
+    }).select("id").single();
     if (error) return toast.error(error.message);
+
+    const { data: session, error: sErr } = await supabase.from("inventory_sessions").insert({
+      inventory_id: inv.id,
+      group_id: s.group_id,
+    }).select("id, public_token").single();
+    if (sErr) return toast.error(sErr.message);
 
     await supabase.from("inventory_items").insert(
       ings.map((i) => ({
-        inventory_id: inv.id, ingredient_id: i.id, ingredient_name: i.name,
-        unit: i.unit, expected_qty: Number(i.current_stock) || 0,
+        inventory_id: inv.id, session_id: session.id, ingredient_id: i.id, ingredient_name: i.name,
+        unit: i.unit, expected_qty: i.current_stock,
       })),
     );
 
-    const link = `${window.location.origin}/count/${inv.public_token}`;
+    const link = `${window.location.origin}/count/${session.public_token}`;
     const msg = `Olá! Hora do inventário. Conte os insumos por aqui: ${link}`;
     if (s.phone) {
       window.open(`https://wa.me/${s.phone}?text=${encodeURIComponent(msg)}`, "_blank");

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import {
@@ -35,14 +36,24 @@ function IngredientDetail() {
     queryFn: async () => {
       const { data, error } = await supabase.from("ingredients").select("*").eq("id", id).single();
       if (error) throw error;
-      return data;
+      const { data: links } = await supabase
+        .from("ingredient_group_members")
+        .select("group_id")
+        .eq("ingredient_id", id);
+      return { ...data, groupIds: new Set((links ?? []).map((l) => l.group_id)) };
     },
+  });
+
+  const { data: groups } = useQuery({
+    queryKey: ["groups"],
+    queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
   });
 
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("un");
   const [category, setCategory] = useState("");
   const [minStock, setMinStock] = useState("0");
+  const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -51,17 +62,44 @@ function IngredientDetail() {
       setUnit(data.unit);
       setCategory(data.category ?? "");
       setMinStock(String(data.min_stock));
+      setGroupIds(new Set(data.groupIds));
     }
   }, [data]);
+
+  function toggleGroup(gid: string) {
+    setGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid);
+      else next.add(gid);
+      return next;
+    });
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
-      name, unit, category: category || null, min_stock: Number(minStock) || 0,
+      name, unit, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup,
     }).eq("id", id);
+    if (error) {
+      setSaving(false);
+      return toast.error(error.message);
+    }
+    // Sync junction table
+    const existing = data?.groupIds ?? new Set<string>();
+    const toAdd = Array.from(groupIds).filter((g) => !existing.has(g));
+    const toRemove = Array.from(existing).filter((g) => !groupIds.has(g));
+    if (toAdd.length) {
+      await supabase.from("ingredient_group_members").insert(
+        toAdd.map((gid) => ({ ingredient_id: id, group_id: gid })),
+      );
+    }
+    if (toRemove.length) {
+      await supabase.from("ingredient_group_members").delete()
+        .eq("ingredient_id", id).in("group_id", toRemove);
+    }
     setSaving(false);
-    if (error) return toast.error(error.message);
     toast.success("Atualizado");
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     qc.invalidateQueries({ queryKey: ["ingredient", id] });
@@ -117,6 +155,22 @@ function IngredientDetail() {
         <div>
           <Label htmlFor="min">Estoque mínimo</Label>
           <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+        </div>
+        <div>
+          <Label>Grupos de contagem</Label>
+          <p className="text-xs text-muted-foreground">O insumo pode pertencer a vários grupos. As contagens serão somadas no inventário.</p>
+          {(groups ?? []).length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">Nenhum grupo cadastrado.</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {(groups ?? []).map((g) => (
+                <label key={g.id} className="flex cursor-pointer items-center gap-3 rounded-lg border p-2 hover:bg-muted/50">
+                  <Checkbox checked={groupIds.has(g.id)} onCheckedChange={() => toggleGroup(g.id)} />
+                  <span className="text-sm">{g.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between pt-2">
           <AlertDialog>
