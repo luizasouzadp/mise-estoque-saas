@@ -47,7 +47,7 @@ function CountPage() {
     setSaving(true);
     try {
       await submit({ data: { token, counts: payload } });
-      toast.success("Contagem registrada! Estoque atualizado.");
+      toast.success("Contagem enviada! Aguarde o administrador finalizar o inventário.");
       qc.invalidateQueries({ queryKey: ["count", token] });
       router.invalidate();
     } catch (e) {
@@ -65,7 +65,7 @@ function CountPage() {
     </div>
   );
 
-  const done = data.status === "completed";
+  const done = data.sessionStatus === "completed";
 
   return (
     <div className="min-h-screen bg-background">
