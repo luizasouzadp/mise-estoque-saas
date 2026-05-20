@@ -97,6 +97,17 @@ function NewIngredient() {
             <p className="mt-1 text-xs text-muted-foreground">Usado para alertas de reposição.</p>
           </div>
         </div>
+        <div>
+          <Label htmlFor="group">Grupo (opcional)</Label>
+          <Select value={groupId} onValueChange={setGroupId}>
+            <SelectTrigger id="group"><SelectValue placeholder="Sem grupo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem grupo</SelectItem>
+              {(groups ?? []).map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">Usado para organizar a contagem do inventário.</p>
+        </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => nav({ to: "/ingredients" })}>Cancelar</Button>
           <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar insumo"}</Button>
