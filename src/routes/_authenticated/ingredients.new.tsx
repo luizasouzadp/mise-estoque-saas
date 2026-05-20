@@ -23,6 +23,7 @@ function NewIngredient() {
   const [unit, setUnit] = useState("un");
   const [category, setCategory] = useState("");
   const [minStock, setMinStock] = useState("0");
+  const [currentStock, setCurrentStock] = useState("0");
   const [saving, setSaving] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -40,6 +41,7 @@ function NewIngredient() {
       unit,
       category: category || null,
       min_stock: Number(minStock) || 0,
+      current_stock: Number(currentStock) || 0,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
