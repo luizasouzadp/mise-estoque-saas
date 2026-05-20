@@ -1,0 +1,1 @@
+ALTER TABLE public.inventories ADD COLUMN IF NOT EXISTS time_of_day time without time zone NOT NULL DEFAULT '09:00:00';
