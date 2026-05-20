@@ -1,12 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -25,22 +24,8 @@ function NewIngredient() {
   const [category, setCategory] = useState("");
   const [minStock, setMinStock] = useState("0");
   const [currentStock, setCurrentStock] = useState("0");
-  const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
+  const [unitValue, setUnitValue] = useState("");
   const [saving, setSaving] = useState(false);
-
-  const { data: groups } = useQuery({
-    queryKey: ["groups"],
-    queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
-  });
-
-  function toggleGroup(id: string) {
-    setGroupIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,28 +36,20 @@ function NewIngredient() {
       toast.error("Restaurante não encontrado.");
       return;
     }
-    const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
-    const { data: inserted, error } = await supabase.from("ingredients").insert({
+    const valueNum = unitValue.trim() === "" ? null : Number(unitValue);
+    const { error } = await supabase.from("ingredients").insert({
       restaurant_id: profile.restaurant_id,
       name,
       unit,
       category: category || null,
       min_stock: Number(minStock) || 0,
       current_stock: Number(currentStock) || 0,
-      group_id: firstGroup,
+      last_cost: valueNum ?? 0,
+      avg_cost: valueNum ?? 0,
     }).select("id").single();
     if (error) {
       setSaving(false);
       return toast.error(error.message);
-    }
-    if (groupIds.size > 0) {
-      const { error: linkErr } = await supabase.from("ingredient_group_members").insert(
-        Array.from(groupIds).map((gid) => ({ ingredient_id: inserted.id, group_id: gid })),
-      );
-      if (linkErr) {
-        setSaving(false);
-        return toast.error(linkErr.message);
-      }
     }
     setSaving(false);
     toast.success("Insumo cadastrado!");
@@ -121,22 +98,9 @@ function NewIngredient() {
           </div>
         </div>
         <div>
-          <Label>Grupos de contagem</Label>
-          <p className="text-xs text-muted-foreground">Selecione um ou mais grupos. O insumo será contado em cada um e somado ao finalizar.</p>
-          {(groups ?? []).length === 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Nenhum grupo cadastrado. <Link to="/groups" className="underline">Criar grupos</Link>
-            </p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              {(groups ?? []).map((g) => (
-                <label key={g.id} className="flex cursor-pointer items-center gap-3 rounded-lg border p-2 hover:bg-muted/50">
-                  <Checkbox checked={groupIds.has(g.id)} onCheckedChange={() => toggleGroup(g.id)} />
-                  <span className="text-sm">{g.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
+          <Label htmlFor="value">Valor do item (opcional)</Label>
+          <Input id="value" type="number" step="0.01" min="0" value={unitValue} onChange={(e) => setUnitValue(e.target.value)} placeholder="Ex: 12,50" />
+          <p className="mt-1 text-xs text-muted-foreground">Preço unitário inicial. Será atualizado a cada compra.</p>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => nav({ to: "/ingredients" })}>Cancelar</Button>

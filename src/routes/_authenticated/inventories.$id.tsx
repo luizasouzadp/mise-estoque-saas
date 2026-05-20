@@ -156,6 +156,38 @@ function InventoryDetail() {
         </div>
       </div>
 
+      <h2 className="mt-8 font-semibold">Contagem por grupo</h2>
+      <p className="text-xs text-muted-foreground">Valores enviados pelos responsáveis em cada grupo.</p>
+      <div className="mt-2 space-y-4">
+        {data.groups.map((g) => {
+          const groupItems = data.items.filter((it) => it.group_id === g.id);
+          return (
+            <div key={g.id} className="rounded-xl border bg-card shadow-[var(--shadow-soft)]">
+              <div className="flex items-center justify-between border-b px-4 py-2">
+                <h3 className="font-semibold text-sm">{g.name}</h3>
+                <span className="text-xs text-muted-foreground">{groupItems.filter((i) => i.counted_qty != null).length}/{groupItems.length} contados</span>
+              </div>
+              <div className="divide-y">
+                {groupItems.length === 0 ? (
+                  <p className="p-3 text-center text-xs text-muted-foreground">Sem insumos neste grupo.</p>
+                ) : groupItems.map((it) => (
+                  <div key={it.id} className="flex items-center justify-between gap-3 px-4 py-2">
+                    <div className="text-sm">{it.ingredient_name}</div>
+                    <div className="text-right text-sm">
+                      {it.counted_qty != null ? (
+                        <span className="font-medium">{Number(it.counted_qty).toFixed(2)} {it.unit}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">aguardando</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <h2 className="mt-8 font-semibold">Totais consolidados</h2>
       <p className="text-xs text-muted-foreground">Quando um insumo aparece em vários grupos, somamos as contagens.</p>
       <div className="mt-2 divide-y rounded-xl border bg-card shadow-[var(--shadow-soft)]">
