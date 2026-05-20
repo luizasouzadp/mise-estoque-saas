@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      ingredient_group_members: {
+        Row: {
+          created_at: string
+          group_id: string
+          ingredient_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          ingredient_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          ingredient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ingredient_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_group_members_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredient_groups: {
         Row: {
           created_at: string
@@ -163,6 +196,7 @@ export type Database = {
           ingredient_id: string
           ingredient_name: string
           inventory_id: string
+          session_id: string
           unit: string
         }
         Insert: {
@@ -173,6 +207,7 @@ export type Database = {
           ingredient_id: string
           ingredient_name: string
           inventory_id: string
+          session_id: string
           unit: string
         }
         Update: {
@@ -183,6 +218,7 @@ export type Database = {
           ingredient_id?: string
           ingredient_name?: string
           inventory_id?: string
+          session_id?: string
           unit?: string
         }
         Relationships: [
@@ -198,6 +234,13 @@ export type Database = {
             columns: ["inventory_id"]
             isOneToOne: false
             referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -246,6 +289,54 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_sessions: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string
+          group_id: string | null
+          id: string
+          inventory_id: string
+          public_token: string
+          status: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          inventory_id: string
+          public_token?: string
+          status?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          inventory_id?: string
+          public_token?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_sessions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ingredient_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_sessions_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
             referencedColumns: ["id"]
           },
         ]
