@@ -1,13 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { finalizeInventory } from "@/lib/inventory.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck } from "lucide-react";
+import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck, Pencil, Save, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/inventories/$id")({ component: InventoryDetail });
 
@@ -34,13 +37,22 @@ function InventoryDetail() {
   const finalize = useServerFn(finalizeInventory);
   const [finalizing, setFinalizing] = useState(false);
   const [phone, setPhone] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // edit state
+  const [name, setName] = useState("");
+  const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [weekday, setWeekday] = useState<string>("1");
+  const [timeOfDay, setTimeOfDay] = useState("09:00");
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
     queryKey: ["inventory", id],
     queryFn: async () => {
       const { data: inv, error } = await supabase
         .from("inventories")
-        .select("id, name, status, created_at, last_completed_at, frequency, weekday, public_token")
+        .select("id, name, status, created_at, last_completed_at, frequency, weekday, time_of_day, public_token, restaurant_id")
         .eq("id", id).single();
       if (error) throw error;
 
@@ -57,9 +69,21 @@ function InventoryDetail() {
         ? await supabase.from("ingredient_groups").select("id, name").in("id", gIds)
         : { data: [] };
 
-      return { inv, items: items ?? [], groups: groups ?? [] };
+      const { data: allGroups } = await supabase
+        .from("ingredient_groups").select("id, name").order("name");
+
+      return { inv, items: items ?? [], groups: groups ?? [], allGroups: allGroups ?? [], groupIds: gIds };
     },
   });
+
+  useEffect(() => {
+    if (!data) return;
+    setName(data.inv.name ?? "");
+    setFrequency(data.inv.frequency as "daily" | "weekly" | "monthly");
+    setWeekday(String(data.inv.weekday ?? 1));
+    setTimeOfDay(((data.inv.time_of_day as string) ?? "09:00:00").slice(0, 5));
+    setSelectedGroups(new Set(data.groupIds));
+  }, [data]);
 
   if (isLoading || !data) return <div className="p-8 text-muted-foreground">Carregando...</div>;
 
@@ -80,6 +104,7 @@ function InventoryDetail() {
   const message = `Olá! Hora da contagem: ${data.inv.name ?? "Inventário"}. Link: ${link}`;
   const cleanPhone = phone.replace(/\D/g, "");
   const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  const timeLabel = ((data.inv.time_of_day as string) ?? "").slice(0, 5);
 
   async function copyLink() {
     await navigator.clipboard.writeText(link);
@@ -93,6 +118,74 @@ function InventoryDetail() {
     toast.success("Inventário excluído");
     qc.invalidateQueries({ queryKey: ["inventories"] });
     nav({ to: "/inventories" });
+  }
+
+  function toggleGroup(gid: string) {
+    setSelectedGroups((p) => {
+      const n = new Set(p);
+      if (n.has(gid)) n.delete(gid); else n.add(gid);
+      return n;
+    });
+  }
+
+  async function saveEdit() {
+    if (!data) return;
+    if (!name.trim()) return toast.error("Informe um nome");
+    if (selectedGroups.size === 0) return toast.error("Selecione ao menos um grupo");
+    setSaving(true);
+    try {
+      const { error: uErr } = await supabase.from("inventories").update({
+        name: name.trim(),
+        frequency,
+        weekday: frequency === "weekly" ? Number(weekday) : null,
+        time_of_day: `${timeOfDay}:00`,
+      }).eq("id", id);
+      if (uErr) throw uErr;
+
+      const current = new Set(data.groupIds);
+      const toAdd = [...selectedGroups].filter((x) => !current.has(x));
+      const toRemove = [...current].filter((x) => !selectedGroups.has(x));
+
+      if (toRemove.length) {
+        await supabase.from("inventory_groups").delete()
+          .eq("inventory_id", id).in("group_id", toRemove);
+        await supabase.from("inventory_items").delete()
+          .eq("inventory_id", id).in("group_id", toRemove);
+      }
+      if (toAdd.length) {
+        await supabase.from("inventory_groups").insert(
+          toAdd.map((gid) => ({ inventory_id: id, group_id: gid })),
+        );
+        const { data: members } = await supabase
+          .from("ingredient_group_members")
+          .select("group_id, ingredient_id, ingredients!inner(id, name, unit, current_stock, restaurant_id)")
+          .in("group_id", toAdd);
+        type Ing = { id: string; name: string; unit: string; current_stock: number; restaurant_id: string };
+        const rows: Array<{ inventory_id: string; ingredient_id: string; ingredient_name: string; unit: string; expected_qty: number; group_id: string }> = [];
+        for (const m of members ?? []) {
+          const ing = (m as { ingredients: Ing }).ingredients;
+          if (!ing || ing.restaurant_id !== data.inv.restaurant_id) continue;
+          rows.push({
+            inventory_id: id,
+            ingredient_id: ing.id,
+            ingredient_name: ing.name,
+            unit: ing.unit,
+            expected_qty: Number(ing.current_stock) || 0,
+            group_id: m.group_id,
+          });
+        }
+        if (rows.length) await supabase.from("inventory_items").insert(rows);
+      }
+
+      toast.success("Inventário atualizado");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["inventory", id] });
+      qc.invalidateQueries({ queryKey: ["inventories"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleFinalize() {
@@ -121,6 +214,7 @@ function InventoryDetail() {
           <p className="text-sm text-muted-foreground">
             {freqLabel(data.inv.frequency)}
             {data.inv.frequency === "weekly" && data.inv.weekday != null && <> · {WEEKDAYS[data.inv.weekday]}</>}
+            {timeLabel && <> · {timeLabel}</>}
             {data.inv.last_completed_at && <> · última contagem em {new Date(data.inv.last_completed_at).toLocaleDateString("pt-BR")}</>}
           </p>
         </div>
@@ -131,11 +225,69 @@ function InventoryDetail() {
         }`}>{st.label}</span>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {data.groups.map((g) => (
           <span key={g.id} className="rounded-full bg-muted px-3 py-1 text-xs">{g.name}</span>
         ))}
+        {!editing && (
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => setEditing(true)}>
+            <Pencil className="mr-1 h-3 w-3" /> Editar
+          </Button>
+        )}
       </div>
+
+      {editing && (
+        <div className="mt-4 space-y-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <h2 className="font-semibold">Editar inventário</h2>
+          <div className="space-y-2">
+            <Label htmlFor="ename">Nome</Label>
+            <Input id="ename" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Frequência</Label>
+              <Select value={frequency} onValueChange={(v) => setFrequency(v as "daily" | "weekly" | "monthly")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Diária</SelectItem>
+                  <SelectItem value="weekly">Semanal</SelectItem>
+                  <SelectItem value="monthly">Mensal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {frequency === "weekly" && (
+              <div className="space-y-2">
+                <Label>Dia da semana</Label>
+                <Select value={weekday} onValueChange={setWeekday}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {WEEKDAYS.map((w, i) => <SelectItem key={i} value={String(i)}>{w}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="etime">Horário</Label>
+              <Input id="etime" type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Grupos contados</Label>
+            <div className="space-y-1">
+              {data.allGroups.map((g) => (
+                <label key={g.id} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 hover:bg-muted/50">
+                  <Checkbox checked={selectedGroups.has(g.id)} onCheckedChange={() => toggleGroup(g.id)} />
+                  <span className="text-sm font-medium">{g.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setEditing(false)}><X className="mr-1 h-4 w-4" /> Cancelar</Button>
+            <Button onClick={saveEdit} disabled={saving}><Save className="mr-1 h-4 w-4" />{saving ? "Salvando..." : "Salvar"}</Button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
         <h2 className="font-semibold">Link único de contagem</h2>
