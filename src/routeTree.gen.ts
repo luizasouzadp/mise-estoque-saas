@@ -13,6 +13,8 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CountTokenRouteImport } from './routes/count.$token'
+import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
 import { Route as AuthenticatedGroupsRouteImport } from './routes/_authenticated/groups'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedPurchasesIndexRouteImport } from './routes/_authenticated/purchases.index'
@@ -20,6 +22,7 @@ import { Route as AuthenticatedInventoriesIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedIngredientsIndexRouteImport } from './routes/_authenticated/ingredients.index'
 import { Route as AuthenticatedPurchasesNewRouteImport } from './routes/_authenticated/purchases.new'
 import { Route as AuthenticatedInventoriesNewRouteImport } from './routes/_authenticated/inventories.new'
+import { Route as AuthenticatedInventoriesIdRouteImport } from './routes/_authenticated/inventories.$id'
 import { Route as AuthenticatedIngredientsNewRouteImport } from './routes/_authenticated/ingredients.new'
 import { Route as AuthenticatedIngredientsIdRouteImport } from './routes/_authenticated/ingredients.$id'
 
@@ -41,6 +44,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CountTokenRoute = CountTokenRouteImport.update({
+  id: '/count/$token',
+  path: '/count/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSchedulesRoute = AuthenticatedSchedulesRouteImport.update({
+  id: '/schedules',
+  path: '/schedules',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedGroupsRoute = AuthenticatedGroupsRouteImport.update({
   id: '/groups',
@@ -82,6 +95,12 @@ const AuthenticatedInventoriesNewRoute =
     path: '/inventories/new',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedInventoriesIdRoute =
+  AuthenticatedInventoriesIdRouteImport.update({
+    id: '/inventories/$id',
+    path: '/inventories/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedIngredientsNewRoute =
   AuthenticatedIngredientsNewRouteImport.update({
     id: '/ingredients/new',
@@ -101,8 +120,11 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/groups': typeof AuthenticatedGroupsRoute
+  '/schedules': typeof AuthenticatedSchedulesRoute
+  '/count/$token': typeof CountTokenRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
+  '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/ingredients/': typeof AuthenticatedIngredientsIndexRoute
@@ -115,8 +137,11 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/groups': typeof AuthenticatedGroupsRoute
+  '/schedules': typeof AuthenticatedSchedulesRoute
+  '/count/$token': typeof CountTokenRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
+  '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/ingredients': typeof AuthenticatedIngredientsIndexRoute
@@ -131,8 +156,11 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/groups': typeof AuthenticatedGroupsRoute
+  '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
+  '/count/$token': typeof CountTokenRoute
   '/_authenticated/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/_authenticated/ingredients/new': typeof AuthenticatedIngredientsNewRoute
+  '/_authenticated/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/_authenticated/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/_authenticated/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/_authenticated/ingredients/': typeof AuthenticatedIngredientsIndexRoute
@@ -147,8 +175,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard'
     | '/groups'
+    | '/schedules'
+    | '/count/$token'
     | '/ingredients/$id'
     | '/ingredients/new'
+    | '/inventories/$id'
     | '/inventories/new'
     | '/purchases/new'
     | '/ingredients/'
@@ -161,8 +192,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard'
     | '/groups'
+    | '/schedules'
+    | '/count/$token'
     | '/ingredients/$id'
     | '/ingredients/new'
+    | '/inventories/$id'
     | '/inventories/new'
     | '/purchases/new'
     | '/ingredients'
@@ -176,8 +210,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/dashboard'
     | '/_authenticated/groups'
+    | '/_authenticated/schedules'
+    | '/count/$token'
     | '/_authenticated/ingredients/$id'
     | '/_authenticated/ingredients/new'
+    | '/_authenticated/inventories/$id'
     | '/_authenticated/inventories/new'
     | '/_authenticated/purchases/new'
     | '/_authenticated/ingredients/'
@@ -190,6 +227,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  CountTokenRoute: typeof CountTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -221,6 +259,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/count/$token': {
+      id: '/count/$token'
+      path: '/count/$token'
+      fullPath: '/count/$token'
+      preLoaderRoute: typeof CountTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/schedules': {
+      id: '/_authenticated/schedules'
+      path: '/schedules'
+      fullPath: '/schedules'
+      preLoaderRoute: typeof AuthenticatedSchedulesRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/groups': {
       id: '/_authenticated/groups'
@@ -271,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoriesNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/inventories/$id': {
+      id: '/_authenticated/inventories/$id'
+      path: '/inventories/$id'
+      fullPath: '/inventories/$id'
+      preLoaderRoute: typeof AuthenticatedInventoriesIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/ingredients/new': {
       id: '/_authenticated/ingredients/new'
       path: '/ingredients/new'
@@ -291,8 +350,10 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedGroupsRoute: typeof AuthenticatedGroupsRoute
+  AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
   AuthenticatedIngredientsIdRoute: typeof AuthenticatedIngredientsIdRoute
   AuthenticatedIngredientsNewRoute: typeof AuthenticatedIngredientsNewRoute
+  AuthenticatedInventoriesIdRoute: typeof AuthenticatedInventoriesIdRoute
   AuthenticatedInventoriesNewRoute: typeof AuthenticatedInventoriesNewRoute
   AuthenticatedPurchasesNewRoute: typeof AuthenticatedPurchasesNewRoute
   AuthenticatedIngredientsIndexRoute: typeof AuthenticatedIngredientsIndexRoute
@@ -303,8 +364,10 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedGroupsRoute: AuthenticatedGroupsRoute,
+  AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
   AuthenticatedIngredientsIdRoute: AuthenticatedIngredientsIdRoute,
   AuthenticatedIngredientsNewRoute: AuthenticatedIngredientsNewRoute,
+  AuthenticatedInventoriesIdRoute: AuthenticatedInventoriesIdRoute,
   AuthenticatedInventoriesNewRoute: AuthenticatedInventoriesNewRoute,
   AuthenticatedPurchasesNewRoute: AuthenticatedPurchasesNewRoute,
   AuthenticatedIngredientsIndexRoute: AuthenticatedIngredientsIndexRoute,
@@ -321,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  CountTokenRoute: CountTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
