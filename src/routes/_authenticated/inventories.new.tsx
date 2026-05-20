@@ -152,7 +152,12 @@ function NewInventory() {
               </Select>
             </div>
           )}
+          <div className="space-y-2">
+            <Label htmlFor="time">Horário</Label>
+            <Input id="time" type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
+          </div>
         </div>
+
 
         <div className="space-y-2">
           <Label>Grupos contados</Label>
