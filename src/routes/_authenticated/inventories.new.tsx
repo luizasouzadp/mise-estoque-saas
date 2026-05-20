@@ -20,6 +20,7 @@ function NewInventory() {
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly">("weekly");
   const [weekday, setWeekday] = useState<string>("1");
+  const [timeOfDay, setTimeOfDay] = useState("09:00");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
@@ -76,6 +77,7 @@ function NewInventory() {
         name: name.trim(),
         frequency,
         weekday: frequency === "weekly" ? Number(weekday) : null,
+        time_of_day: `${timeOfDay}:00`,
         created_by: userData.user?.id ?? null,
       }).select("id").single();
       if (invErr) throw invErr;
@@ -150,7 +152,12 @@ function NewInventory() {
               </Select>
             </div>
           )}
+          <div className="space-y-2">
+            <Label htmlFor="time">Horário</Label>
+            <Input id="time" type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
+          </div>
         </div>
+
 
         <div className="space-y-2">
           <Label>Grupos contados</Label>

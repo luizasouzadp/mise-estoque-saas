@@ -150,6 +150,7 @@ export type Database = {
           restaurant_id: string
           scheduled_for: string | null
           status: string
+          time_of_day: string
           weekday: number | null
         }
         Insert: {
@@ -165,6 +166,7 @@ export type Database = {
           restaurant_id: string
           scheduled_for?: string | null
           status?: string
+          time_of_day?: string
           weekday?: number | null
         }
         Update: {
@@ -180,6 +182,7 @@ export type Database = {
           restaurant_id?: string
           scheduled_for?: string | null
           status?: string
+          time_of_day?: string
           weekday?: number | null
         }
         Relationships: [
