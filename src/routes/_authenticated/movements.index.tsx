@@ -520,8 +520,13 @@ function MovementsPage() {
             )}
             {filtered.map((m) => {
               const ing = ingMap.get(m.ingredient_id);
+              const editable = isEditable(m);
               return (
-                <TableRow key={m.key}>
+                <TableRow
+                  key={m.key}
+                  className={editable ? "cursor-pointer hover:bg-muted/40" : ""}
+                  onClick={() => editable && openQuick(m)}
+                >
                   <TableCell className="whitespace-nowrap text-xs">
                     {new Date(m.occurred_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
                   </TableCell>
@@ -544,10 +549,9 @@ function MovementsPage() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{m.reason}</TableCell>
                   <TableCell>
-                    {m.editable && (
-                      <div className="flex gap-1 justify-end">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(m.editable!)}><Pencil className="h-3.5 w-3.5" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(m.editable!.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    {editable && (
+                      <div className="flex justify-end text-muted-foreground">
+                        <Pencil className="h-3.5 w-3.5" />
                       </div>
                     )}
                   </TableCell>
