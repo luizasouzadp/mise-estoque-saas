@@ -23,6 +23,7 @@ function NewIngredient() {
   const [unit, setUnit] = useState("un");
   const [category, setCategory] = useState("");
   const [minStock, setMinStock] = useState("0");
+  const [currentStock, setCurrentStock] = useState("0");
   const [saving, setSaving] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -40,6 +41,7 @@ function NewIngredient() {
       unit,
       category: category || null,
       min_stock: Number(minStock) || 0,
+      current_stock: Number(currentStock) || 0,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -76,10 +78,17 @@ function NewIngredient() {
             <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Hortifruti" />
           </div>
         </div>
-        <div>
-          <Label htmlFor="min">Estoque mínimo</Label>
-          <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-          <p className="mt-1 text-xs text-muted-foreground">Usado para alertas de reposição.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="current">Estoque atual</Label>
+            <Input id="current" type="number" step="0.01" min="0" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
+            <p className="mt-1 text-xs text-muted-foreground">Quantidade já disponível hoje.</p>
+          </div>
+          <div>
+            <Label htmlFor="min">Estoque mínimo</Label>
+            <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+            <p className="mt-1 text-xs text-muted-foreground">Usado para alertas de reposição.</p>
+          </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => nav({ to: "/ingredients" })}>Cancelar</Button>
