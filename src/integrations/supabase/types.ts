@@ -141,34 +141,46 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string | null
+          frequency: string
           group_id: string | null
           id: string
+          last_completed_at: string | null
+          name: string | null
           public_token: string
           restaurant_id: string
           scheduled_for: string | null
           status: string
+          weekday: number | null
         }
         Insert: {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          frequency?: string
           group_id?: string | null
           id?: string
+          last_completed_at?: string | null
+          name?: string | null
           public_token?: string
           restaurant_id: string
           scheduled_for?: string | null
           status?: string
+          weekday?: number | null
         }
         Update: {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          frequency?: string
           group_id?: string | null
           id?: string
+          last_completed_at?: string | null
+          name?: string | null
           public_token?: string
           restaurant_id?: string
           scheduled_for?: string | null
           status?: string
+          weekday?: number | null
         }
         Relationships: [
           {
@@ -187,38 +199,74 @@ export type Database = {
           },
         ]
       }
+      inventory_groups: {
+        Row: {
+          created_at: string
+          group_id: string
+          inventory_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          inventory_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          inventory_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ingredient_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_groups_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           counted_qty: number | null
           created_at: string
           expected_qty: number
+          group_id: string | null
           id: string
           ingredient_id: string
           ingredient_name: string
           inventory_id: string
-          session_id: string
+          session_id: string | null
           unit: string
         }
         Insert: {
           counted_qty?: number | null
           created_at?: string
           expected_qty?: number
+          group_id?: string | null
           id?: string
           ingredient_id: string
           ingredient_name: string
           inventory_id: string
-          session_id: string
+          session_id?: string | null
           unit: string
         }
         Update: {
           counted_qty?: number | null
           created_at?: string
           expected_qty?: number
+          group_id?: string | null
           id?: string
           ingredient_id?: string
           ingredient_name?: string
           inventory_id?: string
-          session_id?: string
+          session_id?: string | null
           unit?: string
         }
         Relationships: [
