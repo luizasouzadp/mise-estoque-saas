@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChefHat, LayoutDashboard, Package, Receipt, LogOut } from "lucide-react";
+import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, FolderTree, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
   { to: "/ingredients", label: "Insumos", icon: Package },
+  { to: "/groups", label: "Grupos", icon: FolderTree },
   { to: "/purchases", label: "Compras", icon: Receipt },
+  { to: "/inventories", label: "Inventário", icon: ClipboardList },
+  { to: "/schedules", label: "Agenda", icon: CalendarClock },
 ] as const;
 
 export function AppShell() {
