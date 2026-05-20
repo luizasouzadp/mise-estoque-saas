@@ -65,7 +65,9 @@ type UnifiedMovement = {
   quantity: number;
   reason: string;
   occurred_at: string;
-  editable: StockMovement | null;
+  manual: StockMovement | null;
+  purchase: Purchase | null;
+  invItem: InventoryItemRow | null;
 };
 
 const emptyFilters = {
