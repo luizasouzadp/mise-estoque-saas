@@ -20,6 +20,7 @@ function NewInventory() {
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly">("weekly");
   const [weekday, setWeekday] = useState<string>("1");
+  const [timeOfDay, setTimeOfDay] = useState("09:00");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
