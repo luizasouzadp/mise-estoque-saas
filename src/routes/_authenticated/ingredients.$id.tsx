@@ -156,6 +156,22 @@ function IngredientDetail() {
           <Label htmlFor="min">Estoque mínimo</Label>
           <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
         </div>
+        <div>
+          <Label>Grupos de contagem</Label>
+          <p className="text-xs text-muted-foreground">O insumo pode pertencer a vários grupos. As contagens serão somadas no inventário.</p>
+          {(groups ?? []).length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">Nenhum grupo cadastrado.</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {(groups ?? []).map((g) => (
+                <label key={g.id} className="flex cursor-pointer items-center gap-3 rounded-lg border p-2 hover:bg-muted/50">
+                  <Checkbox checked={groupIds.has(g.id)} onCheckedChange={() => toggleGroup(g.id)} />
+                  <span className="text-sm">{g.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="flex items-center justify-between pt-2">
           <AlertDialog>
             <AlertDialogTrigger asChild>
