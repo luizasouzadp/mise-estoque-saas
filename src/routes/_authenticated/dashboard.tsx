@@ -80,8 +80,12 @@ function Dashboard() {
 }
 
 
-function StatCard({ icon: Icon, label, value, accent }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; accent: "primary" | "warning" | "accent" }) {
-  const bg = accent === "primary" ? "bg-primary/10 text-primary" : accent === "warning" ? "bg-[color:var(--color-warning)]/15 text-[color:var(--color-warning)]" : "bg-accent/15 text-accent";
+function StatCard({ icon: Icon, label, value, accent }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; accent: "primary" | "warning" | "accent" | "danger" }) {
+  const bg =
+    accent === "primary" ? "bg-primary/10 text-primary"
+    : accent === "warning" ? "bg-[color:var(--color-warning)]/15 text-[color:var(--color-warning)]"
+    : accent === "danger" ? "bg-destructive/15 text-destructive"
+    : "bg-accent/15 text-accent";
   return (
     <div className="rounded-xl border bg-card p-5 shadow-[var(--shadow-soft)]">
       <div className="flex items-center justify-between">
@@ -92,6 +96,7 @@ function StatCard({ icon: Icon, label, value, accent }: { icon: React.ComponentT
     </div>
   );
 }
+
 
 function QuickCard({ title, desc, to }: { title: string; desc: string; to: "/ingredients/new" | "/purchases/new" }) {
   return (
