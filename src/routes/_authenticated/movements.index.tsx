@@ -90,7 +90,7 @@ function MovementsPage() {
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
 
-  // dialog
+  // full edit dialog (manual)
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [form, setForm] = useState({
@@ -102,6 +102,10 @@ function MovementsPage() {
     notes: "",
     occurred_at: new Date().toISOString().slice(0, 16),
   });
+
+  // quick edit (any editable row)
+  const [quick, setQuick] = useState<UnifiedMovement | null>(null);
+  const [quickQty, setQuickQty] = useState("");
 
   async function load() {
     setLoading(true);
