@@ -98,22 +98,9 @@ function NewIngredient() {
           </div>
         </div>
         <div>
-          <Label>Grupos de contagem</Label>
-          <p className="text-xs text-muted-foreground">Selecione um ou mais grupos. O insumo será contado em cada um e somado ao finalizar.</p>
-          {(groups ?? []).length === 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Nenhum grupo cadastrado. <Link to="/groups" className="underline">Criar grupos</Link>
-            </p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              {(groups ?? []).map((g) => (
-                <label key={g.id} className="flex cursor-pointer items-center gap-3 rounded-lg border p-2 hover:bg-muted/50">
-                  <Checkbox checked={groupIds.has(g.id)} onCheckedChange={() => toggleGroup(g.id)} />
-                  <span className="text-sm">{g.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
+          <Label htmlFor="value">Valor do item (opcional)</Label>
+          <Input id="value" type="number" step="0.01" min="0" value={unitValue} onChange={(e) => setUnitValue(e.target.value)} placeholder="Ex: 12,50" />
+          <p className="mt-1 text-xs text-muted-foreground">Preço unitário inicial. Será atualizado a cada compra.</p>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => nav({ to: "/ingredients" })}>Cancelar</Button>
