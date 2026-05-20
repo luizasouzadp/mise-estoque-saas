@@ -65,9 +65,40 @@ function GroupDetail() {
           .delete().eq("group_id", id).in("ingredient_id", toRemove);
         if (error) throw error;
       }
+
+      // Sync inventory_items for every inventory that uses this group
+      const { data: invGroups } = await supabase
+        .from("inventory_groups").select("inventory_id").eq("group_id", id);
+      const invIds = (invGroups ?? []).map((r) => r.inventory_id);
+      if (invIds.length) {
+        if (toRemove.length) {
+          await supabase.from("inventory_items").delete()
+            .eq("group_id", id).in("inventory_id", invIds).in("ingredient_id", toRemove);
+        }
+        if (toAdd.length) {
+          const { data: ings } = await supabase
+            .from("ingredients").select("id, name, unit, current_stock").in("id", toAdd);
+          const rows: Array<{ inventory_id: string; ingredient_id: string; ingredient_name: string; unit: string; expected_qty: number; group_id: string }> = [];
+          for (const inv of invIds) {
+            for (const ing of ings ?? []) {
+              rows.push({
+                inventory_id: inv,
+                ingredient_id: ing.id,
+                ingredient_name: ing.name,
+                unit: ing.unit,
+                expected_qty: Number(ing.current_stock) || 0,
+                group_id: id,
+              });
+            }
+          }
+          if (rows.length) await supabase.from("inventory_items").insert(rows);
+        }
+      }
+
       toast.success("Grupo atualizado");
       qc.invalidateQueries({ queryKey: ["group-detail", id] });
       qc.invalidateQueries({ queryKey: ["group-member-counts"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
       nav({ to: "/groups" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar");
