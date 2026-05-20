@@ -53,7 +53,11 @@ function IngredientsList() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((i) => {
-              const low = Number(i.min_stock) > 0 && Number(i.current_stock) <= Number(i.min_stock);
+              const cur = Number(i.current_stock);
+              const min = Number(i.min_stock);
+              const out = cur <= 0;
+              const low = !out && min > 0 && cur <= min;
+              const pct = min > 0 ? Math.min(100, (cur / min) * 100) : 100;
               return (
                 <Link
                   key={i.id}
@@ -61,29 +65,40 @@ function IngredientsList() {
                   params={{ id: i.id }}
                   className="group rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] transition hover:border-primary"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-semibold group-hover:text-primary">{i.name}</h3>
                       {i.category && <p className="text-xs text-muted-foreground">{i.category}</p>}
                     </div>
-                    {low && (
+                    {out ? (
+                      <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">sem estoque</span>
+                    ) : low ? (
                       <span className="rounded-full bg-[color:var(--color-warning)]/15 px-2 py-0.5 text-xs font-medium text-[color:var(--color-warning)]">baixo</span>
-                    )}
+                    ) : null}
                   </div>
                   <div className="mt-4 flex items-end justify-between">
                     <div>
-                      <div className="font-display text-2xl">{Number(i.current_stock).toFixed(2)}</div>
-                      <div className="text-xs text-muted-foreground">{i.unit}</div>
+                      <div className="font-display text-2xl">{cur.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground">{i.unit} {min > 0 && <>· mín {min.toFixed(2)}</>}</div>
                     </div>
                     <div className="text-right text-xs text-muted-foreground">
                       <div>R$ {Number(i.avg_cost).toFixed(2)}</div>
                       <div>custo médio</div>
                     </div>
                   </div>
+                  {min > 0 && (
+                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full transition-all ${out ? "bg-destructive" : low ? "bg-[color:var(--color-warning)]" : "bg-primary"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  )}
                 </Link>
               );
             })}
           </div>
+
         )}
       </div>
     </div>
