@@ -77,6 +77,7 @@ function NewInventory() {
         name: name.trim(),
         frequency,
         weekday: frequency === "weekly" ? Number(weekday) : null,
+        time_of_day: `${timeOfDay}:00`,
         created_by: userData.user?.id ?? null,
       }).select("id").single();
       if (invErr) throw invErr;
