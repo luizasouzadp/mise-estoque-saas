@@ -289,6 +289,69 @@ function MovementsPage() {
     load();
   }
 
+  function isEditable(m: UnifiedMovement) {
+    return m.source !== "created";
+  }
+  function openQuick(m: UnifiedMovement) {
+    if (!isEditable(m)) return;
+    setQuick(m);
+    setQuickQty(String(m.quantity));
+  }
+  async function quickSave() {
+    if (!quick) return;
+    const qty = Number(quickQty);
+    if (!Number.isFinite(qty) || qty <= 0) return toast.error("Quantidade inválida");
+
+    if (quick.manual) {
+      const { error } = await supabase
+        .from("stock_movements")
+        .update({ quantity: qty })
+        .eq("id", quick.manual.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.purchase) {
+      const unit = Number(quick.purchase.unit_cost) || 0;
+      const { error } = await supabase
+        .from("purchases")
+        .update({ quantity: qty, total_cost: qty * unit })
+        .eq("id", quick.purchase.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.invItem) {
+      // Preserve the direction of the delta (in/out) chosen at count time
+      const sign = quick.type === "in" ? 1 : -1;
+      const newCounted = Number(quick.invItem.expected_qty) + sign * qty;
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ counted_qty: newCounted })
+        .eq("id", quick.invItem.id);
+      if (error) return toast.error(error.message);
+    }
+    toast.success("Movimentação atualizada");
+    setQuick(null);
+    load();
+  }
+  async function quickDelete() {
+    if (!quick) return;
+    if (!confirm("Excluir esta movimentação? O estoque será ajustado.")) return;
+
+    if (quick.manual) {
+      const { error } = await supabase.from("stock_movements").delete().eq("id", quick.manual.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.purchase) {
+      const { error } = await supabase.from("purchases").delete().eq("id", quick.purchase.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.invItem) {
+      // Zerar a contagem (volta a expected, sem delta)
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ counted_qty: Number(quick.invItem.expected_qty) })
+        .eq("id", quick.invItem.id);
+      if (error) return toast.error(error.message);
+    }
+    toast.success("Movimentação excluída");
+    setQuick(null);
+    load();
+  }
+
   function sourceBadge(s: Source) {
     if (s === "created") return <Badge variant="outline" className="gap-1"><Sparkles className="h-3 w-3" />Cadastro</Badge>;
     if (s === "purchase") return <Badge variant="outline" className="gap-1"><ShoppingCart className="h-3 w-3" />Compra</Badge>;
