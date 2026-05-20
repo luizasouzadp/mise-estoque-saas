@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getInventoryByToken, submitInventoryCount } from "@/lib/inventory.functions";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,18 @@ function CountPage() {
   useEffect(() => {
     if (data?.items) {
       const init: Record<string, string> = {};
-      for (const it of data.items) {
-        init[it.id] = it.counted_qty != null ? String(it.counted_qty) : "";
-      }
+      for (const it of data.items) init[it.id] = it.counted_qty != null ? String(it.counted_qty) : "";
       setCounts(init);
     }
+  }, [data]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof data.items>();
+    for (const it of data?.items ?? []) {
+      if (!map.has(it.groupName)) map.set(it.groupName, []);
+      map.get(it.groupName)!.push(it);
+    }
+    return Array.from(map.entries());
   }, [data]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -41,9 +48,6 @@ function CountPage() {
       .filter(([, v]) => v !== "" && !isNaN(Number(v)))
       .map(([itemId, v]) => ({ itemId, countedQty: Number(v) }));
     if (payload.length === 0) return toast.error("Preencha pelo menos um item");
-    if (payload.length < (data?.items.length ?? 0)) {
-      if (!confirm("Alguns itens não foram contados. Deseja finalizar mesmo assim?")) return;
-    }
     setSaving(true);
     try {
       await submit({ data: { token, counts: payload } });
@@ -61,11 +65,9 @@ function CountPage() {
   if (error || !data) return (
     <div className="mx-auto max-w-md p-8 text-center">
       <h1 className="font-display text-2xl">Inventário não encontrado</h1>
-      <p className="mt-2 text-sm text-muted-foreground">O link pode ter expirado ou estar incorreto.</p>
+      <p className="mt-2 text-sm text-muted-foreground">O link pode estar incorreto.</p>
     </div>
   );
-
-  const done = data.sessionStatus === "completed";
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,53 +78,49 @@ function CountPage() {
           </div>
           <div>
             <div className="text-xs text-muted-foreground">{data.restaurantName}</div>
-            <div className="font-display text-lg leading-none">Contagem — {data.groupName ?? "Todos os insumos"}</div>
+            <div className="font-display text-lg leading-none">{data.inventoryName}</div>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl p-4 pb-32">
-        {done && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border bg-primary/10 p-4 text-sm text-primary">
-            <CheckCircle2 className="h-5 w-5" /> Esta contagem já foi finalizada.
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {data.items.map((it) => (
-            <div key={it.id} className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-semibold">{it.ingredient_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Sistema: {Number(it.expected_qty).toFixed(2)} {it.unit}
+        <div className="mb-4 flex items-center gap-2 rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground">
+          <CheckCircle2 className="h-4 w-4" /> Quando um insumo aparece em vários grupos, registre a contagem em cada um. O sistema soma os valores.
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {grouped.map(([groupName, items]) => (
+            <section key={groupName} className="space-y-2">
+              <h2 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">{groupName}</h2>
+              {items.map((it) => (
+                <div key={it.id} className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold">{it.ingredient_name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Sistema: {Number(it.expected_qty).toFixed(2)} {it.unit}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" step="0.01" min="0" inputMode="decimal"
+                        className="w-28 text-right" placeholder="0,00"
+                        value={counts[it.id] ?? ""}
+                        onChange={(e) => setCounts((c) => ({ ...c, [it.id]: e.target.value }))}
+                      />
+                      <span className="text-xs text-muted-foreground w-8">{it.unit}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    inputMode="decimal"
-                    className="w-28 text-right"
-                    placeholder="0,00"
-                    value={counts[it.id] ?? ""}
-                    onChange={(e) => setCounts((c) => ({ ...c, [it.id]: e.target.value }))}
-                    disabled={done}
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{it.unit}</span>
-                </div>
-              </div>
-            </div>
+              ))}
+            </section>
           ))}
-          {!done && (
-            <div className="fixed inset-x-0 bottom-0 border-t bg-card p-4">
-              <div className="mx-auto max-w-2xl">
-                <Button type="submit" size="lg" className="w-full" disabled={saving}>
-                  {saving ? "Salvando..." : "Finalizar contagem"}
-                </Button>
-              </div>
+          <div className="fixed inset-x-0 bottom-0 border-t bg-card p-4">
+            <div className="mx-auto max-w-2xl">
+              <Button type="submit" size="lg" className="w-full" disabled={saving}>
+                {saving ? "Salvando..." : "Enviar contagem"}
+              </Button>
             </div>
-          )}
+          </div>
         </form>
       </main>
     </div>
