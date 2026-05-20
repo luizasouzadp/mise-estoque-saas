@@ -144,7 +144,7 @@ function MovementsPage() {
         quantity: 0,
         reason: "Insumo cadastrado",
         occurred_at: i.created_at,
-        editable: null,
+        manual: null, purchase: null, invItem: null,
       });
     }
     for (const p of purchases) {
@@ -156,7 +156,7 @@ function MovementsPage() {
         quantity: Number(p.quantity),
         reason: p.supplier ? `Compra · ${p.supplier}` : "Compra",
         occurred_at: p.purchased_at,
-        editable: null,
+        manual: null, purchase: p, invItem: null,
       });
     }
     for (const m of stockMv) {
@@ -168,7 +168,7 @@ function MovementsPage() {
         quantity: Number(m.quantity),
         reason: m.reason ?? "Manual",
         occurred_at: m.occurred_at,
-        editable: m,
+        manual: m, purchase: null, invItem: null,
       });
     }
     for (const it of invItems) {
@@ -182,7 +182,7 @@ function MovementsPage() {
         quantity: Math.abs(delta),
         reason: `Inventário${it.inventories?.name ? ` · ${it.inventories.name}` : ""}`,
         occurred_at: it.inventories?.completed_at ?? new Date().toISOString(),
-        editable: null,
+        manual: null, purchase: null, invItem: it,
       });
     }
 
