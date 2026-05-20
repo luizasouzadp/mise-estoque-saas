@@ -33,8 +33,9 @@ function CountPage() {
     }
   }, [data]);
 
+  type Item = NonNullable<typeof data>["items"][number];
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof data.items>();
+    const map = new Map<string, Item[]>();
     for (const it of data?.items ?? []) {
       if (!map.has(it.groupName)) map.set(it.groupName, []);
       map.get(it.groupName)!.push(it);
