@@ -84,11 +84,11 @@ export const finalizeInventory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ inventoryId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
 
     const { data: inv, error: invErr } = await supabase
       .from("inventories")
-      .select("id, restaurant_id, status")
+      .select("id, name, restaurant_id, status")
       .eq("id", data.inventoryId)
       .maybeSingle();
     if (invErr) throw new Error(invErr.message);
@@ -109,22 +109,66 @@ export const finalizeInventory = createServerFn({ method: "POST" })
     }
     if (!counted) throw new Error("Nenhuma contagem registrada ainda");
 
+    // Read current stocks to compute deltas and register stock movements
+    const ingredientIds = Array.from(totals.keys());
+    const { data: ings, error: ingErr } = await supabaseAdmin
+      .from("ingredients")
+      .select("id, current_stock")
+      .in("id", ingredientIds)
+      .eq("restaurant_id", inv.restaurant_id);
+    if (ingErr) throw new Error(ingErr.message);
+
+    const stockMap = new Map((ings ?? []).map((i) => [i.id, Number(i.current_stock ?? 0)]));
+    const now = new Date().toISOString();
+    const reasonBase = `Inventário${inv.name ? ` · ${inv.name}` : ""}`;
+
+    const movements: Array<{
+      restaurant_id: string;
+      ingredient_id: string;
+      type: "in" | "out";
+      quantity: number;
+      reason: string;
+      occurred_at: string;
+      created_by: string | null;
+    }> = [];
+
     for (const [ingredientId, total] of totals) {
-      const { error: upErr } = await supabaseAdmin
-        .from("ingredients")
-        .update({ current_stock: total })
-        .eq("id", ingredientId)
-        .eq("restaurant_id", inv.restaurant_id);
-      if (upErr) throw new Error(upErr.message);
+      const current = stockMap.get(ingredientId) ?? 0;
+      const delta = total - current;
+      if (delta === 0) continue;
+      movements.push({
+        restaurant_id: inv.restaurant_id,
+        ingredient_id: ingredientId,
+        type: delta > 0 ? "in" : "out",
+        quantity: Math.abs(delta),
+        reason: reasonBase,
+        occurred_at: now,
+        created_by: userId ?? null,
+      });
     }
 
-    // Reset items + update expected_qty to new stock, bump last_completed_at
-    const now = new Date().toISOString();
+    if (movements.length > 0) {
+      // Trigger apply_stock_movement updates ingredients.current_stock automatically
+      const { error: mErr } = await supabaseAdmin.from("stock_movements").insert(movements);
+      if (mErr) throw new Error(mErr.message);
+    }
+
+    // Limpa todos os dados do link de inventário: zera contagens e
+    // atualiza expected_qty para o estoque recém-calculado.
     const { error: rErr } = await supabaseAdmin
       .from("inventory_items")
       .update({ counted_qty: null })
       .eq("inventory_id", data.inventoryId);
     if (rErr) throw new Error(rErr.message);
+
+    for (const [ingredientId, total] of totals) {
+      const { error: eqErr } = await supabaseAdmin
+        .from("inventory_items")
+        .update({ expected_qty: total })
+        .eq("inventory_id", data.inventoryId)
+        .eq("ingredient_id", ingredientId);
+      if (eqErr) throw new Error(eqErr.message);
+    }
 
     const { error: doneErr } = await supabaseAdmin
       .from("inventories")
@@ -132,5 +176,5 @@ export const finalizeInventory = createServerFn({ method: "POST" })
       .eq("id", data.inventoryId);
     if (doneErr) throw new Error(doneErr.message);
 
-    return { ok: true, updated: totals.size };
+    return { ok: true, updated: totals.size, movements: movements.length };
   });
