@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChefHat, LayoutDashboard, Package, Receipt, LogOut } from "lucide-react";
+import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, FolderTree, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
   { to: "/ingredients", label: "Insumos", icon: Package },
+  { to: "/groups", label: "Grupos", icon: FolderTree },
   { to: "/purchases", label: "Compras", icon: Receipt },
+  { to: "/inventories", label: "Inventário", icon: ClipboardList },
+  { to: "/schedules", label: "Agenda", icon: CalendarClock },
 ] as const;
 
 export function AppShell() {
@@ -73,7 +76,7 @@ export function AppShell() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-3 border-t bg-card md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t bg-card md:hidden">
         {navItems.map((it) => {
           const active = pathname.startsWith(it.to);
           return (
@@ -81,12 +84,12 @@ export function AppShell() {
               key={it.to}
               to={it.to}
               className={cn(
-                "flex flex-col items-center gap-1 py-3 text-xs font-medium",
+                "flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <it.icon className="h-5 w-5" />
-              {it.label}
+              <it.icon className="h-4 w-4" />
+              <span className="truncate max-w-full px-0.5">{it.label}</span>
             </Link>
           );
         })}

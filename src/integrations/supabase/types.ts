@@ -14,12 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ingredient_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          restaurant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          restaurant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_groups_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           avg_cost: number
           category: string | null
           created_at: string
           current_stock: number
+          group_id: string | null
           id: string
           last_cost: number
           min_stock: number
@@ -33,6 +63,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           current_stock?: number
+          group_id?: string | null
           id?: string
           last_cost?: number
           min_stock?: number
@@ -46,6 +77,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           current_stock?: number
+          group_id?: string | null
           id?: string
           last_cost?: number
           min_stock?: number
@@ -56,7 +88,161 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "ingredients_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ingredient_groups"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ingredients_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventories: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          group_id: string | null
+          id: string
+          public_token: string
+          restaurant_id: string
+          scheduled_for: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          group_id?: string | null
+          id?: string
+          public_token?: string
+          restaurant_id: string
+          scheduled_for?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          group_id?: string | null
+          id?: string
+          public_token?: string
+          restaurant_id?: string
+          scheduled_for?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventories_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ingredient_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventories_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_items: {
+        Row: {
+          counted_qty: number | null
+          created_at: string
+          expected_qty: number
+          id: string
+          ingredient_id: string
+          ingredient_name: string
+          inventory_id: string
+          unit: string
+        }
+        Insert: {
+          counted_qty?: number | null
+          created_at?: string
+          expected_qty?: number
+          id?: string
+          ingredient_id: string
+          ingredient_name: string
+          inventory_id: string
+          unit: string
+        }
+        Update: {
+          counted_qty?: number | null
+          created_at?: string
+          expected_qty?: number
+          id?: string
+          ingredient_id?: string
+          ingredient_name?: string
+          inventory_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_schedules: {
+        Row: {
+          active: boolean
+          created_at: string
+          group_id: string | null
+          id: string
+          phone: string | null
+          restaurant_id: string
+          time_of_day: string
+          weekday: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          phone?: string | null
+          restaurant_id: string
+          time_of_day?: string
+          weekday: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          phone?: string | null
+          restaurant_id?: string
+          time_of_day?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_schedules_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ingredient_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_schedules_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"

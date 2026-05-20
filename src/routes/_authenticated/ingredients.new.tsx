@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,13 @@ function NewIngredient() {
   const [category, setCategory] = useState("");
   const [minStock, setMinStock] = useState("0");
   const [currentStock, setCurrentStock] = useState("0");
+  const [groupId, setGroupId] = useState<string>("none");
   const [saving, setSaving] = useState(false);
+
+  const { data: groups } = useQuery({
+    queryKey: ["groups"],
+    queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
+  });
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +48,7 @@ function NewIngredient() {
       category: category || null,
       min_stock: Number(minStock) || 0,
       current_stock: Number(currentStock) || 0,
+      group_id: groupId === "none" ? null : groupId,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -89,6 +96,17 @@ function NewIngredient() {
             <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
             <p className="mt-1 text-xs text-muted-foreground">Usado para alertas de reposição.</p>
           </div>
+        </div>
+        <div>
+          <Label htmlFor="group">Grupo (opcional)</Label>
+          <Select value={groupId} onValueChange={setGroupId}>
+            <SelectTrigger id="group"><SelectValue placeholder="Sem grupo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem grupo</SelectItem>
+              {(groups ?? []).map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">Usado para organizar a contagem do inventário.</p>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => nav({ to: "/ingredients" })}>Cancelar</Button>
