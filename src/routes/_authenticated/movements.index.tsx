@@ -65,7 +65,9 @@ type UnifiedMovement = {
   quantity: number;
   reason: string;
   occurred_at: string;
-  editable: StockMovement | null;
+  manual: StockMovement | null;
+  purchase: Purchase | null;
+  invItem: InventoryItemRow | null;
 };
 
 const emptyFilters = {
@@ -88,7 +90,7 @@ function MovementsPage() {
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
 
-  // dialog
+  // full edit dialog (manual)
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [form, setForm] = useState({
@@ -100,6 +102,10 @@ function MovementsPage() {
     notes: "",
     occurred_at: new Date().toISOString().slice(0, 16),
   });
+
+  // quick edit (any editable row)
+  const [quick, setQuick] = useState<UnifiedMovement | null>(null);
+  const [quickQty, setQuickQty] = useState("");
 
   async function load() {
     setLoading(true);
@@ -142,7 +148,7 @@ function MovementsPage() {
         quantity: 0,
         reason: "Insumo cadastrado",
         occurred_at: i.created_at,
-        editable: null,
+        manual: null, purchase: null, invItem: null,
       });
     }
     for (const p of purchases) {
@@ -154,7 +160,7 @@ function MovementsPage() {
         quantity: Number(p.quantity),
         reason: p.supplier ? `Compra · ${p.supplier}` : "Compra",
         occurred_at: p.purchased_at,
-        editable: null,
+        manual: null, purchase: p, invItem: null,
       });
     }
     for (const m of stockMv) {
@@ -166,7 +172,7 @@ function MovementsPage() {
         quantity: Number(m.quantity),
         reason: m.reason ?? "Manual",
         occurred_at: m.occurred_at,
-        editable: m,
+        manual: m, purchase: null, invItem: null,
       });
     }
     for (const it of invItems) {
@@ -180,7 +186,7 @@ function MovementsPage() {
         quantity: Math.abs(delta),
         reason: `Inventário${it.inventories?.name ? ` · ${it.inventories.name}` : ""}`,
         occurred_at: it.inventories?.completed_at ?? new Date().toISOString(),
-        editable: null,
+        manual: null, purchase: null, invItem: it,
       });
     }
 
@@ -280,6 +286,69 @@ function MovementsPage() {
     const { error } = await supabase.from("stock_movements").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Movimentação excluída");
+    load();
+  }
+
+  function isEditable(m: UnifiedMovement) {
+    return m.source !== "created";
+  }
+  function openQuick(m: UnifiedMovement) {
+    if (!isEditable(m)) return;
+    setQuick(m);
+    setQuickQty(String(m.quantity));
+  }
+  async function quickSave() {
+    if (!quick) return;
+    const qty = Number(quickQty);
+    if (!Number.isFinite(qty) || qty <= 0) return toast.error("Quantidade inválida");
+
+    if (quick.manual) {
+      const { error } = await supabase
+        .from("stock_movements")
+        .update({ quantity: qty })
+        .eq("id", quick.manual.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.purchase) {
+      const unit = Number(quick.purchase.unit_cost) || 0;
+      const { error } = await supabase
+        .from("purchases")
+        .update({ quantity: qty, total_cost: qty * unit })
+        .eq("id", quick.purchase.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.invItem) {
+      // Preserve the direction of the delta (in/out) chosen at count time
+      const sign = quick.type === "in" ? 1 : -1;
+      const newCounted = Number(quick.invItem.expected_qty) + sign * qty;
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ counted_qty: newCounted })
+        .eq("id", quick.invItem.id);
+      if (error) return toast.error(error.message);
+    }
+    toast.success("Movimentação atualizada");
+    setQuick(null);
+    load();
+  }
+  async function quickDelete() {
+    if (!quick) return;
+    if (!confirm("Excluir esta movimentação? O estoque será ajustado.")) return;
+
+    if (quick.manual) {
+      const { error } = await supabase.from("stock_movements").delete().eq("id", quick.manual.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.purchase) {
+      const { error } = await supabase.from("purchases").delete().eq("id", quick.purchase.id);
+      if (error) return toast.error(error.message);
+    } else if (quick.invItem) {
+      // Zerar a contagem (volta a expected, sem delta)
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ counted_qty: Number(quick.invItem.expected_qty) })
+        .eq("id", quick.invItem.id);
+      if (error) return toast.error(error.message);
+    }
+    toast.success("Movimentação excluída");
+    setQuick(null);
     load();
   }
 
@@ -451,8 +520,13 @@ function MovementsPage() {
             )}
             {filtered.map((m) => {
               const ing = ingMap.get(m.ingredient_id);
+              const editable = isEditable(m);
               return (
-                <TableRow key={m.key}>
+                <TableRow
+                  key={m.key}
+                  className={editable ? "cursor-pointer hover:bg-muted/40" : ""}
+                  onClick={() => editable && openQuick(m)}
+                >
                   <TableCell className="whitespace-nowrap text-xs">
                     {new Date(m.occurred_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
                   </TableCell>
@@ -475,10 +549,9 @@ function MovementsPage() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{m.reason}</TableCell>
                   <TableCell>
-                    {m.editable && (
-                      <div className="flex gap-1 justify-end">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(m.editable!)}><Pencil className="h-3.5 w-3.5" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(m.editable!.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    {editable && (
+                      <div className="flex justify-end text-muted-foreground">
+                        <Pencil className="h-3.5 w-3.5" />
                       </div>
                     )}
                   </TableCell>
@@ -488,6 +561,44 @@ function MovementsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!quick} onOpenChange={(o) => !o && setQuick(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar movimentação</DialogTitle>
+          </DialogHeader>
+          {quick && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                {sourceBadge(quick.source)} <span className="ml-2">{ingMap.get(quick.ingredient_id)?.name}</span>
+              </div>
+              <div>
+                <Label>Quantidade ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
+                <Input
+                  type="number"
+                  step="0.001"
+                  value={quickQty}
+                  onChange={(e) => setQuickQty(e.target.value)}
+                />
+              </div>
+              {quick.source === "inventory" && (
+                <p className="text-xs text-muted-foreground">
+                  A contagem do inventário será ajustada mantendo a direção ({quick.type === "in" ? "entrada" : "saída"}).
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex !justify-between sm:!justify-between">
+            <Button variant="destructive" onClick={quickDelete}>
+              <Trash2 className="h-4 w-4" /> Excluir
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setQuick(null)}>Cancelar</Button>
+              <Button onClick={quickSave}>Salvar</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
