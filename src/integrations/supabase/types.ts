@@ -493,6 +493,51 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          ingredient_id: string
+          notes: string | null
+          occurred_at: string
+          quantity: number
+          reason: string | null
+          restaurant_id: string
+          type: string
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ingredient_id: string
+          notes?: string | null
+          occurred_at?: string
+          quantity: number
+          reason?: string | null
+          restaurant_id: string
+          type: string
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ingredient_id?: string
+          notes?: string | null
+          occurred_at?: string
+          quantity?: number
+          reason?: string | null
+          restaurant_id?: string
+          type?: string
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

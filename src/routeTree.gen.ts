@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CountTokenRouteImport } from './routes/count.$token'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedPurchasesIndexRouteImport } from './routes/_authenticated/purchases.index'
+import { Route as AuthenticatedMovementsIndexRouteImport } from './routes/_authenticated/movements.index'
 import { Route as AuthenticatedInventoriesIndexRouteImport } from './routes/_authenticated/inventories.index'
 import { Route as AuthenticatedIngredientsIndexRouteImport } from './routes/_authenticated/ingredients.index'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups.index'
@@ -59,6 +60,12 @@ const AuthenticatedPurchasesIndexRoute =
   AuthenticatedPurchasesIndexRouteImport.update({
     id: '/purchases/',
     path: '/purchases/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMovementsIndexRoute =
+  AuthenticatedMovementsIndexRouteImport.update({
+    id: '/movements/',
+    path: '/movements/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedInventoriesIndexRoute =
@@ -130,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/groups/': typeof AuthenticatedGroupsIndexRoute
   '/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/inventories/': typeof AuthenticatedInventoriesIndexRoute
+  '/movements/': typeof AuthenticatedMovementsIndexRoute
   '/purchases/': typeof AuthenticatedPurchasesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -147,6 +155,7 @@ export interface FileRoutesByTo {
   '/groups': typeof AuthenticatedGroupsIndexRoute
   '/ingredients': typeof AuthenticatedIngredientsIndexRoute
   '/inventories': typeof AuthenticatedInventoriesIndexRoute
+  '/movements': typeof AuthenticatedMovementsIndexRoute
   '/purchases': typeof AuthenticatedPurchasesIndexRoute
 }
 export interface FileRoutesById {
@@ -166,6 +175,7 @@ export interface FileRoutesById {
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
   '/_authenticated/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/_authenticated/inventories/': typeof AuthenticatedInventoriesIndexRoute
+  '/_authenticated/movements/': typeof AuthenticatedMovementsIndexRoute
   '/_authenticated/purchases/': typeof AuthenticatedPurchasesIndexRoute
 }
 export interface FileRouteTypes {
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/groups/'
     | '/ingredients/'
     | '/inventories/'
+    | '/movements/'
     | '/purchases/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/groups'
     | '/ingredients'
     | '/inventories'
+    | '/movements'
     | '/purchases'
   id:
     | '__root__'
@@ -220,6 +232,7 @@ export interface FileRouteTypes {
     | '/_authenticated/groups/'
     | '/_authenticated/ingredients/'
     | '/_authenticated/inventories/'
+    | '/_authenticated/movements/'
     | '/_authenticated/purchases/'
   fileRoutesById: FileRoutesById
 }
@@ -280,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/purchases'
       fullPath: '/purchases/'
       preLoaderRoute: typeof AuthenticatedPurchasesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/movements/': {
+      id: '/_authenticated/movements/'
+      path: '/movements'
+      fullPath: '/movements/'
+      preLoaderRoute: typeof AuthenticatedMovementsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inventories/': {
@@ -359,6 +379,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
   AuthenticatedIngredientsIndexRoute: typeof AuthenticatedIngredientsIndexRoute
   AuthenticatedInventoriesIndexRoute: typeof AuthenticatedInventoriesIndexRoute
+  AuthenticatedMovementsIndexRoute: typeof AuthenticatedMovementsIndexRoute
   AuthenticatedPurchasesIndexRoute: typeof AuthenticatedPurchasesIndexRoute
 }
 
@@ -373,6 +394,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
   AuthenticatedIngredientsIndexRoute: AuthenticatedIngredientsIndexRoute,
   AuthenticatedInventoriesIndexRoute: AuthenticatedInventoriesIndexRoute,
+  AuthenticatedMovementsIndexRoute: AuthenticatedMovementsIndexRoute,
   AuthenticatedPurchasesIndexRoute: AuthenticatedPurchasesIndexRoute,
 }
 
@@ -390,13 +412,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
