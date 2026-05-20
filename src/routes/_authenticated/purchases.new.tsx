@@ -7,10 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/purchases/new")({
   component: NewPurchase,
+});
+
+type Item = { id: string; ingredientId: string; quantity: string; unitCost: string };
+
+const newItem = (): Item => ({
+  id: crypto.randomUUID(),
+  ingredientId: "",
+  quantity: "",
+  unitCost: "",
 });
 
 function NewPurchase() {
@@ -25,19 +34,27 @@ function NewPurchase() {
     },
   });
 
-  const [ingredientId, setIngredientId] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unitCost, setUnitCost] = useState("");
+  const [items, setItems] = useState<Item[]>([newItem()]);
   const [supplier, setSupplier] = useState("");
   const [purchasedAt, setPurchasedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
 
-  const total = useMemo(() => (Number(quantity) || 0) * (Number(unitCost) || 0), [quantity, unitCost]);
-  const selected = ingredients?.find((i) => i.id === ingredientId);
+  const total = useMemo(
+    () => items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitCost) || 0), 0),
+    [items],
+  );
+
+  function updateItem(id: string, patch: Partial<Item>) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  }
+  function removeItem(id: string) {
+    setItems((prev) => (prev.length === 1 ? prev : prev.filter((it) => it.id !== id)));
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!ingredientId) return toast.error("Selecione um insumo.");
+    const valid = items.filter((it) => it.ingredientId && Number(it.quantity) > 0 && Number(it.unitCost) >= 0);
+    if (valid.length === 0) return toast.error("Adicione ao menos um insumo válido.");
     setSaving(true);
     const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
     const { data: u } = await supabase.auth.getUser();
@@ -45,21 +62,24 @@ function NewPurchase() {
       setSaving(false);
       return toast.error("Sessão inválida.");
     }
-    const q = Number(quantity);
-    const uc = Number(unitCost);
-    const { error } = await supabase.from("purchases").insert({
-      restaurant_id: profile.restaurant_id,
-      ingredient_id: ingredientId,
-      quantity: q,
-      unit_cost: uc,
-      total_cost: q * uc,
-      supplier: supplier || null,
-      purchased_at: new Date(purchasedAt).toISOString(),
-      created_by: u.user.id,
+    const rows = valid.map((it) => {
+      const q = Number(it.quantity);
+      const uc = Number(it.unitCost);
+      return {
+        restaurant_id: profile.restaurant_id,
+        ingredient_id: it.ingredientId,
+        quantity: q,
+        unit_cost: uc,
+        total_cost: q * uc,
+        supplier: supplier || null,
+        purchased_at: new Date(purchasedAt).toISOString(),
+        created_by: u.user!.id,
+      };
     });
+    const { error } = await supabase.from("purchases").insert(rows);
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Compra registrada! Estoque atualizado.");
+    toast.success(`${rows.length} ${rows.length === 1 ? "item registrado" : "itens registrados"}! Estoque atualizado.`);
     qc.invalidateQueries({ queryKey: ["purchases"] });
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -72,7 +92,7 @@ function NewPurchase() {
         <ArrowLeft className="h-4 w-4" /> Voltar
       </Link>
       <h1 className="mt-3 font-display text-3xl">Nova compra</h1>
-      <p className="text-sm text-muted-foreground">Estoque e custo médio são atualizados automaticamente.</p>
+      <p className="text-sm text-muted-foreground">Adicione vários insumos em uma única compra. Estoque e custo médio são atualizados automaticamente.</p>
 
       {(!ingredients || ingredients.length === 0) && (
         <div className="mt-6 rounded-xl border bg-card p-6 text-center">
@@ -83,25 +103,6 @@ function NewPurchase() {
 
       {ingredients && ingredients.length > 0 && (
         <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div>
-            <Label htmlFor="ing">Insumo</Label>
-            <Select value={ingredientId} onValueChange={setIngredientId}>
-              <SelectTrigger id="ing"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                {ingredients.map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="qty">Quantidade {selected ? `(${selected.unit})` : ""}</Label>
-              <Input id="qty" type="number" step="0.01" min="0" required value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="uc">Preço unitário (R$)</Label>
-              <Input id="uc" type="number" step="0.01" min="0" required value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
-            </div>
-          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="sup">Fornecedor (opcional)</Label>
@@ -112,8 +113,53 @@ function NewPurchase() {
               <Input id="dt" type="date" value={purchasedAt} onChange={(e) => setPurchasedAt(e.target.value)} />
             </div>
           </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Itens</Label>
+              <Button type="button" variant="outline" size="sm" onClick={() => setItems((p) => [...p, newItem()])}>
+                <Plus className="mr-1 h-4 w-4" /> Adicionar item
+              </Button>
+            </div>
+            {items.map((it, idx) => {
+              const selected = ingredients.find((i) => i.id === it.ingredientId);
+              const sub = (Number(it.quantity) || 0) * (Number(it.unitCost) || 0);
+              return (
+                <div key={it.id} className="rounded-lg border bg-background/50 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Item {idx + 1}</span>
+                    {items.length > 1 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(it.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <Select value={it.ingredientId} onValueChange={(v) => updateItem(it.id, { ingredientId: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o insumo..." /></SelectTrigger>
+                    <SelectContent>
+                      {ingredients.map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label className="text-xs">Quantidade {selected ? `(${selected.unit})` : ""}</Label>
+                      <Input type="number" step="0.01" min="0" value={it.quantity} onChange={(e) => updateItem(it.id, { quantity: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Preço unitário (R$)</Label>
+                      <Input type="number" step="0.01" min="0" value={it.unitCost} onChange={(e) => updateItem(it.id, { unitCost: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="text-right text-sm text-muted-foreground">
+                    Subtotal: <span className="font-medium text-foreground">R$ {sub.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           <div className="flex items-center justify-between rounded-lg bg-secondary p-4">
-            <span className="text-sm text-secondary-foreground">Total</span>
+            <span className="text-sm text-secondary-foreground">Total da compra</span>
             <span className="font-display text-2xl">R$ {total.toFixed(2)}</span>
           </div>
           <div className="flex justify-end gap-2 pt-2">
