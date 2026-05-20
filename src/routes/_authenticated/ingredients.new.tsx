@@ -24,7 +24,13 @@ function NewIngredient() {
   const [category, setCategory] = useState("");
   const [minStock, setMinStock] = useState("0");
   const [currentStock, setCurrentStock] = useState("0");
+  const [groupId, setGroupId] = useState<string>("none");
   const [saving, setSaving] = useState(false);
+
+  const { data: groups } = useQuery({
+    queryKey: ["groups"],
+    queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
+  });
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +48,7 @@ function NewIngredient() {
       category: category || null,
       min_stock: Number(minStock) || 0,
       current_stock: Number(currentStock) || 0,
+      group_id: groupId === "none" ? null : groupId,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
