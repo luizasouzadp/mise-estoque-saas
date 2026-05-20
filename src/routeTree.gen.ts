@@ -13,10 +13,13 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedGroupsRouteImport } from './routes/_authenticated/groups'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedPurchasesIndexRouteImport } from './routes/_authenticated/purchases.index'
+import { Route as AuthenticatedInventoriesIndexRouteImport } from './routes/_authenticated/inventories.index'
 import { Route as AuthenticatedIngredientsIndexRouteImport } from './routes/_authenticated/ingredients.index'
 import { Route as AuthenticatedPurchasesNewRouteImport } from './routes/_authenticated/purchases.new'
+import { Route as AuthenticatedInventoriesNewRouteImport } from './routes/_authenticated/inventories.new'
 import { Route as AuthenticatedIngredientsNewRouteImport } from './routes/_authenticated/ingredients.new'
 import { Route as AuthenticatedIngredientsIdRouteImport } from './routes/_authenticated/ingredients.$id'
 
@@ -39,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedGroupsRoute = AuthenticatedGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -48,6 +56,12 @@ const AuthenticatedPurchasesIndexRoute =
   AuthenticatedPurchasesIndexRouteImport.update({
     id: '/purchases/',
     path: '/purchases/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoriesIndexRoute =
+  AuthenticatedInventoriesIndexRouteImport.update({
+    id: '/inventories/',
+    path: '/inventories/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedIngredientsIndexRoute =
@@ -60,6 +74,12 @@ const AuthenticatedPurchasesNewRoute =
   AuthenticatedPurchasesNewRouteImport.update({
     id: '/purchases/new',
     path: '/purchases/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoriesNewRoute =
+  AuthenticatedInventoriesNewRouteImport.update({
+    id: '/inventories/new',
+    path: '/inventories/new',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedIngredientsNewRoute =
@@ -80,10 +100,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/groups': typeof AuthenticatedGroupsRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
+  '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/ingredients/': typeof AuthenticatedIngredientsIndexRoute
+  '/inventories/': typeof AuthenticatedInventoriesIndexRoute
   '/purchases/': typeof AuthenticatedPurchasesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -91,10 +114,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/groups': typeof AuthenticatedGroupsRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
+  '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/ingredients': typeof AuthenticatedIngredientsIndexRoute
+  '/inventories': typeof AuthenticatedInventoriesIndexRoute
   '/purchases': typeof AuthenticatedPurchasesIndexRoute
 }
 export interface FileRoutesById {
@@ -104,10 +130,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/groups': typeof AuthenticatedGroupsRoute
   '/_authenticated/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/_authenticated/ingredients/new': typeof AuthenticatedIngredientsNewRoute
+  '/_authenticated/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/_authenticated/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/_authenticated/ingredients/': typeof AuthenticatedIngredientsIndexRoute
+  '/_authenticated/inventories/': typeof AuthenticatedInventoriesIndexRoute
   '/_authenticated/purchases/': typeof AuthenticatedPurchasesIndexRoute
 }
 export interface FileRouteTypes {
@@ -117,10 +146,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard'
+    | '/groups'
     | '/ingredients/$id'
     | '/ingredients/new'
+    | '/inventories/new'
     | '/purchases/new'
     | '/ingredients/'
+    | '/inventories/'
     | '/purchases/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -128,10 +160,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard'
+    | '/groups'
     | '/ingredients/$id'
     | '/ingredients/new'
+    | '/inventories/new'
     | '/purchases/new'
     | '/ingredients'
+    | '/inventories'
     | '/purchases'
   id:
     | '__root__'
@@ -140,10 +175,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/_authenticated/dashboard'
+    | '/_authenticated/groups'
     | '/_authenticated/ingredients/$id'
     | '/_authenticated/ingredients/new'
+    | '/_authenticated/inventories/new'
     | '/_authenticated/purchases/new'
     | '/_authenticated/ingredients/'
+    | '/_authenticated/inventories/'
     | '/_authenticated/purchases/'
   fileRoutesById: FileRoutesById
 }
@@ -184,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/groups': {
+      id: '/_authenticated/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof AuthenticatedGroupsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -198,6 +243,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPurchasesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/inventories/': {
+      id: '/_authenticated/inventories/'
+      path: '/inventories'
+      fullPath: '/inventories/'
+      preLoaderRoute: typeof AuthenticatedInventoriesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/ingredients/': {
       id: '/_authenticated/ingredients/'
       path: '/ingredients'
@@ -210,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/purchases/new'
       fullPath: '/purchases/new'
       preLoaderRoute: typeof AuthenticatedPurchasesNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventories/new': {
+      id: '/_authenticated/inventories/new'
+      path: '/inventories/new'
+      fullPath: '/inventories/new'
+      preLoaderRoute: typeof AuthenticatedInventoriesNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/ingredients/new': {
@@ -231,19 +290,25 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedGroupsRoute: typeof AuthenticatedGroupsRoute
   AuthenticatedIngredientsIdRoute: typeof AuthenticatedIngredientsIdRoute
   AuthenticatedIngredientsNewRoute: typeof AuthenticatedIngredientsNewRoute
+  AuthenticatedInventoriesNewRoute: typeof AuthenticatedInventoriesNewRoute
   AuthenticatedPurchasesNewRoute: typeof AuthenticatedPurchasesNewRoute
   AuthenticatedIngredientsIndexRoute: typeof AuthenticatedIngredientsIndexRoute
+  AuthenticatedInventoriesIndexRoute: typeof AuthenticatedInventoriesIndexRoute
   AuthenticatedPurchasesIndexRoute: typeof AuthenticatedPurchasesIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedGroupsRoute: AuthenticatedGroupsRoute,
   AuthenticatedIngredientsIdRoute: AuthenticatedIngredientsIdRoute,
   AuthenticatedIngredientsNewRoute: AuthenticatedIngredientsNewRoute,
+  AuthenticatedInventoriesNewRoute: AuthenticatedInventoriesNewRoute,
   AuthenticatedPurchasesNewRoute: AuthenticatedPurchasesNewRoute,
   AuthenticatedIngredientsIndexRoute: AuthenticatedIngredientsIndexRoute,
+  AuthenticatedInventoriesIndexRoute: AuthenticatedInventoriesIndexRoute,
   AuthenticatedPurchasesIndexRoute: AuthenticatedPurchasesIndexRoute,
 }
 
@@ -260,3 +325,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
