@@ -14,7 +14,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CountTokenRouteImport } from './routes/count.$token'
-import { Route as AuthenticatedSchedulesRouteImport } from './routes/_authenticated/schedules'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedPurchasesIndexRouteImport } from './routes/_authenticated/purchases.index'
 import { Route as AuthenticatedInventoriesIndexRouteImport } from './routes/_authenticated/inventories.index'
@@ -50,11 +49,6 @@ const CountTokenRoute = CountTokenRouteImport.update({
   id: '/count/$token',
   path: '/count/$token',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedSchedulesRoute = AuthenticatedSchedulesRouteImport.update({
-  id: '/schedules',
-  path: '/schedules',
-  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -126,7 +120,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/schedules': typeof AuthenticatedSchedulesRoute
   '/count/$token': typeof CountTokenRoute
   '/groups/$id': typeof AuthenticatedGroupsIdRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
@@ -144,7 +137,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/schedules': typeof AuthenticatedSchedulesRoute
   '/count/$token': typeof CountTokenRoute
   '/groups/$id': typeof AuthenticatedGroupsIdRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
@@ -164,7 +156,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/schedules': typeof AuthenticatedSchedulesRoute
   '/count/$token': typeof CountTokenRoute
   '/_authenticated/groups/$id': typeof AuthenticatedGroupsIdRoute
   '/_authenticated/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
@@ -184,7 +175,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard'
-    | '/schedules'
     | '/count/$token'
     | '/groups/$id'
     | '/ingredients/$id'
@@ -202,7 +192,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard'
-    | '/schedules'
     | '/count/$token'
     | '/groups/$id'
     | '/ingredients/$id'
@@ -221,7 +210,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/_authenticated/dashboard'
-    | '/_authenticated/schedules'
     | '/count/$token'
     | '/_authenticated/groups/$id'
     | '/_authenticated/ingredients/$id'
@@ -279,13 +267,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/count/$token'
       preLoaderRoute: typeof CountTokenRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/schedules': {
-      id: '/_authenticated/schedules'
-      path: '/schedules'
-      fullPath: '/schedules'
-      preLoaderRoute: typeof AuthenticatedSchedulesRouteImport
-      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
@@ -369,7 +350,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedSchedulesRoute: typeof AuthenticatedSchedulesRoute
   AuthenticatedGroupsIdRoute: typeof AuthenticatedGroupsIdRoute
   AuthenticatedIngredientsIdRoute: typeof AuthenticatedIngredientsIdRoute
   AuthenticatedIngredientsNewRoute: typeof AuthenticatedIngredientsNewRoute
@@ -384,7 +364,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedSchedulesRoute: AuthenticatedSchedulesRoute,
   AuthenticatedGroupsIdRoute: AuthenticatedGroupsIdRoute,
   AuthenticatedIngredientsIdRoute: AuthenticatedIngredientsIdRoute,
   AuthenticatedIngredientsNewRoute: AuthenticatedIngredientsNewRoute,
@@ -411,3 +390,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
