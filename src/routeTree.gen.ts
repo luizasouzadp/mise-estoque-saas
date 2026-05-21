@@ -21,6 +21,7 @@ import { Route as AuthenticatedMovementsIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedInventoriesIndexRouteImport } from './routes/_authenticated/inventories.index'
 import { Route as AuthenticatedIngredientsIndexRouteImport } from './routes/_authenticated/ingredients.index'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups.index'
+import { Route as AuthenticatedRecipesNewRouteImport } from './routes/_authenticated/recipes.new'
 import { Route as AuthenticatedPurchasesNewRouteImport } from './routes/_authenticated/purchases.new'
 import { Route as AuthenticatedInventoriesNewRouteImport } from './routes/_authenticated/inventories.new'
 import { Route as AuthenticatedInventoriesIdRouteImport } from './routes/_authenticated/inventories.$id'
@@ -93,6 +94,11 @@ const AuthenticatedGroupsIndexRoute =
     path: '/groups/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedRecipesNewRoute = AuthenticatedRecipesNewRouteImport.update({
+  id: '/recipes/new',
+  path: '/recipes/new',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedPurchasesNewRoute =
   AuthenticatedPurchasesNewRouteImport.update({
     id: '/purchases/new',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
+  '/recipes/new': typeof AuthenticatedRecipesNewRoute
   '/groups/': typeof AuthenticatedGroupsIndexRoute
   '/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/inventories/': typeof AuthenticatedInventoriesIndexRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
+  '/recipes/new': typeof AuthenticatedRecipesNewRoute
   '/groups': typeof AuthenticatedGroupsIndexRoute
   '/ingredients': typeof AuthenticatedIngredientsIndexRoute
   '/inventories': typeof AuthenticatedInventoriesIndexRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   '/_authenticated/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/_authenticated/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/_authenticated/purchases/new': typeof AuthenticatedPurchasesNewRoute
+  '/_authenticated/recipes/new': typeof AuthenticatedRecipesNewRoute
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
   '/_authenticated/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/_authenticated/inventories/': typeof AuthenticatedInventoriesIndexRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/inventories/$id'
     | '/inventories/new'
     | '/purchases/new'
+    | '/recipes/new'
     | '/groups/'
     | '/ingredients/'
     | '/inventories/'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/inventories/$id'
     | '/inventories/new'
     | '/purchases/new'
+    | '/recipes/new'
     | '/groups'
     | '/ingredients'
     | '/inventories'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventories/$id'
     | '/_authenticated/inventories/new'
     | '/_authenticated/purchases/new'
+    | '/_authenticated/recipes/new'
     | '/_authenticated/groups/'
     | '/_authenticated/ingredients/'
     | '/_authenticated/inventories/'
@@ -343,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGroupsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/recipes/new': {
+      id: '/_authenticated/recipes/new'
+      path: '/recipes/new'
+      fullPath: '/recipes/new'
+      preLoaderRoute: typeof AuthenticatedRecipesNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/purchases/new': {
       id: '/_authenticated/purchases/new'
       path: '/purchases/new'
@@ -396,6 +415,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedInventoriesIdRoute: typeof AuthenticatedInventoriesIdRoute
   AuthenticatedInventoriesNewRoute: typeof AuthenticatedInventoriesNewRoute
   AuthenticatedPurchasesNewRoute: typeof AuthenticatedPurchasesNewRoute
+  AuthenticatedRecipesNewRoute: typeof AuthenticatedRecipesNewRoute
   AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
   AuthenticatedIngredientsIndexRoute: typeof AuthenticatedIngredientsIndexRoute
   AuthenticatedInventoriesIndexRoute: typeof AuthenticatedInventoriesIndexRoute
@@ -412,6 +432,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInventoriesIdRoute: AuthenticatedInventoriesIdRoute,
   AuthenticatedInventoriesNewRoute: AuthenticatedInventoriesNewRoute,
   AuthenticatedPurchasesNewRoute: AuthenticatedPurchasesNewRoute,
+  AuthenticatedRecipesNewRoute: AuthenticatedRecipesNewRoute,
   AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
   AuthenticatedIngredientsIndexRoute: AuthenticatedIngredientsIndexRoute,
   AuthenticatedInventoriesIndexRoute: AuthenticatedInventoriesIndexRoute,
