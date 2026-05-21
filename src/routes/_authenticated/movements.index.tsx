@@ -386,7 +386,13 @@ function MovementsPage() {
     if (s === "created") return <Badge variant="outline" className="gap-1"><Sparkles className="h-3 w-3" />Cadastro</Badge>;
     if (s === "purchase") return <Badge variant="outline" className="gap-1"><ShoppingCart className="h-3 w-3" />Compra</Badge>;
     if (s === "inventory") return <Badge variant="outline" className="gap-1"><ClipboardCheck className="h-3 w-3" />Inventário</Badge>;
+    if (s === "production") return <Badge variant="outline" className="gap-1"><Flame className="h-3 w-3" />Produção</Badge>;
     return <Badge variant="outline" className="gap-1"><Pencil className="h-3 w-3" />Manual</Badge>;
+  }
+
+  function formatBRL(n: number | null) {
+    if (n == null) return "—";
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
   return (
