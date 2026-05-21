@@ -181,6 +181,11 @@ function RecipeDetail() {
       : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
   const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
 
+  // Auto-preenche a unidade com a padrão do insumo/ficha selecionado
+  useEffect(() => {
+    if (selectedBaseUnit) setUnit(selectedBaseUnit);
+  }, [selectedBaseUnit]);
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!targetId || !qty) return toast.error("Selecione o item e informe a quantidade");
