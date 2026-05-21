@@ -78,7 +78,7 @@ export function AppShell() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-7 border-t bg-card md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-8 border-t bg-card md:hidden">
         {navItems.map((it) => {
           const active = pathname.startsWith(it.to);
           return (
