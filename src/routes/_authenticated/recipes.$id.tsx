@@ -102,6 +102,7 @@ function RecipeDetail() {
   const [isOnMenu, setIsOnMenu] = useState<"no" | "yes">("no");
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
+  const [productCode, setProductCode] = useState("");
 
   function startEdit() {
     if (!recipe) return;
