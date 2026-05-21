@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, FolderTree, ArrowLeftRight } from "lucide-react";
+import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, FolderTree, ArrowLeftRight, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
   { to: "/ingredients", label: "Insumos", icon: Package },
+  { to: "/recipes", label: "Fichas", icon: BookOpen },
   { to: "/groups", label: "Grupos", icon: FolderTree },
   { to: "/purchases", label: "Compras", icon: Receipt },
   { to: "/movements", label: "Movimentações", icon: ArrowLeftRight },
