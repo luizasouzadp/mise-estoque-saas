@@ -37,6 +37,9 @@ function NewRecipe() {
   const [yieldQty, setYieldQty] = useState("1");
   const [yieldUnit, setYieldUnit] = useState("un");
   const [isStocked, setIsStocked] = useState<"no" | "yes">("no");
+  const [isOnMenu, setIsOnMenu] = useState<"no" | "yes">("no");
+  const [menuCategory, setMenuCategory] = useState("");
+  const [currentPrice, setCurrentPrice] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Composition draft
