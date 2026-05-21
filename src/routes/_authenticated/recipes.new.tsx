@@ -118,6 +118,7 @@ function NewRecipe() {
       is_on_menu: isOnMenu === "yes",
       menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
       current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
+      product_code: isOnMenu === "yes" && productCode ? productCode.trim() : null,
     }).select("id").single();
 
     if (error || !recipe) {
