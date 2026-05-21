@@ -97,6 +97,7 @@ function RecipeDetail() {
   const [description, setDescription] = useState("");
   const [yieldQty, setYieldQty] = useState("");
   const [yieldUnit, setYieldUnit] = useState("un");
+  const [isStocked, setIsStocked] = useState<"no" | "yes">("no");
 
   function startEdit() {
     if (!recipe) return;
@@ -104,19 +105,31 @@ function RecipeDetail() {
     setDescription(recipe.description ?? "");
     setYieldQty(String(recipe.yield_qty));
     setYieldUnit(recipe.yield_unit);
+    setIsStocked(recipe.is_stocked ? "yes" : "no");
     setEditing(true);
   }
 
   async function saveRecipe() {
+    if (!recipe) return;
+    const newIsStocked = isStocked === "yes";
     const { error } = await supabase.from("recipes").update({
       name, description: description || null,
       yield_qty: Number(yieldQty) || 1, yield_unit: yieldUnit,
+      is_stocked: newIsStocked,
     }).eq("id", id);
     if (error) return toast.error(error.message);
+    await syncRecipeStockIngredient({
+      recipeId: id,
+      restaurantId: recipe.restaurant_id,
+      isStocked: newIsStocked,
+      name,
+      unit: yieldUnit,
+    });
     toast.success("Ficha atualizada");
     setEditing(false);
     qc.invalidateQueries({ queryKey: ["recipe", id] });
     qc.invalidateQueries({ queryKey: ["recipes"] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
   async function deleteRecipe() {
