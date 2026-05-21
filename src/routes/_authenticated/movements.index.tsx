@@ -498,6 +498,7 @@ function MovementsPage() {
                 <SelectItem value="purchase">Compra</SelectItem>
                 <SelectItem value="inventory">Inventário</SelectItem>
                 <SelectItem value="manual">Manual</SelectItem>
+                <SelectItem value="production">Produção</SelectItem>
               </SelectContent>
             </Select>
           </div>
