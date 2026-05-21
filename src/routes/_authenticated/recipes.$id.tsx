@@ -129,6 +129,7 @@ function RecipeDetail() {
       is_on_menu: newIsOnMenu,
       menu_category: newIsOnMenu ? (menuCategory || null) : null,
       current_price: newIsOnMenu && currentPrice ? Number(currentPrice) : null,
+      product_code: newIsOnMenu && productCode ? productCode.trim() : null,
     }).eq("id", id);
     if (error) return toast.error(error.message);
     await syncRecipeStockIngredient({
