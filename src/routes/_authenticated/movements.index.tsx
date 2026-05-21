@@ -22,13 +22,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowDownCircle, ArrowUpCircle, Filter, Pencil, Plus, Sparkles, ShoppingCart, ClipboardCheck, Trash2, X } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Filter, Pencil, Plus, Sparkles, ShoppingCart, ClipboardCheck, Flame, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/movements/")({
   component: MovementsPage,
 });
 
-type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string };
+type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number };
 type StockMovement = {
   id: string;
   ingredient_id: string;
@@ -55,8 +55,9 @@ type InventoryItemRow = {
   inventory_id: string;
   inventories: { name: string | null; completed_at: string | null; status: string } | null;
 };
+type ProductionItem = { production_id: string; ingredient_id: string; quantity: number };
 
-type Source = "manual" | "purchase" | "inventory" | "created";
+type Source = "manual" | "purchase" | "inventory" | "created" | "production";
 type UnifiedMovement = {
   key: string;
   source: Source;
@@ -65,6 +66,7 @@ type UnifiedMovement = {
   quantity: number;
   reason: string;
   occurred_at: string;
+  value: number | null;
   manual: StockMovement | null;
   purchase: Purchase | null;
   invItem: InventoryItemRow | null;
@@ -84,13 +86,12 @@ function MovementsPage() {
   const [stockMv, setStockMv] = useState<StockMovement[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [invItems, setInvItems] = useState<InventoryItemRow[]>([]);
+  const [prodItems, setProdItems] = useState<ProductionItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // draft filters (form state) vs applied filters
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
 
-  // full edit dialog (manual)
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [form, setForm] = useState({
@@ -103,14 +104,13 @@ function MovementsPage() {
     occurred_at: new Date().toISOString().slice(0, 16),
   });
 
-  // quick edit (any editable row)
   const [quick, setQuick] = useState<UnifiedMovement | null>(null);
   const [quickQty, setQuickQty] = useState("");
 
   async function load() {
     setLoading(true);
-    const [ing, mv, pur, inv] = await Promise.all([
-      supabase.from("ingredients").select("id, name, unit, category, created_at").order("name"),
+    const [ing, mv, pur, inv, pi] = await Promise.all([
+      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost").order("name"),
       supabase.from("stock_movements").select("*").order("occurred_at", { ascending: false }).limit(1000),
       supabase.from("purchases").select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at").order("purchased_at", { ascending: false }).limit(1000),
       supabase
@@ -119,11 +119,13 @@ function MovementsPage() {
         .not("counted_qty", "is", null)
         .eq("inventories.status", "completed")
         .limit(2000),
+      supabase.from("production_items").select("production_id, ingredient_id, quantity"),
     ]);
     setIngredients((ing.data ?? []) as Ingredient[]);
     setStockMv((mv.data ?? []) as StockMovement[]);
     setPurchases((pur.data ?? []) as Purchase[]);
     setInvItems((inv.data ?? []) as unknown as InventoryItemRow[]);
+    setProdItems((pi.data ?? []) as ProductionItem[]);
     setLoading(false);
   }
   useEffect(() => {
@@ -135,6 +137,17 @@ function MovementsPage() {
     () => Array.from(new Set(ingredients.map((i) => i.category).filter(Boolean))) as string[],
     [ingredients],
   );
+
+  // Production cost map: production_id -> total cost (sum of consumed items × avg_cost)
+  const productionCost = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of prodItems) {
+      const ing = ingredients.find((x) => x.id === it.ingredient_id);
+      const cost = Number(ing?.avg_cost ?? 0) * Number(it.quantity);
+      m.set(it.production_id, (m.get(it.production_id) ?? 0) + cost);
+    }
+    return m;
+  }, [prodItems, ingredients]);
 
   const unified = useMemo<UnifiedMovement[]>(() => {
     const list: UnifiedMovement[] = [];
@@ -148,6 +161,7 @@ function MovementsPage() {
         quantity: 0,
         reason: "Insumo cadastrado",
         occurred_at: i.created_at,
+        value: null,
         manual: null, purchase: null, invItem: null,
       });
     }
@@ -160,24 +174,39 @@ function MovementsPage() {
         quantity: Number(p.quantity),
         reason: p.supplier ? `Compra · ${p.supplier}` : "Compra",
         occurred_at: p.purchased_at,
+        value: Number(p.quantity) * Number(p.unit_cost ?? 0),
         manual: null, purchase: p, invItem: null,
       });
     }
     for (const m of stockMv) {
+      const ing = ingMap.get(m.ingredient_id);
+      const isProduction = (m.notes ?? "").startsWith("production:");
+      const prodId = isProduction ? (m.notes ?? "").slice("production:".length) : null;
+      let value: number;
+      if (isProduction && m.type === "in" && prodId && productionCost.has(prodId)) {
+        // Pré-preparo produzido: valor = soma dos insumos consumidos
+        value = productionCost.get(prodId) ?? 0;
+      } else if (m.unit_cost != null) {
+        value = Number(m.quantity) * Number(m.unit_cost);
+      } else {
+        value = Number(m.quantity) * Number(ing?.avg_cost ?? 0);
+      }
       list.push({
         key: `manual-${m.id}`,
-        source: "manual",
+        source: isProduction ? "production" : "manual",
         ingredient_id: m.ingredient_id,
         type: m.type,
         quantity: Number(m.quantity),
-        reason: m.reason ?? "Manual",
+        reason: isProduction ? "Produção" : (m.reason ?? "Manual"),
         occurred_at: m.occurred_at,
+        value,
         manual: m, purchase: null, invItem: null,
       });
     }
     for (const it of invItems) {
       const delta = Number(it.counted_qty ?? 0) - Number(it.expected_qty ?? 0);
       if (delta === 0) continue;
+      const ing = ingMap.get(it.ingredient_id);
       list.push({
         key: `inv-${it.id}`,
         source: "inventory",
@@ -186,12 +215,13 @@ function MovementsPage() {
         quantity: Math.abs(delta),
         reason: `Inventário${it.inventories?.name ? ` · ${it.inventories.name}` : ""}`,
         occurred_at: it.inventories?.completed_at ?? new Date().toISOString(),
+        value: Math.abs(delta) * Number(ing?.avg_cost ?? 0),
         manual: null, purchase: null, invItem: it,
       });
     }
 
     return list.sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
-  }, [ingredients, purchases, stockMv, invItems]);
+  }, [ingredients, purchases, stockMv, invItems, ingMap, productionCost]);
 
   const filtered = useMemo(() => {
     return unified.filter((m) => {
@@ -356,7 +386,13 @@ function MovementsPage() {
     if (s === "created") return <Badge variant="outline" className="gap-1"><Sparkles className="h-3 w-3" />Cadastro</Badge>;
     if (s === "purchase") return <Badge variant="outline" className="gap-1"><ShoppingCart className="h-3 w-3" />Compra</Badge>;
     if (s === "inventory") return <Badge variant="outline" className="gap-1"><ClipboardCheck className="h-3 w-3" />Inventário</Badge>;
+    if (s === "production") return <Badge variant="outline" className="gap-1"><Flame className="h-3 w-3" />Produção</Badge>;
     return <Badge variant="outline" className="gap-1"><Pencil className="h-3 w-3" />Manual</Badge>;
+  }
+
+  function formatBRL(n: number | null) {
+    if (n == null) return "—";
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
   return (
@@ -462,6 +498,7 @@ function MovementsPage() {
                 <SelectItem value="purchase">Compra</SelectItem>
                 <SelectItem value="inventory">Inventário</SelectItem>
                 <SelectItem value="manual">Manual</SelectItem>
+                <SelectItem value="production">Produção</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -507,16 +544,17 @@ function MovementsPage() {
               <TableHead>Tipo</TableHead>
               <TableHead>Insumo</TableHead>
               <TableHead className="text-right">Qtd</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
               <TableHead>Motivo</TableHead>
               <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             )}
             {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sem movimentações</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sem movimentações</TableCell></TableRow>
             )}
             {filtered.map((m) => {
               const ing = ingMap.get(m.ingredient_id);
@@ -546,6 +584,9 @@ function MovementsPage() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {m.type === "info" ? "—" : `${Number(m.quantity).toLocaleString("pt-BR")} ${ing?.unit ?? ""}`}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-xs">
+                    {m.type === "info" ? "—" : formatBRL(m.value)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{m.reason}</TableCell>
                   <TableCell>
