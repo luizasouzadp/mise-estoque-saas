@@ -88,6 +88,7 @@ export type Database = {
           min_stock: number
           name: string
           restaurant_id: string
+          source_recipe_id: string | null
           unit: string
           updated_at: string
         }
@@ -102,6 +103,7 @@ export type Database = {
           min_stock?: number
           name: string
           restaurant_id: string
+          source_recipe_id?: string | null
           unit?: string
           updated_at?: string
         }
@@ -116,6 +118,7 @@ export type Database = {
           min_stock?: number
           name?: string
           restaurant_id?: string
+          source_recipe_id?: string | null
           unit?: string
           updated_at?: string
         }
@@ -529,6 +532,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          is_stocked: boolean
           name: string
           restaurant_id: string
           updated_at: string
@@ -540,6 +544,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          is_stocked?: boolean
           name: string
           restaurant_id: string
           updated_at?: string
@@ -551,6 +556,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          is_stocked?: boolean
           name?: string
           restaurant_id?: string
           updated_at?: string
