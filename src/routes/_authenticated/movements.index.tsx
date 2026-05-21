@@ -88,7 +88,25 @@ function MovementsPage() {
   const [invItems, setInvItems] = useState<InventoryItemRow[]>([]);
   const [prodItems, setProdItems] = useState<ProductionItem[]>([]);
   const [loading, setLoading] = useState(true);
-// ... keep existing code
+
+  const [draft, setDraft] = useState(emptyFilters);
+  const [applied, setApplied] = useState(emptyFilters);
+
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<StockMovement | null>(null);
+  const [form, setForm] = useState({
+    ingredient_id: "",
+    type: "in" as "in" | "out",
+    quantity: "",
+    unit_cost: "",
+    reason: "",
+    notes: "",
+    occurred_at: new Date().toISOString().slice(0, 16),
+  });
+
+  const [quick, setQuick] = useState<UnifiedMovement | null>(null);
+  const [quickQty, setQuickQty] = useState("");
+
   async function load() {
     setLoading(true);
     const [ing, mv, pur, inv, pi] = await Promise.all([
