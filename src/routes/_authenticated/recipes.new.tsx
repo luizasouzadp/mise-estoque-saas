@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,10 @@ function NewRecipe() {
       ? ingredients?.find((i) => i.id === targetId)?.unit ?? ""
       : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
   const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
+
+  useEffect(() => {
+    if (selectedBaseUnit) setUnit(selectedBaseUnit);
+  }, [selectedBaseUnit]);
 
   function addDraftItem() {
     if (!targetId || !qty) return toast.error("Selecione um item e a quantidade");

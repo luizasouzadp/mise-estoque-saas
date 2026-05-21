@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,6 +180,11 @@ function RecipeDetail() {
       ? ingredients?.find((i) => i.id === targetId)?.unit ?? ""
       : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
   const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
+
+  // Auto-preenche a unidade com a padrão do insumo/ficha selecionado
+  useEffect(() => {
+    if (selectedBaseUnit) setUnit(selectedBaseUnit);
+  }, [selectedBaseUnit]);
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
