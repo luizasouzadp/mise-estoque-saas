@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, BookOpen, Package } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive } from "lucide-react";
+import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 
 export const Route = createFileRoute("/_authenticated/recipes/$id")({
   component: RecipeDetail,
