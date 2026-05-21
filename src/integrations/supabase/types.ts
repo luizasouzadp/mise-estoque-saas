@@ -395,6 +395,80 @@ export type Database = {
           },
         ]
       }
+      production_items: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient_id: string
+          ingredient_name: string
+          production_id: string
+          quantity: number
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_id: string
+          ingredient_name: string
+          production_id: string
+          quantity: number
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient_id?: string
+          ingredient_name?: string
+          production_id?: string
+          quantity?: number
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_items_production_id_fkey"
+            columns: ["production_id"]
+            isOneToOne: false
+            referencedRelation: "productions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      productions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          produced_at: string
+          quantity_produced: number
+          recipe_id: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          produced_at?: string
+          quantity_produced: number
+          recipe_id: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          produced_at?: string
+          quantity_produced?: number
+          recipe_id?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
