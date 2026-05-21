@@ -30,7 +30,7 @@ function RecipeDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, description, yield_qty, yield_unit")
+        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id")
         .eq("id", id)
         .single();
       if (error) throw error;
