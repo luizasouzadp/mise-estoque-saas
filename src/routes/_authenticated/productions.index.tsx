@@ -217,10 +217,19 @@ function ProductionsPage() {
     // 3. Create stock_movements: OUT for each consumed ingredient
     const tag = `production:${prod.id}`;
     const occurredAt = new Date(producedAt).toISOString();
-    const mvRows = outMoves.map((m) => ({
+    type MvRow = {
+      restaurant_id: string;
+      ingredient_id: string;
+      type: "in" | "out";
+      quantity: number;
+      reason: string;
+      notes: string;
+      occurred_at: string;
+    };
+    const mvRows: MvRow[] = outMoves.map((m) => ({
       restaurant_id: prof.restaurant_id,
       ingredient_id: m.ingredient_id,
-      type: "out" as const,
+      type: "out",
       quantity: m.quantity,
       reason: "Produção",
       notes: tag,
@@ -230,7 +239,7 @@ function ProductionsPage() {
     mvRows.push({
       restaurant_id: prof.restaurant_id,
       ingredient_id: mirror.id,
-      type: "in" as const,
+      type: "in",
       quantity: qty,
       reason: "Produção",
       notes: tag,
