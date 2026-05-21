@@ -138,6 +138,17 @@ function MovementsPage() {
     [ingredients],
   );
 
+  // Production cost map: production_id -> total cost (sum of consumed items × avg_cost)
+  const productionCost = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of prodItems) {
+      const ing = ingredients.find((x) => x.id === it.ingredient_id);
+      const cost = Number(ing?.avg_cost ?? 0) * Number(it.quantity);
+      m.set(it.production_id, (m.get(it.production_id) ?? 0) + cost);
+    }
+    return m;
+  }, [prodItems, ingredients]);
+
   const unified = useMemo<UnifiedMovement[]>(() => {
     const list: UnifiedMovement[] = [];
 
@@ -150,6 +161,7 @@ function MovementsPage() {
         quantity: 0,
         reason: "Insumo cadastrado",
         occurred_at: i.created_at,
+        value: null,
         manual: null, purchase: null, invItem: null,
       });
     }
@@ -162,24 +174,39 @@ function MovementsPage() {
         quantity: Number(p.quantity),
         reason: p.supplier ? `Compra · ${p.supplier}` : "Compra",
         occurred_at: p.purchased_at,
+        value: Number(p.quantity) * Number(p.unit_cost ?? 0),
         manual: null, purchase: p, invItem: null,
       });
     }
     for (const m of stockMv) {
+      const ing = ingMap.get(m.ingredient_id);
+      const isProduction = (m.notes ?? "").startsWith("production:");
+      const prodId = isProduction ? (m.notes ?? "").slice("production:".length) : null;
+      let value: number;
+      if (isProduction && m.type === "in" && prodId && productionCost.has(prodId)) {
+        // Pré-preparo produzido: valor = soma dos insumos consumidos
+        value = productionCost.get(prodId) ?? 0;
+      } else if (m.unit_cost != null) {
+        value = Number(m.quantity) * Number(m.unit_cost);
+      } else {
+        value = Number(m.quantity) * Number(ing?.avg_cost ?? 0);
+      }
       list.push({
         key: `manual-${m.id}`,
-        source: "manual",
+        source: isProduction ? "production" : "manual",
         ingredient_id: m.ingredient_id,
         type: m.type,
         quantity: Number(m.quantity),
-        reason: m.reason ?? "Manual",
+        reason: isProduction ? "Produção" : (m.reason ?? "Manual"),
         occurred_at: m.occurred_at,
+        value,
         manual: m, purchase: null, invItem: null,
       });
     }
     for (const it of invItems) {
       const delta = Number(it.counted_qty ?? 0) - Number(it.expected_qty ?? 0);
       if (delta === 0) continue;
+      const ing = ingMap.get(it.ingredient_id);
       list.push({
         key: `inv-${it.id}`,
         source: "inventory",
@@ -188,12 +215,13 @@ function MovementsPage() {
         quantity: Math.abs(delta),
         reason: `Inventário${it.inventories?.name ? ` · ${it.inventories.name}` : ""}`,
         occurred_at: it.inventories?.completed_at ?? new Date().toISOString(),
+        value: Math.abs(delta) * Number(ing?.avg_cost ?? 0),
         manual: null, purchase: null, invItem: it,
       });
     }
 
     return list.sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
-  }, [ingredients, purchases, stockMv, invItems]);
+  }, [ingredients, purchases, stockMv, invItems, ingMap, productionCost]);
 
   const filtered = useMemo(() => {
     return unified.filter((m) => {
