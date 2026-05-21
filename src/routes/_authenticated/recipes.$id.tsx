@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive } from "lucide-react";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
+import { compatibleUnits, convert } from "@/lib/units";
 
 export const Route = createFileRoute("/_authenticated/recipes/$id")({
   component: RecipeDetail,
