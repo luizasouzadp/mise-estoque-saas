@@ -336,6 +336,48 @@ function InventoryDetail() {
               </a>
             </Button>
           </div>
+
+          {contacts && contacts.length > 0 && (
+            <div className="space-y-1 pt-2">
+              <p className="text-xs font-medium text-muted-foreground">Contatos salvos</p>
+              <div className="flex flex-wrap gap-2">
+                {contacts.map((c) => (
+                  <div key={c.id} className="inline-flex items-center gap-1 rounded-full border bg-muted/40 pl-3 pr-1 py-1 text-xs">
+                    <button type="button" onClick={() => setPhone(c.phone)} className="hover:text-primary">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="ml-1 text-muted-foreground">{c.phone}</span>
+                    </button>
+                    <button type="button" onClick={() => deleteContact(c.id)} className="rounded-full p-1 opacity-50 hover:bg-destructive/10 hover:opacity-100" aria-label="Remover">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Dialog open={contactDialog} onOpenChange={setContactDialog}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-start text-xs"><UserPlus className="mr-1 h-3 w-3" /> Adicionar contato</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Novo contato</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="cname">Nome</Label>
+                  <Input id="cname" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} placeholder="Ex: João Cozinha" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cphone">WhatsApp</Label>
+                  <Input id="cphone" value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} placeholder="5511999999999" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setContactDialog(false)}>Cancelar</Button>
+                <Button onClick={async () => { await addContact(); setContactDialog(false); }}><Plus className="mr-1 h-4 w-4" /> Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
