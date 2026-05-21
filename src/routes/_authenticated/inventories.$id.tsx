@@ -200,6 +200,25 @@ function InventoryDetail() {
     }
   }
 
+  async function addContact() {
+    if (!data) return;
+    const cleaned = newContactPhone.replace(/\D/g, "");
+    if (!newContactName.trim() || cleaned.length < 10) return toast.error("Informe nome e telefone válido");
+    const { error } = await supabase.from("whatsapp_contacts").insert({
+      restaurant_id: data.inv.restaurant_id, name: newContactName.trim(), phone: cleaned,
+    });
+    if (error) return toast.error(error.message);
+    setNewContactName(""); setNewContactPhone("");
+    qc.invalidateQueries({ queryKey: ["whatsapp_contacts"] });
+    toast.success("Contato salvo");
+  }
+
+  async function deleteContact(cid: string) {
+    const { error } = await supabase.from("whatsapp_contacts").delete().eq("id", cid);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["whatsapp_contacts"] });
+  }
+
   async function handleFinalize() {
     setFinalizing(true);
     try {
