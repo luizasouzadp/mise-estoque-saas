@@ -22,7 +22,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowDownCircle, ArrowUpCircle, Filter, Pencil, Plus, Sparkles, ShoppingCart, ClipboardCheck, Trash2, X } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Filter, Pencil, Plus, Sparkles, ShoppingCart, ClipboardCheck, Flame, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/movements/")({
   component: MovementsPage,
