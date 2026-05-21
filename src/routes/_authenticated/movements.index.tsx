@@ -544,16 +544,17 @@ function MovementsPage() {
               <TableHead>Tipo</TableHead>
               <TableHead>Insumo</TableHead>
               <TableHead className="text-right">Qtd</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
               <TableHead>Motivo</TableHead>
               <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             )}
             {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sem movimentações</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sem movimentações</TableCell></TableRow>
             )}
             {filtered.map((m) => {
               const ing = ingMap.get(m.ingredient_id);
@@ -583,6 +584,9 @@ function MovementsPage() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {m.type === "info" ? "—" : `${Number(m.quantity).toLocaleString("pt-BR")} ${ing?.unit ?? ""}`}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-xs">
+                    {m.type === "info" ? "—" : formatBRL(m.value)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{m.reason}</TableCell>
                   <TableCell>
