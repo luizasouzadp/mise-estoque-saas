@@ -73,6 +73,10 @@ function NewRecipe() {
       : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
   const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
 
+  useEffect(() => {
+    if (selectedBaseUnit) setUnit(selectedBaseUnit);
+  }, [selectedBaseUnit]);
+
   function addDraftItem() {
     if (!targetId || !qty) return toast.error("Selecione um item e a quantidade");
     const converted = convert(Number(qty), unit, selectedBaseUnit);
