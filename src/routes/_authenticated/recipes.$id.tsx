@@ -114,6 +114,7 @@ function RecipeDetail() {
     setIsOnMenu(recipe.is_on_menu ? "yes" : "no");
     setMenuCategory(recipe.menu_category ?? "");
     setCurrentPrice(recipe.current_price != null ? String(recipe.current_price) : "");
+    setProductCode((recipe as any).product_code ?? "");
     setEditing(true);
   }
 
