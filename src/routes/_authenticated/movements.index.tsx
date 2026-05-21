@@ -86,33 +86,13 @@ function MovementsPage() {
   const [stockMv, setStockMv] = useState<StockMovement[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [invItems, setInvItems] = useState<InventoryItemRow[]>([]);
+  const [prodItems, setProdItems] = useState<ProductionItem[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // draft filters (form state) vs applied filters
-  const [draft, setDraft] = useState(emptyFilters);
-  const [applied, setApplied] = useState(emptyFilters);
-
-  // full edit dialog (manual)
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<StockMovement | null>(null);
-  const [form, setForm] = useState({
-    ingredient_id: "",
-    type: "in" as "in" | "out",
-    quantity: "",
-    unit_cost: "",
-    reason: "",
-    notes: "",
-    occurred_at: new Date().toISOString().slice(0, 16),
-  });
-
-  // quick edit (any editable row)
-  const [quick, setQuick] = useState<UnifiedMovement | null>(null);
-  const [quickQty, setQuickQty] = useState("");
-
+// ... keep existing code
   async function load() {
     setLoading(true);
-    const [ing, mv, pur, inv] = await Promise.all([
-      supabase.from("ingredients").select("id, name, unit, category, created_at").order("name"),
+    const [ing, mv, pur, inv, pi] = await Promise.all([
+      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost").order("name"),
       supabase.from("stock_movements").select("*").order("occurred_at", { ascending: false }).limit(1000),
       supabase.from("purchases").select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at").order("purchased_at", { ascending: false }).limit(1000),
       supabase
@@ -121,11 +101,13 @@ function MovementsPage() {
         .not("counted_qty", "is", null)
         .eq("inventories.status", "completed")
         .limit(2000),
+      supabase.from("production_items").select("production_id, ingredient_id, quantity"),
     ]);
     setIngredients((ing.data ?? []) as Ingredient[]);
     setStockMv((mv.data ?? []) as StockMovement[]);
     setPurchases((pur.data ?? []) as Purchase[]);
     setInvItems((inv.data ?? []) as unknown as InventoryItemRow[]);
+    setProdItems((pi.data ?? []) as ProductionItem[]);
     setLoading(false);
   }
   useEffect(() => {
