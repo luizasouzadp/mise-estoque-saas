@@ -64,8 +64,16 @@ function NewRecipe() {
     },
   });
 
+  const selectedBaseUnit =
+    itemType === "ingredient"
+      ? ingredients?.find((i) => i.id === targetId)?.unit ?? ""
+      : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
+  const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
+
   function addDraftItem() {
     if (!targetId || !qty) return toast.error("Selecione um item e a quantidade");
+    const converted = convert(Number(qty), unit, selectedBaseUnit);
+    if (converted === null) return toast.error(`Unidade ${unit} não é compatível com ${selectedBaseUnit}`);
     let targetName = "";
     if (itemType === "ingredient") {
       targetName = ingredients?.find((i) => i.id === targetId)?.name ?? "";
@@ -74,7 +82,7 @@ function NewRecipe() {
     }
     setItems((prev) => [
       ...prev,
-      { key: crypto.randomUUID(), item_type: itemType, target_id: targetId, target_name: targetName, quantity: Number(qty), unit },
+      { key: crypto.randomUUID(), item_type: itemType, target_id: targetId, target_name: targetName, quantity: converted, unit: selectedBaseUnit },
     ]);
     setTargetId(""); setQty("");
   }
