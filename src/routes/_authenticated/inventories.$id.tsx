@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck, Pencil, Save, X, Plus, UserPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/inventories/$id")({ component: InventoryDetail });
 
@@ -39,6 +40,17 @@ function InventoryDetail() {
   const [phone, setPhone] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [contactDialog, setContactDialog] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactPhone, setNewContactPhone] = useState("");
+
+  const { data: contacts } = useQuery({
+    queryKey: ["whatsapp_contacts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone").order("name");
+      return data ?? [];
+    },
+  });
 
   // edit state
   const [name, setName] = useState("");
@@ -188,6 +200,25 @@ function InventoryDetail() {
     }
   }
 
+  async function addContact() {
+    if (!data) return;
+    const cleaned = newContactPhone.replace(/\D/g, "");
+    if (!newContactName.trim() || cleaned.length < 10) return toast.error("Informe nome e telefone válido");
+    const { error } = await supabase.from("whatsapp_contacts").insert({
+      restaurant_id: data.inv.restaurant_id, name: newContactName.trim(), phone: cleaned,
+    });
+    if (error) return toast.error(error.message);
+    setNewContactName(""); setNewContactPhone("");
+    qc.invalidateQueries({ queryKey: ["whatsapp_contacts"] });
+    toast.success("Contato salvo");
+  }
+
+  async function deleteContact(cid: string) {
+    const { error } = await supabase.from("whatsapp_contacts").delete().eq("id", cid);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["whatsapp_contacts"] });
+  }
+
   async function handleFinalize() {
     setFinalizing(true);
     try {
@@ -305,6 +336,48 @@ function InventoryDetail() {
               </a>
             </Button>
           </div>
+
+          {contacts && contacts.length > 0 && (
+            <div className="space-y-1 pt-2">
+              <p className="text-xs font-medium text-muted-foreground">Contatos salvos</p>
+              <div className="flex flex-wrap gap-2">
+                {contacts.map((c) => (
+                  <div key={c.id} className="inline-flex items-center gap-1 rounded-full border bg-muted/40 pl-3 pr-1 py-1 text-xs">
+                    <button type="button" onClick={() => setPhone(c.phone)} className="hover:text-primary">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="ml-1 text-muted-foreground">{c.phone}</span>
+                    </button>
+                    <button type="button" onClick={() => deleteContact(c.id)} className="rounded-full p-1 opacity-50 hover:bg-destructive/10 hover:opacity-100" aria-label="Remover">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Dialog open={contactDialog} onOpenChange={setContactDialog}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-start text-xs"><UserPlus className="mr-1 h-3 w-3" /> Adicionar contato</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Novo contato</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="cname">Nome</Label>
+                  <Input id="cname" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} placeholder="Ex: João Cozinha" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cphone">WhatsApp</Label>
+                  <Input id="cphone" value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} placeholder="5511999999999" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setContactDialog(false)}>Cancelar</Button>
+                <Button onClick={async () => { await addContact(); setContactDialog(false); }}><Plus className="mr-1 h-4 w-4" /> Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

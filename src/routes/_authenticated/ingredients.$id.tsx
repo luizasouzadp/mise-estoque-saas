@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, TrendingDown } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,21 @@ function IngredientDetail() {
   const { data: groups } = useQuery({
     queryKey: ["groups"],
     queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
+  });
+
+  const { data: movements } = useQuery({
+    queryKey: ["ingredient_movements", id],
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 30);
+      const { data } = await supabase
+        .from("stock_movements")
+        .select("type, quantity, occurred_at")
+        .eq("ingredient_id", id)
+        .gte("occurred_at", since.toISOString())
+        .order("occurred_at", { ascending: true });
+      return data ?? [];
+    },
   });
 
   const [name, setName] = useState("");
@@ -115,6 +131,42 @@ function IngredientDetail() {
 
   if (isLoading || !data) return <div className="p-8 text-muted-foreground">Carregando...</div>;
 
+  // Analytics
+  const movs = movements ?? [];
+  let totalOut = 0;
+  let netDelta = 0;
+  for (const m of movs) {
+    const q = Number(m.quantity) || 0;
+    if (m.type === "out") totalOut += q;
+    netDelta += m.type === "in" ? q : -q;
+  }
+  const weeklyAvg = totalOut * (7 / 30);
+  const currentStock = Number(data.current_stock) || 0;
+  const startStock = currentStock - netDelta;
+
+  // Daily stock series for last 30 days
+  const days: Array<{ date: string; stock: number; label: string }> = [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dayMs = 86400000;
+  const dailyDelta = new Map<string, number>();
+  for (const m of movs) {
+    const d = new Date(m.occurred_at); d.setHours(0, 0, 0, 0);
+    const key = d.toISOString().slice(0, 10);
+    const q = Number(m.quantity) || 0;
+    dailyDelta.set(key, (dailyDelta.get(key) ?? 0) + (m.type === "in" ? q : -q));
+  }
+  let running = startStock;
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * dayMs);
+    const key = d.toISOString().slice(0, 10);
+    running += dailyDelta.get(key) ?? 0;
+    days.push({
+      date: key,
+      stock: Number(running.toFixed(2)),
+      label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    });
+  }
+
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-8">
       <Link to="/ingredients" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -129,9 +181,39 @@ function IngredientDetail() {
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <Stat label="Estoque" value={`${Number(data.current_stock).toFixed(2)} ${data.unit}`} />
+        <Stat label="Estoque" value={`${currentStock.toFixed(2)} ${data.unit}`} />
         <Stat label="Custo médio" value={`R$ ${Number(data.avg_cost).toFixed(2)}`} />
         <Stat label="Última compra" value={`R$ ${Number(data.last_cost).toFixed(2)}`} />
+      </div>
+
+      <div className="mt-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-semibold flex items-center gap-2"><TrendingDown className="h-4 w-4 text-primary" /> Consumo médio semanal</h2>
+            <p className="text-xs text-muted-foreground">Baseado nas saídas dos últimos 30 dias.</p>
+          </div>
+          <div className="font-display text-2xl">
+            {weeklyAvg.toFixed(2)} <span className="text-sm text-muted-foreground">{data.unit}/sem</span>
+          </div>
+        </div>
+        <div className="mt-4">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Variação do estoque (30 dias)</p>
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={days} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={4} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number) => [`${v} ${data.unit}`, "Estoque"]}
+                  labelFormatter={(l) => l}
+                />
+                <Line type="monotone" dataKey="stock" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={save} className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
