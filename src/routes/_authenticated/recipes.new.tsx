@@ -40,6 +40,7 @@ function NewRecipe() {
   const [isOnMenu, setIsOnMenu] = useState<"no" | "yes">("no");
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
+  const [productCode, setProductCode] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Composition draft
