@@ -257,6 +257,8 @@ function RecipeDetail() {
               <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
               <Button onClick={saveRecipe}>Salvar</Button>
             </div>
+          </div>
+        )}
       </div>
 
       {/* Items list */}
