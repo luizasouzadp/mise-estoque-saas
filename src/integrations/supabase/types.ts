@@ -80,6 +80,7 @@ export type Database = {
         Row: {
           avg_cost: number
           category: string | null
+          composes_cmv: boolean
           created_at: string
           current_stock: number
           group_id: string | null
@@ -95,6 +96,7 @@ export type Database = {
         Insert: {
           avg_cost?: number
           category?: string | null
+          composes_cmv?: boolean
           created_at?: string
           current_stock?: number
           group_id?: string | null
@@ -110,6 +112,7 @@ export type Database = {
         Update: {
           avg_cost?: number
           category?: string | null
+          composes_cmv?: boolean
           created_at?: string
           current_stock?: number
           group_id?: string | null
