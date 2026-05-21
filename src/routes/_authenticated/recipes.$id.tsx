@@ -99,6 +99,9 @@ function RecipeDetail() {
   const [yieldQty, setYieldQty] = useState("");
   const [yieldUnit, setYieldUnit] = useState("un");
   const [isStocked, setIsStocked] = useState<"no" | "yes">("no");
+  const [isOnMenu, setIsOnMenu] = useState<"no" | "yes">("no");
+  const [menuCategory, setMenuCategory] = useState("");
+  const [currentPrice, setCurrentPrice] = useState("");
 
   function startEdit() {
     if (!recipe) return;
@@ -107,16 +110,23 @@ function RecipeDetail() {
     setYieldQty(String(recipe.yield_qty));
     setYieldUnit(recipe.yield_unit);
     setIsStocked(recipe.is_stocked ? "yes" : "no");
+    setIsOnMenu(recipe.is_on_menu ? "yes" : "no");
+    setMenuCategory(recipe.menu_category ?? "");
+    setCurrentPrice(recipe.current_price != null ? String(recipe.current_price) : "");
     setEditing(true);
   }
 
   async function saveRecipe() {
     if (!recipe) return;
     const newIsStocked = isStocked === "yes";
+    const newIsOnMenu = isOnMenu === "yes";
     const { error } = await supabase.from("recipes").update({
       name, description: description || null,
       yield_qty: Number(yieldQty) || 1, yield_unit: yieldUnit,
       is_stocked: newIsStocked,
+      is_on_menu: newIsOnMenu,
+      menu_category: newIsOnMenu ? (menuCategory || null) : null,
+      current_price: newIsOnMenu && currentPrice ? Number(currentPrice) : null,
     }).eq("id", id);
     if (error) return toast.error(error.message);
     await syncRecipeStockIngredient({
