@@ -50,11 +50,12 @@ function IngredientDetail() {
     queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
   });
 
+  const [period, setPeriod] = useState<30 | 60 | 90>(30);
   const { data: movements } = useQuery({
-    queryKey: ["ingredient_movements", id],
+    queryKey: ["ingredient_movements", id, period],
     queryFn: async () => {
       const since = new Date();
-      since.setDate(since.getDate() - 30);
+      since.setDate(since.getDate() - period);
       const { data } = await supabase
         .from("stock_movements")
         .select("type, quantity, occurred_at")
