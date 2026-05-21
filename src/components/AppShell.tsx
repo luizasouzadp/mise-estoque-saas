@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, FolderTree, ArrowLeftRight, BookOpen } from "lucide-react";
+import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, FolderTree, ArrowLeftRight, BookOpen, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,9 +8,10 @@ const navItems = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
   { to: "/ingredients", label: "Insumos", icon: Package },
   { to: "/recipes", label: "Fichas", icon: BookOpen },
+  { to: "/pricing", label: "Preços", icon: DollarSign },
   { to: "/groups", label: "Grupos", icon: FolderTree },
   { to: "/purchases", label: "Compras", icon: Receipt },
-  { to: "/movements", label: "Movimentações", icon: ArrowLeftRight },
+  { to: "/movements", label: "Mov.", icon: ArrowLeftRight },
   { to: "/inventories", label: "Inventário", icon: ClipboardList },
 ] as const;
 
@@ -77,7 +78,7 @@ export function AppShell() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-7 border-t bg-card md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-8 border-t bg-card md:hidden">
         {navItems.map((it) => {
           const active = pathname.startsWith(it.to);
           return (

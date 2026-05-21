@@ -31,7 +31,7 @@ function RecipeDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id")
+        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id, is_on_menu, menu_category, current_price")
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -99,6 +99,9 @@ function RecipeDetail() {
   const [yieldQty, setYieldQty] = useState("");
   const [yieldUnit, setYieldUnit] = useState("un");
   const [isStocked, setIsStocked] = useState<"no" | "yes">("no");
+  const [isOnMenu, setIsOnMenu] = useState<"no" | "yes">("no");
+  const [menuCategory, setMenuCategory] = useState("");
+  const [currentPrice, setCurrentPrice] = useState("");
 
   function startEdit() {
     if (!recipe) return;
@@ -107,16 +110,23 @@ function RecipeDetail() {
     setYieldQty(String(recipe.yield_qty));
     setYieldUnit(recipe.yield_unit);
     setIsStocked(recipe.is_stocked ? "yes" : "no");
+    setIsOnMenu(recipe.is_on_menu ? "yes" : "no");
+    setMenuCategory(recipe.menu_category ?? "");
+    setCurrentPrice(recipe.current_price != null ? String(recipe.current_price) : "");
     setEditing(true);
   }
 
   async function saveRecipe() {
     if (!recipe) return;
     const newIsStocked = isStocked === "yes";
+    const newIsOnMenu = isOnMenu === "yes";
     const { error } = await supabase.from("recipes").update({
       name, description: description || null,
       yield_qty: Number(yieldQty) || 1, yield_unit: yieldUnit,
       is_stocked: newIsStocked,
+      is_on_menu: newIsOnMenu,
+      menu_category: newIsOnMenu ? (menuCategory || null) : null,
+      current_price: newIsOnMenu && currentPrice ? Number(currentPrice) : null,
     }).eq("id", id);
     if (error) return toast.error(error.message);
     await syncRecipeStockIngredient({
@@ -282,6 +292,32 @@ function RecipeDetail() {
                 </label>
               </RadioGroup>
             </div>
+            <div>
+              <Label>Faz parte do cardápio?</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Se sim, aparecerá na aba <strong>Precificação</strong>.
+              </p>
+              <RadioGroup value={isOnMenu} onValueChange={(v) => setIsOnMenu(v as "no" | "yes")} className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="no" id="edit-menu-no" /> <span>Não</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="yes" id="edit-menu-yes" /> <span>Sim</span>
+                </label>
+              </RadioGroup>
+            </div>
+            {isOnMenu === "yes" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Categoria do cardápio</Label>
+                  <Input value={menuCategory} onChange={(e) => setMenuCategory(e.target.value)} placeholder="Ex.: Pratos, Bebidas..." />
+                </div>
+                <div>
+                  <Label>Preço de venda atual (R$)</Label>
+                  <Input type="number" step="0.01" min="0" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)} />
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
               <Button onClick={saveRecipe}>Salvar</Button>
