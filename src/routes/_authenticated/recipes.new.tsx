@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Package, BookOpen } from "lucide-react";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
+import { compatibleUnits, convert } from "@/lib/units";
 
 export const Route = createFileRoute("/_authenticated/recipes/new")({
   component: NewRecipe,
