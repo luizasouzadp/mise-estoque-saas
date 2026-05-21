@@ -259,9 +259,9 @@ function NewRecipe() {
             </div>
             <div className="sm:col-span-2">
               <Label>Unid.</Label>
-              <Select value={unit} onValueChange={setUnit}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+              <Select value={unit} onValueChange={setUnit} disabled={!selectedBaseUnit}>
+                <SelectTrigger><SelectValue placeholder={selectedBaseUnit || "—"} /></SelectTrigger>
+                <SelectContent>{unitOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="sm:col-span-12 flex justify-end">
