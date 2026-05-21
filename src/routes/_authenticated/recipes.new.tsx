@@ -40,6 +40,7 @@ function NewRecipe() {
   const [isOnMenu, setIsOnMenu] = useState<"no" | "yes">("no");
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
+  const [productCode, setProductCode] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Composition draft
@@ -117,6 +118,7 @@ function NewRecipe() {
       is_on_menu: isOnMenu === "yes",
       menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
       current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
+      product_code: isOnMenu === "yes" && productCode ? productCode.trim() : null,
     }).select("id").single();
 
     if (error || !recipe) {
@@ -220,7 +222,11 @@ function NewRecipe() {
             </RadioGroup>
           </div>
           {isOnMenu === "yes" && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <Label>Código do produto</Label>
+                <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} placeholder="Ex.: 001" />
+              </div>
               <div>
                 <Label>Categoria do cardápio</Label>
                 <Input value={menuCategory} onChange={(e) => setMenuCategory(e.target.value)} placeholder="Ex.: Pratos, Bebidas..." />

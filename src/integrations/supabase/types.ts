@@ -636,6 +636,7 @@ export type Database = {
           is_stocked: boolean
           menu_category: string | null
           name: string
+          product_code: string | null
           restaurant_id: string
           updated_at: string
           yield_qty: number
@@ -651,6 +652,7 @@ export type Database = {
           is_stocked?: boolean
           menu_category?: string | null
           name: string
+          product_code?: string | null
           restaurant_id: string
           updated_at?: string
           yield_qty?: number
@@ -666,6 +668,7 @@ export type Database = {
           is_stocked?: boolean
           menu_category?: string | null
           name?: string
+          product_code?: string | null
           restaurant_id?: string
           updated_at?: string
           yield_qty?: number

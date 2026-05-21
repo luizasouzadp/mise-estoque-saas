@@ -31,7 +31,7 @@ function RecipeDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id, is_on_menu, menu_category, current_price")
+        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id, is_on_menu, menu_category, current_price, product_code")
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -102,6 +102,7 @@ function RecipeDetail() {
   const [isOnMenu, setIsOnMenu] = useState<"no" | "yes">("no");
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
+  const [productCode, setProductCode] = useState("");
 
   function startEdit() {
     if (!recipe) return;
@@ -113,6 +114,7 @@ function RecipeDetail() {
     setIsOnMenu(recipe.is_on_menu ? "yes" : "no");
     setMenuCategory(recipe.menu_category ?? "");
     setCurrentPrice(recipe.current_price != null ? String(recipe.current_price) : "");
+    setProductCode((recipe as any).product_code ?? "");
     setEditing(true);
   }
 
@@ -127,6 +129,7 @@ function RecipeDetail() {
       is_on_menu: newIsOnMenu,
       menu_category: newIsOnMenu ? (menuCategory || null) : null,
       current_price: newIsOnMenu && currentPrice ? Number(currentPrice) : null,
+      product_code: newIsOnMenu && productCode ? productCode.trim() : null,
     }).eq("id", id);
     if (error) return toast.error(error.message);
     await syncRecipeStockIngredient({
@@ -312,7 +315,11 @@ function RecipeDetail() {
               </RadioGroup>
             </div>
             {isOnMenu === "yes" && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <Label>Código do produto</Label>
+                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} placeholder="Ex.: 001" />
+                </div>
                 <div>
                   <Label>Categoria do cardápio</Label>
                   <Input value={menuCategory} onChange={(e) => setMenuCategory(e.target.value)} placeholder="Ex.: Pratos, Bebidas..." />
