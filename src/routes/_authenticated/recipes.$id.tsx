@@ -164,18 +164,27 @@ function RecipeDetail() {
   const [unit, setUnit] = useState("un");
   const [adding, setAdding] = useState(false);
 
+  // Base unit for the selected target (ingredient.unit or recipe.yield_unit)
+  const selectedBaseUnit =
+    itemType === "ingredient"
+      ? ingredients?.find((i) => i.id === targetId)?.unit ?? ""
+      : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
+  const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!targetId || !qty) return toast.error("Selecione o item e informe a quantidade");
     if (itemType === "recipe" && targetId === id) return toast.error("Uma ficha não pode usar a si mesma");
+    const converted = convert(Number(qty), unit, selectedBaseUnit);
+    if (converted === null) return toast.error(`Unidade ${unit} não é compatível com ${selectedBaseUnit}`);
     setAdding(true);
     const payload = {
       recipe_id: id,
       item_type: itemType,
       ingredient_id: itemType === "ingredient" ? targetId : null,
       sub_recipe_id: itemType === "recipe" ? targetId : null,
-      quantity: Number(qty),
-      unit,
+      quantity: converted,
+      unit: selectedBaseUnit,
     };
     const { error } = await supabase.from("recipe_items").insert(payload);
     setAdding(false);
