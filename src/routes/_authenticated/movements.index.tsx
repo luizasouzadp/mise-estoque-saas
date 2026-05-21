@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/movements/")({
   component: MovementsPage,
 });
 
-type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string };
+type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number };
 type StockMovement = {
   id: string;
   ingredient_id: string;
@@ -55,8 +55,9 @@ type InventoryItemRow = {
   inventory_id: string;
   inventories: { name: string | null; completed_at: string | null; status: string } | null;
 };
+type ProductionItem = { production_id: string; ingredient_id: string; quantity: number };
 
-type Source = "manual" | "purchase" | "inventory" | "created";
+type Source = "manual" | "purchase" | "inventory" | "created" | "production";
 type UnifiedMovement = {
   key: string;
   source: Source;
@@ -65,6 +66,7 @@ type UnifiedMovement = {
   quantity: number;
   reason: string;
   occurred_at: string;
+  value: number | null;
   manual: StockMovement | null;
   purchase: Purchase | null;
   invItem: InventoryItemRow | null;
