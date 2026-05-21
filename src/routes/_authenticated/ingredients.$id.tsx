@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2, TrendingDown } from "lucide-react";
 import { ComposedChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Bar, Cell, ReferenceDot } from "recharts";
@@ -71,6 +72,7 @@ function IngredientDetail() {
   const [category, setCategory] = useState("");
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
+  const [composesCmv, setComposesCmv] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -80,6 +82,7 @@ function IngredientDetail() {
       setCategory(data.category ?? "");
       setMinStock(String(data.min_stock));
       setGroupIds(new Set(data.groupIds));
+      setComposesCmv(data.composes_cmv ?? true);
     }
   }, [data]);
 
@@ -97,7 +100,7 @@ function IngredientDetail() {
     setSaving(true);
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
-      name, unit, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup,
+      name, unit, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
     }).eq("id", id);
     if (error) {
       setSaving(false);
@@ -292,6 +295,13 @@ function IngredientDetail() {
         <div>
           <Label htmlFor="min">Estoque mínimo</Label>
           <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label htmlFor="cmv">Compõe o CMV?</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Se ativo, este insumo entra no cálculo do CMV.</p>
+          </div>
+          <Switch id="cmv" checked={composesCmv} onCheckedChange={setComposesCmv} />
         </div>
         <div>
           <Label>Grupos de contagem</Label>

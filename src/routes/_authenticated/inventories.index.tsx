@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, ClipboardList, Trash2 } from "lucide-react";
+import { Plus, ClipboardList, Trash2, FolderTree } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/inventories/")({ component: InventoriesList });
@@ -60,7 +60,10 @@ function InventoriesList() {
             <p className="text-sm text-muted-foreground">Cada inventário tem um link único de contagem.</p>
           </div>
         </div>
-        <Button onClick={() => nav({ to: "/inventories/new" })}><Plus className="mr-2 h-4 w-4" /> Novo</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => nav({ to: "/groups" })}><FolderTree className="mr-2 h-4 w-4" /> Gerenciar grupos</Button>
+          <Button onClick={() => nav({ to: "/inventories/new" })}><Plus className="mr-2 h-4 w-4" /> Novo</Button>
+        </div>
       </div>
 
       <div className="mt-6 space-y-3">

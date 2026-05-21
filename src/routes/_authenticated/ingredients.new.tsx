@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -25,6 +26,7 @@ function NewIngredient() {
   const [minStock, setMinStock] = useState("0");
   const [currentStock, setCurrentStock] = useState("0");
   const [unitValue, setUnitValue] = useState("");
+  const [composesCmv, setComposesCmv] = useState(true);
   const [saving, setSaving] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -46,6 +48,7 @@ function NewIngredient() {
       current_stock: Number(currentStock) || 0,
       last_cost: valueNum ?? 0,
       avg_cost: valueNum ?? 0,
+      composes_cmv: composesCmv,
     }).select("id").single();
     if (error) {
       setSaving(false);
@@ -101,6 +104,13 @@ function NewIngredient() {
           <Label htmlFor="value">Valor do item (opcional)</Label>
           <Input id="value" type="number" step="0.01" min="0" value={unitValue} onChange={(e) => setUnitValue(e.target.value)} placeholder="Ex: 12,50" />
           <p className="mt-1 text-xs text-muted-foreground">Preço unitário inicial. Será atualizado a cada compra.</p>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label htmlFor="cmv">Compõe o CMV?</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Se ativo, este insumo entra no cálculo do custo de mercadoria vendida.</p>
+          </div>
+          <Switch id="cmv" checked={composesCmv} onCheckedChange={setComposesCmv} />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => nav({ to: "/ingredients" })}>Cancelar</Button>

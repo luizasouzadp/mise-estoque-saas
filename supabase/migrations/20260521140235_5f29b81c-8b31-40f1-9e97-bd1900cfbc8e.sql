@@ -1,0 +1,1 @@
+ALTER TABLE public.ingredients ADD COLUMN composes_cmv boolean NOT NULL DEFAULT true;
