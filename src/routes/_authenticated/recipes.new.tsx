@@ -110,6 +110,9 @@ function NewRecipe() {
       yield_qty: Number(yieldQty) || 1,
       yield_unit: yieldUnit,
       is_stocked: isStocked === "yes",
+      is_on_menu: isOnMenu === "yes",
+      menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
+      current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
     }).select("id").single();
 
     if (error || !recipe) {
