@@ -50,6 +50,21 @@ function IngredientDetail() {
     queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
   });
 
+  const { data: movements } = useQuery({
+    queryKey: ["ingredient_movements", id],
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 30);
+      const { data } = await supabase
+        .from("stock_movements")
+        .select("type, quantity, occurred_at")
+        .eq("ingredient_id", id)
+        .gte("occurred_at", since.toISOString())
+        .order("occurred_at", { ascending: true });
+      return data ?? [];
+    },
+  });
+
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("un");
   const [category, setCategory] = useState("");
