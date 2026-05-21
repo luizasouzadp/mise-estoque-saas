@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Garante que uma ficha marcada como "armazenada em estoque" tenha um insumo
  * espelho na tabela ingredients (categoria "pré-preparo", vinculado pela
  * coluna source_recipe_id). Se is_stocked = false, remove o insumo espelho.
+ * Também atualiza o custo médio do insumo com o custo unitário da ficha.
  */
 export async function syncRecipeStockIngredient(args: {
   recipeId: string;
@@ -22,10 +23,14 @@ export async function syncRecipeStockIngredient(args: {
     .maybeSingle();
 
   if (isStocked) {
+    // Calcula custo unitário atual da ficha
+    const { data: unitCost } = await supabase.rpc("recipe_unit_cost", { _recipe_id: recipeId });
+    const cost = Number(unitCost ?? 0);
+
     if (existing) {
       await supabase
         .from("ingredients")
-        .update({ name, unit, category: "pré-preparo" })
+        .update({ name, unit, category: "pré-preparo", avg_cost: cost, last_cost: cost })
         .eq("id", existing.id);
     } else {
       await supabase.from("ingredients").insert({
@@ -34,6 +39,8 @@ export async function syncRecipeStockIngredient(args: {
         name,
         unit,
         category: "pré-preparo",
+        avg_cost: cost,
+        last_cost: cost,
       });
     }
   } else if (existing) {
