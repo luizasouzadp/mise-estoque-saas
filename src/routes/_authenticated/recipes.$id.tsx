@@ -134,14 +134,26 @@ function RecipeDetail() {
 
   async function deleteRecipe() {
     if (!confirm("Excluir esta ficha técnica?")) return;
-    // remove insumo espelho, se houver
-    await supabase.from("ingredients").delete().eq("source_recipe_id", id);
+    // Insumo espelho NÃO é removido aqui — só ao editar a ficha e marcar
+    // "Armazenada em estoque?" como "Não". Apenas desvincula a referência.
+    await supabase.from("ingredients").update({ source_recipe_id: null }).eq("source_recipe_id", id);
     const { error } = await supabase.from("recipes").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Ficha excluída");
     qc.invalidateQueries({ queryKey: ["recipes"] });
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     nav({ to: "/recipes" });
+  }
+
+  async function resyncStockCost() {
+    if (!recipe?.is_stocked) return;
+    await syncRecipeStockIngredient({
+      recipeId: id,
+      restaurantId: recipe.restaurant_id,
+      isStocked: true,
+      name: recipe.name,
+      unit: recipe.yield_unit,
+    });
   }
 
   // Add item form
@@ -168,15 +180,19 @@ function RecipeDetail() {
     setAdding(false);
     if (error) return toast.error(error.message);
     setTargetId(""); setQty("");
+    await resyncStockCost();
     qc.invalidateQueries({ queryKey: ["recipe-items", id] });
     qc.invalidateQueries({ queryKey: ["recipes"] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
   async function removeItem(itemId: string) {
     const { error } = await supabase.from("recipe_items").delete().eq("id", itemId);
     if (error) return toast.error(error.message);
+    await resyncStockCost();
     qc.invalidateQueries({ queryKey: ["recipe-items", id] });
     qc.invalidateQueries({ queryKey: ["recipes"] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
   if (isLoading || !recipe) {
