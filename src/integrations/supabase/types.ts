@@ -475,6 +475,90 @@ export type Database = {
           },
         ]
       }
+      recipe_items: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient_id: string | null
+          item_type: string
+          quantity: number
+          recipe_id: string
+          sub_recipe_id: string | null
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_id?: string | null
+          item_type: string
+          quantity?: number
+          recipe_id: string
+          sub_recipe_id?: string | null
+          unit?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient_id?: string | null
+          item_type?: string
+          quantity?: number
+          recipe_id?: string
+          sub_recipe_id?: string | null
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_items_sub_recipe_id_fkey"
+            columns: ["sub_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          restaurant_id: string
+          updated_at: string
+          yield_qty: number
+          yield_unit: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          restaurant_id: string
+          updated_at?: string
+          yield_qty?: number
+          yield_unit?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          restaurant_id?: string
+          updated_at?: string
+          yield_qty?: number
+          yield_unit?: string
+        }
+        Relationships: []
+      }
       restaurants: {
         Row: {
           created_at: string
@@ -599,7 +683,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      ingredient_avg_cost_last_30d: {
+        Args: { _ingredient_id: string }
+        Returns: number
+      }
       is_manager_or_owner: { Args: { _user_id: string }; Returns: boolean }
+      recipe_total_cost: {
+        Args: { _depth?: number; _recipe_id: string }
+        Returns: number
+      }
+      recipe_unit_cost: { Args: { _recipe_id: string }; Returns: number }
     }
     Enums: {
       app_role: "owner" | "manager" | "staff"
