@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck, Pencil, Save, X, Plus, UserPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/inventories/$id")({ component: InventoryDetail });
 
