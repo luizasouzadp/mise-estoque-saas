@@ -530,9 +530,12 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          current_price: number | null
           description: string | null
           id: string
+          is_on_menu: boolean
           is_stocked: boolean
+          menu_category: string | null
           name: string
           restaurant_id: string
           updated_at: string
@@ -542,9 +545,12 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          current_price?: number | null
           description?: string | null
           id?: string
+          is_on_menu?: boolean
           is_stocked?: boolean
+          menu_category?: string | null
           name: string
           restaurant_id: string
           updated_at?: string
@@ -554,9 +560,12 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          current_price?: number | null
           description?: string | null
           id?: string
+          is_on_menu?: boolean
           is_stocked?: boolean
+          menu_category?: string | null
           name?: string
           restaurant_id?: string
           updated_at?: string
@@ -569,16 +578,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          ideal_cmv: number
           name: string
         }
         Insert: {
           created_at?: string
           id?: string
+          ideal_cmv?: number
           name: string
         }
         Update: {
           created_at?: string
           id?: string
+          ideal_cmv?: number
           name?: string
         }
         Relationships: []
