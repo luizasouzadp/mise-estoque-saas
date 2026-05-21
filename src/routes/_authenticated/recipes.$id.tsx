@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, BookOpen, Package } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive } from "lucide-react";
+import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 
 export const Route = createFileRoute("/_authenticated/recipes/$id")({
   component: RecipeDetail,
@@ -27,7 +30,7 @@ function RecipeDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, description, yield_qty, yield_unit")
+        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id")
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -94,6 +97,7 @@ function RecipeDetail() {
   const [description, setDescription] = useState("");
   const [yieldQty, setYieldQty] = useState("");
   const [yieldUnit, setYieldUnit] = useState("un");
+  const [isStocked, setIsStocked] = useState<"no" | "yes">("no");
 
   function startEdit() {
     if (!recipe) return;
@@ -101,27 +105,42 @@ function RecipeDetail() {
     setDescription(recipe.description ?? "");
     setYieldQty(String(recipe.yield_qty));
     setYieldUnit(recipe.yield_unit);
+    setIsStocked(recipe.is_stocked ? "yes" : "no");
     setEditing(true);
   }
 
   async function saveRecipe() {
+    if (!recipe) return;
+    const newIsStocked = isStocked === "yes";
     const { error } = await supabase.from("recipes").update({
       name, description: description || null,
       yield_qty: Number(yieldQty) || 1, yield_unit: yieldUnit,
+      is_stocked: newIsStocked,
     }).eq("id", id);
     if (error) return toast.error(error.message);
+    await syncRecipeStockIngredient({
+      recipeId: id,
+      restaurantId: recipe.restaurant_id,
+      isStocked: newIsStocked,
+      name,
+      unit: yieldUnit,
+    });
     toast.success("Ficha atualizada");
     setEditing(false);
     qc.invalidateQueries({ queryKey: ["recipe", id] });
     qc.invalidateQueries({ queryKey: ["recipes"] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
   async function deleteRecipe() {
     if (!confirm("Excluir esta ficha técnica?")) return;
+    // remove insumo espelho, se houver
+    await supabase.from("ingredients").delete().eq("source_recipe_id", id);
     const { error } = await supabase.from("recipes").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Ficha excluída");
     qc.invalidateQueries({ queryKey: ["recipes"] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
     nav({ to: "/recipes" });
   }
 
@@ -176,7 +195,14 @@ function RecipeDetail() {
           <>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="font-display text-3xl">{recipe.name}</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="font-display text-3xl">{recipe.name}</h1>
+                  {recipe.is_stocked && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Archive className="h-3 w-3" /> Pré-preparo em estoque
+                    </Badge>
+                  )}
+                </div>
                 {recipe.description && <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{recipe.description}</p>}
               </div>
               <div className="flex gap-2">
@@ -190,7 +216,7 @@ function RecipeDetail() {
               <Stat label={`Custo por ${recipe.yield_unit}`} value={BRL.format(unitCost)} highlight />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Custos calculados pela média ponderada das compras dos últimos 30 dias.
+              Custos calculados pela média ponderada das compras dos últimos 30 dias (com fallback para a média histórica quando não há compras recentes).
             </p>
           </>
         ) : (
@@ -215,6 +241,20 @@ function RecipeDetail() {
                   <SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <Label>Armazenada em estoque?</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Se sim, gera um insumo de categoria <strong>pré-preparo</strong> usado em grupos e inventários.
+              </p>
+              <RadioGroup value={isStocked} onValueChange={(v) => setIsStocked(v as "no" | "yes")} className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="no" id="edit-st-no" /> <span>Não</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="yes" id="edit-st-yes" /> <span>Sim</span>
+                </label>
+              </RadioGroup>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
