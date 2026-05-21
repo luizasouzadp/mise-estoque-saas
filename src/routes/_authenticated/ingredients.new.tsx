@@ -105,6 +105,13 @@ function NewIngredient() {
           <Input id="value" type="number" step="0.01" min="0" value={unitValue} onChange={(e) => setUnitValue(e.target.value)} placeholder="Ex: 12,50" />
           <p className="mt-1 text-xs text-muted-foreground">Preço unitário inicial. Será atualizado a cada compra.</p>
         </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label htmlFor="cmv">Compõe o CMV?</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Se ativo, este insumo entra no cálculo do custo de mercadoria vendida.</p>
+          </div>
+          <Switch id="cmv" checked={composesCmv} onCheckedChange={setComposesCmv} />
+        </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => nav({ to: "/ingredients" })}>Cancelar</Button>
           <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar insumo"}</Button>
