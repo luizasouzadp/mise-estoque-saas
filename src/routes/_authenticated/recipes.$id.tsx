@@ -315,7 +315,11 @@ function RecipeDetail() {
               </RadioGroup>
             </div>
             {isOnMenu === "yes" && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <Label>Código do produto</Label>
+                  <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} placeholder="Ex.: 001" />
+                </div>
                 <div>
                   <Label>Categoria do cardápio</Label>
                   <Input value={menuCategory} onChange={(e) => setMenuCategory(e.target.value)} placeholder="Ex.: Pratos, Bebidas..." />
