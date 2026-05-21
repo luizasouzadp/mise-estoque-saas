@@ -134,10 +134,13 @@ function RecipeDetail() {
 
   async function deleteRecipe() {
     if (!confirm("Excluir esta ficha técnica?")) return;
+    // remove insumo espelho, se houver
+    await supabase.from("ingredients").delete().eq("source_recipe_id", id);
     const { error } = await supabase.from("recipes").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Ficha excluída");
     qc.invalidateQueries({ queryKey: ["recipes"] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
     nav({ to: "/recipes" });
   }
 
