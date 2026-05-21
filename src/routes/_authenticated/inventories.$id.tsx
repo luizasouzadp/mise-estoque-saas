@@ -40,6 +40,17 @@ function InventoryDetail() {
   const [phone, setPhone] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [contactDialog, setContactDialog] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactPhone, setNewContactPhone] = useState("");
+
+  const { data: contacts } = useQuery({
+    queryKey: ["whatsapp_contacts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone").order("name");
+      return data ?? [];
+    },
+  });
 
   // edit state
   const [name, setName] = useState("");
