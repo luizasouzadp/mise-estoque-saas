@@ -192,7 +192,14 @@ function RecipeDetail() {
           <>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="font-display text-3xl">{recipe.name}</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="font-display text-3xl">{recipe.name}</h1>
+                  {recipe.is_stocked && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Archive className="h-3 w-3" /> Pré-preparo em estoque
+                    </Badge>
+                  )}
+                </div>
                 {recipe.description && <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{recipe.description}</p>}
               </div>
               <div className="flex gap-2">
@@ -206,7 +213,7 @@ function RecipeDetail() {
               <Stat label={`Custo por ${recipe.yield_unit}`} value={BRL.format(unitCost)} highlight />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Custos calculados pela média ponderada das compras dos últimos 30 dias.
+              Custos calculados pela média ponderada das compras dos últimos 30 dias (com fallback para a média histórica quando não há compras recentes).
             </p>
           </>
         ) : (
