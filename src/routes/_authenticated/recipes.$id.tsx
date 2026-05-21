@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive } from "lucide-react";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
+import { compatibleUnits, convert } from "@/lib/units";
 
 export const Route = createFileRoute("/_authenticated/recipes/$id")({
   component: RecipeDetail,
@@ -163,18 +164,27 @@ function RecipeDetail() {
   const [unit, setUnit] = useState("un");
   const [adding, setAdding] = useState(false);
 
+  // Base unit for the selected target (ingredient.unit or recipe.yield_unit)
+  const selectedBaseUnit =
+    itemType === "ingredient"
+      ? ingredients?.find((i) => i.id === targetId)?.unit ?? ""
+      : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
+  const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!targetId || !qty) return toast.error("Selecione o item e informe a quantidade");
     if (itemType === "recipe" && targetId === id) return toast.error("Uma ficha não pode usar a si mesma");
+    const converted = convert(Number(qty), unit, selectedBaseUnit);
+    if (converted === null) return toast.error(`Unidade ${unit} não é compatível com ${selectedBaseUnit}`);
     setAdding(true);
     const payload = {
       recipe_id: id,
       item_type: itemType,
       ingredient_id: itemType === "ingredient" ? targetId : null,
       sub_recipe_id: itemType === "recipe" ? targetId : null,
-      quantity: Number(qty),
-      unit,
+      quantity: converted,
+      unit: selectedBaseUnit,
     };
     const { error } = await supabase.from("recipe_items").insert(payload);
     setAdding(false);
@@ -349,9 +359,9 @@ function RecipeDetail() {
           </div>
           <div className="sm:col-span-2">
             <Label>Unid.</Label>
-            <Select value={unit} onValueChange={setUnit}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+            <Select value={unit} onValueChange={setUnit} disabled={!selectedBaseUnit}>
+              <SelectTrigger><SelectValue placeholder={selectedBaseUnit || "—"} /></SelectTrigger>
+              <SelectContent>{unitOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="sm:col-span-12 flex justify-end">
