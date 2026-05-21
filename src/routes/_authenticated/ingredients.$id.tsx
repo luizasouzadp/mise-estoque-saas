@@ -141,12 +141,12 @@ function IngredientDetail() {
     if (m.type === "out") totalOut += q;
     netDelta += m.type === "in" ? q : -q;
   }
-  const weeklyAvg = totalOut * (7 / 30);
+  const weeklyAvg = totalOut * (7 / period);
   const currentStock = Number(data.current_stock) || 0;
   const startStock = currentStock - netDelta;
 
-  // Daily stock series for last 30 days
-  const days: Array<{ date: string; stock: number; label: string }> = [];
+  // Daily stock series for selected period
+  const days: Array<{ date: string; stock: number; label: string; delta: number; absDelta: number }> = [];
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const dayMs = 86400000;
   const dailyDelta = new Map<string, number>();
@@ -157,16 +157,24 @@ function IngredientDetail() {
     dailyDelta.set(key, (dailyDelta.get(key) ?? 0) + (m.type === "in" ? q : -q));
   }
   let running = startStock;
-  for (let i = 29; i >= 0; i--) {
+  for (let i = period - 1; i >= 0; i--) {
     const d = new Date(today.getTime() - i * dayMs);
     const key = d.toISOString().slice(0, 10);
-    running += dailyDelta.get(key) ?? 0;
+    const delta = dailyDelta.get(key) ?? 0;
+    running += delta;
     days.push({
       date: key,
       stock: Number(running.toFixed(2)),
+      delta: Number(delta.toFixed(2)),
+      absDelta: Math.abs(Number(delta.toFixed(2))),
       label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
     });
   }
+  const maxAbsDelta = days.reduce((m, d) => Math.max(m, d.absDelta), 0);
+  const topVariationKeys = new Set(
+    days.filter((d) => d.absDelta > 0 && d.absDelta >= maxAbsDelta * 0.8).map((d) => d.date),
+  );
+  const xInterval = period <= 30 ? 4 : period <= 60 ? 8 : 12;
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-8">
@@ -191,31 +199,77 @@ function IngredientDetail() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-semibold flex items-center gap-2"><TrendingDown className="h-4 w-4 text-primary" /> Consumo médio semanal</h2>
-            <p className="text-xs text-muted-foreground">Baseado nas saídas dos últimos 30 dias.</p>
+            <p className="text-xs text-muted-foreground">Baseado nas saídas dos últimos {period} dias.</p>
           </div>
           <div className="font-display text-2xl">
             {weeklyAvg.toFixed(2)} <span className="text-sm text-muted-foreground">{data.unit}/sem</span>
           </div>
         </div>
         <div className="mt-4">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Variação do estoque (30 dias)</p>
-          <div className="h-48 w-full">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-muted-foreground">Variação do estoque ({period} dias)</p>
+            <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+              {([30, 60, 90] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={`px-2.5 py-1 text-xs rounded-sm transition-colors ${period === p ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {p}d
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={days} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
+              <ComposedChart data={days} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={4} />
-                <YAxis tick={{ fontSize: 10 }} />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={xInterval} />
+                <YAxis yAxisId="stock" tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="delta" orientation="right" tick={{ fontSize: 10 }} hide />
                 <Tooltip
                   contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => [`${v} ${data.unit}`, "Estoque"]}
+                  formatter={(v: number, n: string) => {
+                    if (n === "stock") return [`${v} ${data.unit}`, "Estoque"];
+                    if (n === "absDelta") return [`${v} ${data.unit}`, "Variação"];
+                    return [v, n];
+                  }}
                   labelFormatter={(l) => l}
                 />
-                <Line type="monotone" dataKey="stock" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-              </LineChart>
+                <Bar yAxisId="delta" dataKey="absDelta" radius={[2, 2, 0, 0]} barSize={period > 60 ? 3 : 6}>
+                  {days.map((d) => (
+                    <Cell
+                      key={d.date}
+                      fill={topVariationKeys.has(d.date) ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground) / 0.3)"}
+                    />
+                  ))}
+                </Bar>
+                <Line yAxisId="stock" type="monotone" dataKey="stock" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                {days.filter((d) => topVariationKeys.has(d.date)).map((d) => (
+                  <ReferenceDot
+                    key={d.date}
+                    yAxisId="stock"
+                    x={d.label}
+                    y={d.stock}
+                    r={4}
+                    fill="hsl(var(--destructive))"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={2}
+                  />
+                ))}
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
+          {maxAbsDelta > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-full bg-destructive mr-1.5 align-middle" />
+              Dias destacados: maior variação do período.
+            </p>
+          )}
         </div>
       </div>
+
 
       <form onSubmit={save} className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
         <div>
