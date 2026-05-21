@@ -239,12 +239,24 @@ function RecipeDetail() {
                 </Select>
               </div>
             </div>
+            <div>
+              <Label>Armazenada em estoque?</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Se sim, gera um insumo de categoria <strong>pré-preparo</strong> usado em grupos e inventários.
+              </p>
+              <RadioGroup value={isStocked} onValueChange={(v) => setIsStocked(v as "no" | "yes")} className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="no" id="edit-st-no" /> <span>Não</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="yes" id="edit-st-yes" /> <span>Sim</span>
+                </label>
+              </RadioGroup>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
               <Button onClick={saveRecipe}>Salvar</Button>
             </div>
-          </div>
-        )}
       </div>
 
       {/* Items list */}
