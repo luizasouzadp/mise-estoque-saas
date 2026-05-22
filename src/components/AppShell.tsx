@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, ArrowLeftRight, BookOpen, DollarSign, Flame } from "lucide-react";
+import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, ArrowLeftRight, BookOpen, DollarSign, Flame, Percent } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const navItems = [
   { to: "/purchases", label: "Compras", icon: Receipt },
   { to: "/movements", label: "Mov.", icon: ArrowLeftRight },
   { to: "/inventories", label: "Inventário", icon: ClipboardList },
+  { to: "/cmv", label: "CMV", icon: Percent },
 ] as const;
 
 export function AppShell() {
