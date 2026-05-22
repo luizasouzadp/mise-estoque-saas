@@ -18,13 +18,22 @@ export const Route = createFileRoute("/_authenticated/pricing/")({
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
+type MenuItem = {
+  ref_type: "ingredient" | "recipe";
+  ref_id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  unit_cost?: number;
+};
+
 type MenuProduct = {
   id: string;
   name: string;
   category: string | null;
   current_price: number | null;
   cost: number;
-  items: { name: string; quantity?: string }[];
+  items: MenuItem[];
 };
 
 type Row = {
@@ -262,7 +271,7 @@ function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
     },
   });
 
-  async function updateField(id: string, patch: Partial<Pick<MenuProduct, "category" | "current_price" | "cost">>) {
+  async function updateField(id: string, patch: Partial<Pick<MenuProduct, "category" | "current_price">>) {
     const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
@@ -319,7 +328,7 @@ function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
                       <div className="font-medium">{p.name}</div>
                       {p.items.length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          {p.items.map((i) => (i.quantity ? `${i.quantity} ${i.name}` : i.name)).join(" • ")}
+                          {p.items.map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(" • ")}
                         </div>
                       )}
                     </TableCell>
@@ -334,19 +343,7 @@ function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
                         }}
                       />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={p.cost ?? 0}
-                        className="h-8 w-24 ml-auto text-right"
-                        onBlur={(e) => {
-                          const v = Number(e.target.value) || 0;
-                          if (v !== Number(p.cost)) updateField(p.id, { cost: v });
-                        }}
-                      />
-                    </TableCell>
+                    <TableCell className="text-right">{BRL.format(Number(p.cost) || 0)}</TableCell>
                     <TableCell className="text-right">{BRL.format(idealPrice)}</TableCell>
                     <TableCell className="text-right">
                       <Input
@@ -396,19 +393,33 @@ function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
   );
 }
 
+type PickerOption = { key: string; ref_type: "ingredient" | "recipe"; ref_id: string; name: string; unit: string };
+
 function ManualProductDialog({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
-  const [cost, setCost] = useState("");
-  const [items, setItems] = useState<{ name: string; quantity: string }[]>([{ name: "", quantity: "" }]);
+  const [items, setItems] = useState<{ key: string; quantity: string }[]>([{ key: "", quantity: "" }]);
   const [saving, setSaving] = useState(false);
 
-  function setItem(idx: number, patch: Partial<{ name: string; quantity: string }>) {
+  const { data: options } = useQuery<PickerOption[]>({
+    queryKey: ["menu-product-picker"],
+    queryFn: async () => {
+      const [{ data: ings }, { data: recs }] = await Promise.all([
+        supabase.from("ingredients").select("id, name, unit").order("name"),
+        supabase.from("recipes").select("id, name, yield_unit").order("name"),
+      ]);
+      const a: PickerOption[] = (ings ?? []).map((i) => ({ key: `ingredient:${i.id}`, ref_type: "ingredient", ref_id: i.id, name: i.name, unit: i.unit }));
+      const b: PickerOption[] = (recs ?? []).map((r) => ({ key: `recipe:${r.id}`, ref_type: "recipe", ref_id: r.id, name: r.name, unit: r.yield_unit }));
+      return [...a, ...b];
+    },
+  });
+
+  function setItem(idx: number, patch: Partial<{ key: string; quantity: string }>) {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
-  function addItem() { setItems((p) => [...p, { name: "", quantity: "" }]); }
+  function addItem() { setItems((p) => [...p, { key: "", quantity: "" }]); }
   function removeItem(idx: number) { setItems((p) => p.filter((_, i) => i !== idx)); }
 
   async function save() {
@@ -416,16 +427,32 @@ function ManualProductDialog({ onClose }: { onClose: () => void }) {
     setSaving(true);
     const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
     if (!profile?.restaurant_id) { setSaving(false); return toast.error("Restaurante não encontrado"); }
-    const cleanItems = items
-      .map((i) => ({ name: i.name.trim(), quantity: i.quantity.trim() }))
-      .filter((i) => i.name.length > 0);
+
+    const resolved: MenuItem[] = [];
+    let totalCost = 0;
+    for (const it of items) {
+      const opt = options?.find((o) => o.key === it.key);
+      const qty = Number(it.quantity);
+      if (!opt || !(qty > 0)) continue;
+      let unitCost = 0;
+      if (opt.ref_type === "ingredient") {
+        const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: opt.ref_id });
+        unitCost = Number(data ?? 0);
+      } else {
+        const { data } = await supabase.rpc("recipe_unit_cost", { _recipe_id: opt.ref_id });
+        unitCost = Number(data ?? 0);
+      }
+      totalCost += qty * unitCost;
+      resolved.push({ ref_type: opt.ref_type, ref_id: opt.ref_id, name: opt.name, unit: opt.unit, quantity: qty, unit_cost: unitCost });
+    }
+
     const { error } = await (supabase as any).from("menu_products").insert({
       restaurant_id: profile.restaurant_id,
       name: name.trim(),
       category: category.trim() || null,
       current_price: price === "" ? null : Number(price),
-      cost: cost === "" ? 0 : Number(cost),
-      items: cleanItems,
+      cost: totalCost,
+      items: resolved,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -455,23 +482,32 @@ function ManualProductDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div>
-          <Label>Custo (opcional)</Label>
-          <Input type="number" step="0.01" min="0" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0,00" />
-          <p className="text-xs text-muted-foreground mt-1">Usado para calcular o CMV deste produto.</p>
-        </div>
-        <div>
           <div className="flex items-center justify-between mb-2">
             <Label>Itens do produto</Label>
             <Button type="button" variant="outline" size="sm" onClick={addItem}><Plus /> Item</Button>
           </div>
+          <p className="text-xs text-muted-foreground mb-2">O custo será calculado automaticamente a partir dos itens selecionados.</p>
           <div className="space-y-2">
-            {items.map((it, idx) => (
-              <div key={idx} className="flex gap-2">
-                <Input className="w-24" placeholder="Qtd" value={it.quantity} onChange={(e) => setItem(idx, { quantity: e.target.value })} />
-                <Input className="flex-1" placeholder="Nome do item" value={it.name} onChange={(e) => setItem(idx, { name: e.target.value })} />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}><X /></Button>
-              </div>
-            ))}
+            {items.map((it, idx) => {
+              const opt = options?.find((o) => o.key === it.key);
+              return (
+                <div key={idx} className="flex gap-2">
+                  <Input className="w-20" type="number" step="0.01" min="0" placeholder="Qtd" value={it.quantity} onChange={(e) => setItem(idx, { quantity: e.target.value })} />
+                  <span className="self-center text-xs text-muted-foreground w-10">{opt?.unit ?? ""}</span>
+                  <Select value={it.key} onValueChange={(v) => setItem(idx, { key: v })}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione um item" /></SelectTrigger>
+                    <SelectContent>
+                      {(options ?? []).map((o) => (
+                        <SelectItem key={o.key} value={o.key}>
+                          {o.ref_type === "recipe" ? "🍳 " : "📦 "}{o.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}><X /></Button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
