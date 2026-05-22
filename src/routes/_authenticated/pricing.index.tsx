@@ -18,13 +18,22 @@ export const Route = createFileRoute("/_authenticated/pricing/")({
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
+type MenuItem = {
+  ref_type: "ingredient" | "recipe";
+  ref_id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  unit_cost?: number;
+};
+
 type MenuProduct = {
   id: string;
   name: string;
   category: string | null;
   current_price: number | null;
   cost: number;
-  items: { name: string; quantity?: string }[];
+  items: MenuItem[];
 };
 
 type Row = {
