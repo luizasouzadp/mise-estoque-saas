@@ -135,8 +135,33 @@ function NewPurchase() {
         <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="sup">Fornecedor (opcional)</Label>
-              <Input id="sup" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+              <Label>Fornecedor (opcional)</Label>
+              {!addingSupplier ? (
+                <div className="flex gap-2">
+                  <Select value={supplier || "__none__"} onValueChange={(v) => setSupplier(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sem fornecedor</SelectItem>
+                      {suppliers?.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setAddingSupplier(true)} title="Novo fornecedor">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    autoFocus
+                    placeholder="Nome do fornecedor"
+                    value={newSupplierName}
+                    onChange={(e) => setNewSupplierName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSupplier(); } }}
+                  />
+                  <Button type="button" size="sm" onClick={addSupplier}>Salvar</Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingSupplier(false); setNewSupplierName(""); }}>Cancelar</Button>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="dt">Data</Label>
