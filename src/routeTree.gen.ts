@@ -23,6 +23,7 @@ import { Route as AuthenticatedMovementsIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedInventoriesIndexRouteImport } from './routes/_authenticated/inventories.index'
 import { Route as AuthenticatedIngredientsIndexRouteImport } from './routes/_authenticated/ingredients.index'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups.index'
+import { Route as AuthenticatedCmvIndexRouteImport } from './routes/_authenticated/cmv.index'
 import { Route as AuthenticatedRecipesNewRouteImport } from './routes/_authenticated/recipes.new'
 import { Route as AuthenticatedRecipesIdRouteImport } from './routes/_authenticated/recipes.$id'
 import { Route as AuthenticatedPurchasesNewRouteImport } from './routes/_authenticated/purchases.new'
@@ -109,6 +110,11 @@ const AuthenticatedGroupsIndexRoute =
     path: '/groups/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedCmvIndexRoute = AuthenticatedCmvIndexRouteImport.update({
+  id: '/cmv/',
+  path: '/cmv/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedRecipesNewRoute = AuthenticatedRecipesNewRouteImport.update({
   id: '/recipes/new',
   path: '/recipes/new',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
+  '/cmv/': typeof AuthenticatedCmvIndexRoute
   '/groups/': typeof AuthenticatedGroupsIndexRoute
   '/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/inventories/': typeof AuthenticatedInventoriesIndexRoute
@@ -192,6 +199,7 @@ export interface FileRoutesByTo {
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
+  '/cmv': typeof AuthenticatedCmvIndexRoute
   '/groups': typeof AuthenticatedGroupsIndexRoute
   '/ingredients': typeof AuthenticatedIngredientsIndexRoute
   '/inventories': typeof AuthenticatedInventoriesIndexRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/_authenticated/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/_authenticated/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/_authenticated/recipes/new': typeof AuthenticatedRecipesNewRoute
+  '/_authenticated/cmv/': typeof AuthenticatedCmvIndexRoute
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
   '/_authenticated/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/_authenticated/inventories/': typeof AuthenticatedInventoriesIndexRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/purchases/new'
     | '/recipes/$id'
     | '/recipes/new'
+    | '/cmv/'
     | '/groups/'
     | '/ingredients/'
     | '/inventories/'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/purchases/new'
     | '/recipes/$id'
     | '/recipes/new'
+    | '/cmv'
     | '/groups'
     | '/ingredients'
     | '/inventories'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/_authenticated/purchases/new'
     | '/_authenticated/recipes/$id'
     | '/_authenticated/recipes/new'
+    | '/_authenticated/cmv/'
     | '/_authenticated/groups/'
     | '/_authenticated/ingredients/'
     | '/_authenticated/inventories/'
@@ -407,6 +419,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGroupsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/cmv/': {
+      id: '/_authenticated/cmv/'
+      path: '/cmv'
+      fullPath: '/cmv/'
+      preLoaderRoute: typeof AuthenticatedCmvIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/recipes/new': {
       id: '/_authenticated/recipes/new'
       path: '/recipes/new'
@@ -476,6 +495,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPurchasesNewRoute: typeof AuthenticatedPurchasesNewRoute
   AuthenticatedRecipesIdRoute: typeof AuthenticatedRecipesIdRoute
   AuthenticatedRecipesNewRoute: typeof AuthenticatedRecipesNewRoute
+  AuthenticatedCmvIndexRoute: typeof AuthenticatedCmvIndexRoute
   AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
   AuthenticatedIngredientsIndexRoute: typeof AuthenticatedIngredientsIndexRoute
   AuthenticatedInventoriesIndexRoute: typeof AuthenticatedInventoriesIndexRoute
@@ -496,6 +516,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPurchasesNewRoute: AuthenticatedPurchasesNewRoute,
   AuthenticatedRecipesIdRoute: AuthenticatedRecipesIdRoute,
   AuthenticatedRecipesNewRoute: AuthenticatedRecipesNewRoute,
+  AuthenticatedCmvIndexRoute: AuthenticatedCmvIndexRoute,
   AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
   AuthenticatedIngredientsIndexRoute: AuthenticatedIngredientsIndexRoute,
   AuthenticatedInventoriesIndexRoute: AuthenticatedInventoriesIndexRoute,
@@ -520,3 +541,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
