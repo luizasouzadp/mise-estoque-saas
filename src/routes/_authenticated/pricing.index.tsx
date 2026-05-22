@@ -473,11 +473,14 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Categoria</Label>
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Bebidas, Combos..." />
+            <CategoryPicker value={category} options={existingCategories} onChange={setCategory} />
           </div>
           <div>
             <Label>Preço de venda</Label>
-            <Input type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0,00" />
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+              <Input type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0,00" className="pl-9" />
+            </div>
           </div>
         </div>
         <div>
