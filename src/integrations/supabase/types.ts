@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      cmv_reports: {
+        Row: {
+          cmv_percent: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          restaurant_id: string
+          revenue: number
+          total_cost: number
+          updated_at: string
+        }
+        Insert: {
+          cmv_percent?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          restaurant_id: string
+          revenue?: number
+          total_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          cmv_percent?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          restaurant_id?: string
+          revenue?: number
+          total_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ingredient_group_members: {
         Row: {
           created_at: string
