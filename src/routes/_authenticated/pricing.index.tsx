@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/pricing/")({
@@ -15,6 +17,15 @@ export const Route = createFileRoute("/_authenticated/pricing/")({
 });
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+type MenuProduct = {
+  id: string;
+  name: string;
+  category: string | null;
+  current_price: number | null;
+  cost: number;
+  items: { name: string; quantity?: string }[];
+};
 
 type Row = {
   id: string;
