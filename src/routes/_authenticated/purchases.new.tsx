@@ -34,10 +34,39 @@ function NewPurchase() {
     },
   });
 
+  const { data: suppliers, refetch: refetchSuppliers } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const [items, setItems] = useState<Item[]>([newItem()]);
   const [supplier, setSupplier] = useState("");
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [addingSupplier, setAddingSupplier] = useState(false);
   const [purchasedAt, setPurchasedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
+
+  async function addSupplier() {
+    const name = newSupplierName.trim();
+    if (!name) return;
+    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!profile?.restaurant_id) return toast.error("Sessão inválida.");
+    const { data, error } = await supabase
+      .from("suppliers")
+      .insert({ restaurant_id: profile.restaurant_id, name })
+      .select("id, name")
+      .single();
+    if (error) return toast.error(error.message);
+    await refetchSuppliers();
+    setSupplier(data.name);
+    setNewSupplierName("");
+    setAddingSupplier(false);
+    toast.success("Fornecedor adicionado.");
+  }
 
   const total = useMemo(
     () => items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitCost) || 0), 0),
