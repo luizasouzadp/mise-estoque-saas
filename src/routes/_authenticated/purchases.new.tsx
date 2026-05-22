@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+// supplier picker uses existing Select component
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,10 +35,39 @@ function NewPurchase() {
     },
   });
 
+  const { data: suppliers, refetch: refetchSuppliers } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const [items, setItems] = useState<Item[]>([newItem()]);
   const [supplier, setSupplier] = useState("");
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [addingSupplier, setAddingSupplier] = useState(false);
   const [purchasedAt, setPurchasedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
+
+  async function addSupplier() {
+    const name = newSupplierName.trim();
+    if (!name) return;
+    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!profile?.restaurant_id) return toast.error("Sessão inválida.");
+    const { data, error } = await supabase
+      .from("suppliers")
+      .insert({ restaurant_id: profile.restaurant_id, name })
+      .select("id, name")
+      .single();
+    if (error) return toast.error(error.message);
+    await refetchSuppliers();
+    setSupplier(data.name);
+    setNewSupplierName("");
+    setAddingSupplier(false);
+    toast.success("Fornecedor adicionado.");
+  }
 
   const total = useMemo(
     () => items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitCost) || 0), 0),
@@ -105,8 +135,33 @@ function NewPurchase() {
         <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="sup">Fornecedor (opcional)</Label>
-              <Input id="sup" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+              <Label>Fornecedor (opcional)</Label>
+              {!addingSupplier ? (
+                <div className="flex gap-2">
+                  <Select value={supplier || "__none__"} onValueChange={(v) => setSupplier(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sem fornecedor</SelectItem>
+                      {suppliers?.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setAddingSupplier(true)} title="Novo fornecedor">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    autoFocus
+                    placeholder="Nome do fornecedor"
+                    value={newSupplierName}
+                    onChange={(e) => setNewSupplierName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSupplier(); } }}
+                  />
+                  <Button type="button" size="sm" onClick={addSupplier}>Salvar</Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingSupplier(false); setNewSupplierName(""); }}>Cancelar</Button>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="dt">Data</Label>
