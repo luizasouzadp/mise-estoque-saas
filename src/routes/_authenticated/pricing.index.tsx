@@ -394,7 +394,7 @@ function CategoryCell({ value, options, onChange }: { value: string | null; opti
 
 type PickerOption = { key: string; ref_type: "ingredient" | "recipe"; ref_id: string; name: string; unit: string };
 
-function ManualProductDialog({ onClose }: { onClose: () => void }) {
+function ManualProductDialog({ onClose, existingCategories }: { onClose: () => void; existingCategories: string[] }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
