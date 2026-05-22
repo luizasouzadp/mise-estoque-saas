@@ -520,3 +520,34 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
     </DialogContent>
   );
 }
+
+function CategoryPicker({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+  const [mode, setMode] = useState<"select" | "new">(value && !options.includes(value) ? "new" : "select");
+  if (mode === "new") {
+    return (
+      <div className="flex gap-2">
+        <Input autoFocus value={value} onChange={(e) => onChange(e.target.value)} placeholder="Nova categoria" />
+        {options.length > 0 && (
+          <Button type="button" variant="outline" size="sm" onClick={() => { onChange(""); setMode("select"); }}>Lista</Button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <Select
+      value={value || "__none"}
+      onValueChange={(v) => {
+        if (v === "__new") { onChange(""); setMode("new"); return; }
+        if (v === "__none") { onChange(""); return; }
+        onChange(v);
+      }}
+    >
+      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none">Sem categoria</SelectItem>
+        {options.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+        <SelectItem value="__new">+ Nova categoria</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
