@@ -271,7 +271,7 @@ function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
     },
   });
 
-  async function updateField(id: string, patch: Partial<Pick<MenuProduct, "category" | "current_price" | "cost">>) {
+  async function updateField(id: string, patch: Partial<Pick<MenuProduct, "category" | "current_price">>) {
     const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
