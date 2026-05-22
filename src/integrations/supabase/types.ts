@@ -440,6 +440,45 @@ export type Database = {
           },
         ]
       }
+      menu_products: {
+        Row: {
+          category: string | null
+          cost: number
+          created_at: string
+          created_by: string | null
+          current_price: number | null
+          id: string
+          items: Json
+          name: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          cost?: number
+          created_at?: string
+          created_by?: string | null
+          current_price?: number | null
+          id?: string
+          items?: Json
+          name: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          cost?: number
+          created_at?: string
+          created_by?: string | null
+          current_price?: number | null
+          id?: string
+          items?: Json
+          name?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       production_items: {
         Row: {
           created_at: string
