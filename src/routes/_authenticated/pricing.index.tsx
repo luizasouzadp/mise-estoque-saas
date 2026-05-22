@@ -328,7 +328,7 @@ function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
                       <div className="font-medium">{p.name}</div>
                       {p.items.length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          {p.items.map((i) => (i.quantity ? `${i.quantity} ${i.name}` : i.name)).join(" • ")}
+                          {p.items.map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(" • ")}
                         </div>
                       )}
                     </TableCell>
@@ -343,19 +343,7 @@ function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
                         }}
                       />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={p.cost ?? 0}
-                        className="h-8 w-24 ml-auto text-right"
-                        onBlur={(e) => {
-                          const v = Number(e.target.value) || 0;
-                          if (v !== Number(p.cost)) updateField(p.id, { cost: v });
-                        }}
-                      />
-                    </TableCell>
+                    <TableCell className="text-right">{BRL.format(Number(p.cost) || 0)}</TableCell>
                     <TableCell className="text-right">{BRL.format(idealPrice)}</TableCell>
                     <TableCell className="text-right">
                       <Input
