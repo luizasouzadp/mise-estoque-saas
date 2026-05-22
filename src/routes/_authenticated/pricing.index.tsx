@@ -93,37 +93,110 @@ function PricingPage() {
     },
   });
 
+  const { data: manualProducts } = useQuery<MenuProduct[]>({
+    queryKey: ["manual-menu-products"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("menu_products")
+        .select("id, name, category, current_price, cost, items")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({ ...p, items: Array.isArray(p.items) ? p.items : [] }));
+    },
+  });
+
   const [filter, setFilter] = useState<"all" | "above" | "below">("all");
   const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+
+  type UnifiedRow = {
+    source: "recipe" | "manual";
+    id: string;
+    name: string;
+    category: string | null;
+    current_price: number | null;
+    unit_cost: number;
+    subtitle?: string;
+    yield_unit?: string;
+  };
+
+  const unified: UnifiedRow[] = useMemo(() => {
+    const recipeRows: UnifiedRow[] = (rows ?? []).map((r) => ({
+      source: "recipe",
+      id: r.id,
+      name: r.name,
+      category: r.menu_category,
+      current_price: r.current_price,
+      unit_cost: r.unit_cost,
+      subtitle: `por ${r.yield_unit}`,
+      yield_unit: r.yield_unit,
+    }));
+    const manualRows: UnifiedRow[] = (manualProducts ?? []).map((p) => ({
+      source: "manual",
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      current_price: p.current_price,
+      unit_cost: Number(p.cost) || 0,
+      subtitle: p.items.length > 0 ? p.items.map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(" • ") : undefined,
+    }));
+    return [...recipeRows, ...manualRows].sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows, manualProducts]);
 
   const enrichedRows = useMemo(() => {
-    return (rows ?? []).map((r) => {
+    return unified.map((r) => {
       const idealPrice = idealCmv > 0 ? r.unit_cost / (idealCmv / 100) : 0;
       const currentCmv = r.current_price && r.current_price > 0 ? (r.unit_cost / r.current_price) * 100 : null;
       return { ...r, idealPrice, currentCmv };
     });
-  }, [rows, idealCmv]);
+  }, [unified, idealCmv]);
 
   const filtered = useMemo(() => {
     return enrichedRows.filter((r) => {
-      if (search && !r.name.toLowerCase().includes(search.toLowerCase()) && !(r.menu_category ?? "").toLowerCase().includes(search.toLowerCase())) return false;
+      if (search && !r.name.toLowerCase().includes(search.toLowerCase()) && !(r.category ?? "").toLowerCase().includes(search.toLowerCase())) return false;
       if (filter === "above") return r.currentCmv != null && r.currentCmv > idealCmv;
       if (filter === "below") return r.currentCmv != null && r.currentCmv <= idealCmv;
       return true;
     });
   }, [enrichedRows, filter, search, idealCmv]);
 
-  async function updateField(id: string, patch: Partial<Pick<Row, "current_price" | "menu_category">>) {
+  const existingCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of unified) if (r.category) set.add(r.category);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [unified]);
+
+  async function updateRecipe(id: string, patch: { current_price?: number | null; menu_category?: string | null }) {
     const { error } = await supabase.from("recipes").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["pricing-rows"] });
   }
+  async function updateManual(id: string, patch: { current_price?: number | null; category?: string | null }) {
+    const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
+  }
+  async function removeManual(id: string) {
+    if (!confirm("Excluir este produto?")) return;
+    const { error } = await (supabase as any).from("menu_products").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Produto excluído");
+    qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
-      <div>
-        <h1 className="font-display text-3xl">Precificação</h1>
-        <p className="text-sm text-muted-foreground">Defina seu CMV ideal e acompanhe a saúde dos preços do seu cardápio.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl">Precificação</h1>
+          <p className="text-sm text-muted-foreground">Defina seu CMV ideal e acompanhe a saúde dos preços do seu cardápio.</p>
+        </div>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="mr-1" /> Adicionar produto</Button>
+          </DialogTrigger>
+          <ManualProductDialog onClose={() => setAddOpen(false)} existingCategories={existingCategories} />
+        </Dialog>
       </div>
 
       {/* CMV ideal */}
@@ -166,11 +239,11 @@ function PricingPage() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Unified table */}
       <div className="rounded-xl border bg-card shadow-[var(--shadow-soft)]">
         {filtered.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">
-            Nenhum item no cardápio. Edite uma <Link to="/recipes" className="text-primary hover:underline">ficha técnica</Link> e marque "Faz parte do cardápio?" como Sim.
+            Nenhum item no cardápio. Adicione um produto manualmente ou marque uma <Link to="/recipes" className="text-primary hover:underline">ficha técnica</Link> como parte do cardápio.
           </p>
         ) : (
           <Table>
@@ -182,6 +255,7 @@ function PricingPage() {
                 <TableHead className="text-right">Preço ideal</TableHead>
                 <TableHead className="text-right">Preço atual</TableHead>
                 <TableHead className="text-right">CMV atual</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -189,35 +263,34 @@ function PricingPage() {
                 const above = r.currentCmv != null && r.currentCmv > idealCmv;
                 const below = r.currentCmv != null && r.currentCmv <= idealCmv;
                 return (
-                  <TableRow key={r.id}>
+                  <TableRow key={`${r.source}:${r.id}`}>
                     <TableCell>
-                      <Link to="/recipes/$id" params={{ id: r.id }} className="font-medium hover:text-primary">{r.name}</Link>
-                      <div className="text-xs text-muted-foreground">por {r.yield_unit}</div>
+                      {r.source === "recipe" ? (
+                        <Link to="/recipes/$id" params={{ id: r.id }} className="font-medium hover:text-primary">{r.name}</Link>
+                      ) : (
+                        <span className="font-medium">{r.name}</span>
+                      )}
+                      {r.subtitle && <div className="text-xs text-muted-foreground">{r.subtitle}</div>}
                     </TableCell>
                     <TableCell>
-                      <Input
-                        defaultValue={r.menu_category ?? ""}
-                        placeholder="—"
-                        className="h-8"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v !== (r.menu_category ?? "")) updateField(r.id, { menu_category: v || null });
+                      <CategoryCell
+                        value={r.category}
+                        options={existingCategories}
+                        onChange={(v) => {
+                          if (r.source === "recipe") updateRecipe(r.id, { menu_category: v });
+                          else updateManual(r.id, { category: v });
                         }}
                       />
                     </TableCell>
                     <TableCell className="text-right">{BRL.format(r.unit_cost)}</TableCell>
                     <TableCell className="text-right">{BRL.format(r.idealPrice)}</TableCell>
                     <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={r.current_price ?? ""}
-                        placeholder="—"
-                        className="h-8 w-28 ml-auto text-right"
-                        onBlur={(e) => {
-                          const v = e.target.value === "" ? null : Number(e.target.value);
-                          if (v !== r.current_price) updateField(r.id, { current_price: v });
+                      <CurrencyInput
+                        value={r.current_price}
+                        onCommit={(v) => {
+                          if (v === r.current_price) return;
+                          if (r.source === "recipe") updateRecipe(r.id, { current_price: v });
+                          else updateManual(r.id, { current_price: v });
                         }}
                       />
                     </TableCell>
@@ -239,6 +312,13 @@ function PricingPage() {
                         </Badge>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {r.source === "manual" ? (
+                        <Button variant="ghost" size="icon" onClick={() => removeManual(r.id)}>
+                          <Trash2 className="text-destructive" />
+                        </Button>
+                      ) : null}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -246,152 +326,71 @@ function PricingPage() {
           </Table>
         )}
       </div>
-
-      <ManualProductsSection idealCmv={idealCmv} />
     </div>
   );
 }
 
-function ManualProductsSection({ idealCmv }: { idealCmv: number }) {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-
-  const { data: products } = useQuery<MenuProduct[]>({
-    queryKey: ["manual-menu-products"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("menu_products")
-        .select("id, name, category, current_price, cost, items")
-        .order("name");
-      if (error) throw error;
-      return (data ?? []).map((p: any) => ({
-        ...p,
-        items: Array.isArray(p.items) ? p.items : [],
-      }));
-    },
-  });
-
-  async function updateField(id: string, patch: Partial<Pick<MenuProduct, "category" | "current_price">>) {
-    const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
-  }
-
-  async function remove(id: string) {
-    if (!confirm("Excluir este produto?")) return;
-    const { error } = await (supabase as any).from("menu_products").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Produto excluído");
-    qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
-  }
-
+function CurrencyInput({ value, onCommit }: { value: number | null; onCommit: (v: number | null) => void }) {
+  const [draft, setDraft] = useState<string>(value != null ? String(value).replace(".", ",") : "");
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-xl">Produtos manuais</h2>
-          <p className="text-sm text-muted-foreground">Bebidas, combos e outros itens que não possuem ficha técnica.</p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-1" /> Adicionar produto</Button>
-          </DialogTrigger>
-          <ManualProductDialog onClose={() => setOpen(false)} />
-        </Dialog>
-      </div>
-
-      <div className="rounded-xl border bg-card shadow-[var(--shadow-soft)]">
-        {!products || products.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">Nenhum produto manual cadastrado.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produto</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-right">Custo</TableHead>
-                <TableHead className="text-right">Preço ideal</TableHead>
-                <TableHead className="text-right">Preço atual</TableHead>
-                <TableHead className="text-right">CMV atual</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((p) => {
-                const idealPrice = idealCmv > 0 ? p.cost / (idealCmv / 100) : 0;
-                const currentCmv = p.current_price && p.current_price > 0 ? (p.cost / p.current_price) * 100 : null;
-                const above = currentCmv != null && currentCmv > idealCmv;
-                const below = currentCmv != null && currentCmv <= idealCmv;
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="font-medium">{p.name}</div>
-                      {p.items.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          {p.items.map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(" • ")}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        defaultValue={p.category ?? ""}
-                        placeholder="—"
-                        className="h-8"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v !== (p.category ?? "")) updateField(p.id, { category: v || null });
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">{BRL.format(Number(p.cost) || 0)}</TableCell>
-                    <TableCell className="text-right">{BRL.format(idealPrice)}</TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        defaultValue={p.current_price ?? ""}
-                        placeholder="—"
-                        className="h-8 w-28 ml-auto text-right"
-                        onBlur={(e) => {
-                          const v = e.target.value === "" ? null : Number(e.target.value);
-                          if (v !== p.current_price) updateField(p.id, { current_price: v });
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {currentCmv == null ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className={
-                            above
-                              ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
-                              : below
-                                ? "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400"
-                                : ""
-                          }
-                        >
-                          {currentCmv.toFixed(1)}%
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => remove(p.id)}>
-                        <Trash2 className="text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+    <div className="relative ml-auto w-32">
+      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+      <Input
+        inputMode="decimal"
+        value={draft}
+        placeholder="0,00"
+        className="h-8 pl-8 text-right"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const norm = draft.replace(/\./g, "").replace(",", ".").trim();
+          const n = norm === "" ? null : Number(norm);
+          if (n != null && Number.isNaN(n)) return;
+          onCommit(n);
+        }}
+      />
     </div>
   );
 }
+
+function CategoryCell({ value, options, onChange }: { value: string | null; options: string[]; onChange: (v: string | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  if (editing) {
+    return (
+      <Input
+        autoFocus
+        className="h-8"
+        value={draft}
+        placeholder="Nova categoria"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const v = draft.trim();
+          setEditing(false);
+          if (v && v !== value) onChange(v);
+        }}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      />
+    );
+  }
+  return (
+    <Select
+      value={value ?? "__none"}
+      onValueChange={(v) => {
+        if (v === "__new") { setDraft(""); setEditing(true); return; }
+        if (v === "__none") { onChange(null); return; }
+        if (v !== value) onChange(v);
+      }}
+    >
+      <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none">—</SelectItem>
+        {options.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+        <SelectItem value="__new">+ Nova categoria</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
 
 type PickerOption = { key: string; ref_type: "ingredient" | "recipe"; ref_id: string; name: string; unit: string };
 
