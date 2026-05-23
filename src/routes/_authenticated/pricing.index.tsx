@@ -259,6 +259,7 @@ function PricingPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-28">Código</TableHead>
                 <TableHead>Produto</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
@@ -268,6 +269,7 @@ function PricingPage() {
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {filtered.map((r) => {
                 const above = r.currentCmv != null && r.currentCmv > idealCmv;
