@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Scale } from "lucide-react";
+import { Trash2, Scale, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/cmv/")({
   component: CmvPage,
