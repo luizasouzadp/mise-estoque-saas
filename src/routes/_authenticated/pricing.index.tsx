@@ -175,16 +175,17 @@ function PricingPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [unified]);
 
-  async function updateRecipe(id: string, patch: { current_price?: number | null; menu_category?: string | null }) {
+  async function updateRecipe(id: string, patch: { current_price?: number | null; menu_category?: string | null; product_code?: string | null }) {
     const { error } = await supabase.from("recipes").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["pricing-rows"] });
   }
-  async function updateManual(id: string, patch: { current_price?: number | null; category?: string | null }) {
+  async function updateManual(id: string, patch: { current_price?: number | null; category?: string | null; product_code?: string | null }) {
     const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
   }
+
   async function removeManual(id: string) {
     if (!confirm("Excluir este produto?")) return;
     const { error } = await (supabase as any).from("menu_products").delete().eq("id", id);
