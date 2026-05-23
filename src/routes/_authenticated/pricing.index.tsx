@@ -44,7 +44,9 @@ type Row = {
   yield_qty: number;
   yield_unit: string;
   unit_cost: number;
+  product_code: string | null;
 };
+
 
 function PricingPage() {
   const qc = useQueryClient();
