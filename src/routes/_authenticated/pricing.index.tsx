@@ -123,6 +123,7 @@ function PricingPage() {
     unit_cost: number;
     subtitle?: string;
     yield_unit?: string;
+    product_code: string | null;
   };
 
   const unified: UnifiedRow[] = useMemo(() => {
@@ -135,6 +136,7 @@ function PricingPage() {
       unit_cost: r.unit_cost,
       subtitle: `por ${r.yield_unit}`,
       yield_unit: r.yield_unit,
+      product_code: r.product_code,
     }));
     const manualRows: UnifiedRow[] = (manualProducts ?? []).map((p) => ({
       source: "manual",
@@ -144,9 +146,11 @@ function PricingPage() {
       current_price: p.current_price,
       unit_cost: Number(p.cost) || 0,
       subtitle: p.items.length > 0 ? p.items.map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(" • ") : undefined,
+      product_code: p.product_code,
     }));
     return [...recipeRows, ...manualRows].sort((a, b) => a.name.localeCompare(b.name));
   }, [rows, manualProducts]);
+
 
   const enrichedRows = useMemo(() => {
     return unified.map((r) => {
