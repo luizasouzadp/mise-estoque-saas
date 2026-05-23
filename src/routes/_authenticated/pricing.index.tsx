@@ -83,7 +83,7 @@ function PricingPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, menu_category, current_price, yield_qty, yield_unit")
+        .select("id, name, menu_category, current_price, yield_qty, yield_unit, product_code")
         .eq("is_on_menu", true)
         .order("name");
       if (error) throw error;
@@ -102,12 +102,13 @@ function PricingPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("menu_products")
-        .select("id, name, category, current_price, cost, items")
+        .select("id, name, category, current_price, cost, items, product_code")
         .order("name");
       if (error) throw error;
       return (data ?? []).map((p: any) => ({ ...p, items: Array.isArray(p.items) ? p.items : [] }));
     },
   });
+
 
   const [filter, setFilter] = useState<"all" | "above" | "below">("all");
   const [search, setSearch] = useState("");
