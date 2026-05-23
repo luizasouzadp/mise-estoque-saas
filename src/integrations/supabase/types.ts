@@ -921,6 +921,11 @@ export type Database = {
         Returns: number
       }
       recipe_unit_cost: { Args: { _recipe_id: string }; Returns: number }
+      refresh_all_stocked_ingredients: { Args: never; Returns: undefined }
+      refresh_stocked_ingredient_for_recipe: {
+        Args: { _recipe_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "owner" | "manager" | "staff"
