@@ -337,11 +337,26 @@ function TheoreticalCompareDialog({
   onClose: () => void;
 }) {
   const open = !!report;
+  const qc = useQueryClient();
   const [qty, setQty] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (!open) setQty({});
-  }, [open]);
+    if (!open) {
+      setQty({});
+      return;
+    }
+    const saved = report?.sales_data ?? null;
+    if (saved && typeof saved === "object") {
+      const next: Record<string, string> = {};
+      for (const [k, v] of Object.entries(saved)) next[k] = String(v);
+      setQty(next);
+    } else {
+      setQty({});
+    }
+  }, [open, report?.id]);
+
 
   const { data: products } = useQuery<Product[]>({
     queryKey: ["cmv-theoretical-products"],
