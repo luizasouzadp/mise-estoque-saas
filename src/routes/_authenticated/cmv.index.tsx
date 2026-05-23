@@ -39,6 +39,9 @@ type CmvReport = {
   revenue: number;
   total_cost: number;
   cmv_percent: number;
+  theoretical_cost?: number | null;
+  theoretical_percent?: number | null;
+  sales_data?: Record<string, number> | null;
 };
 
 type Product = {
@@ -46,9 +49,11 @@ type Product = {
   source: "menu_product" | "recipe";
   name: string;
   category: string | null;
+  code: string | null;
   unit_cost: number;
   current_price: number;
 };
+
 
 function CmvPage() {
   const qc = useQueryClient();
