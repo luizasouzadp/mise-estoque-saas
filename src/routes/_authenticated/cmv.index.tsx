@@ -348,13 +348,13 @@ function TheoreticalCompareDialog({
     enabled: open,
     queryFn: async () => {
       const [mp, rec] = await Promise.all([
-        supabase
+        (supabase as any)
           .from("menu_products")
-          .select("id, name, category, current_price, cost")
+          .select("id, name, category, current_price, cost, product_code")
           .order("name"),
         supabase
           .from("recipes")
-          .select("id, name, menu_category, current_price, is_on_menu")
+          .select("id, name, menu_category, current_price, is_on_menu, product_code")
           .eq("is_on_menu", true)
           .order("name"),
       ]);
@@ -365,11 +365,11 @@ function TheoreticalCompareDialog({
           source: "menu_product",
           name: p.name,
           category: p.category,
+          code: p.product_code ?? null,
           unit_cost: Number(p.cost ?? 0),
           current_price: Number(p.current_price ?? 0),
         });
       }
-      // Fetch unit cost for each menu recipe via RPC
       const recipeRows = rec.data ?? [];
       const costs = await Promise.all(
         recipeRows.map((r) =>
@@ -382,6 +382,7 @@ function TheoreticalCompareDialog({
           source: "recipe",
           name: r.name,
           category: r.menu_category,
+          code: (r as any).product_code ?? null,
           unit_cost: costs[idx] ?? 0,
           current_price: Number(r.current_price ?? 0),
         });
@@ -389,6 +390,7 @@ function TheoreticalCompareDialog({
       return out;
     },
   });
+
 
   const { theoreticalCost, theoreticalRevenue } = useMemo(() => {
     let c = 0;
