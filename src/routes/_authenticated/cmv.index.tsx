@@ -266,9 +266,11 @@ function CmvPage() {
                                 revenue: Number(r.revenue),
                                 total_cost: Number(r.total_cost),
                                 cmv_percent: Number(r.cmv_percent),
+                                sales_data: ((r as any).sales_data ?? null) as Record<string, number> | null,
                               })
                             }
                           >
+
                             <Scale className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => remove(r.id)}>
