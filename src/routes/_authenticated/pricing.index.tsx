@@ -352,6 +352,22 @@ function PricingPage() {
     </div>
   );
 }
+function CodeInput({ value, onCommit }: { value: string | null; onCommit: (v: string | null) => void }) {
+  const [draft, setDraft] = useState<string>(value ?? "");
+  return (
+    <Input
+      className="h-8"
+      value={draft}
+      placeholder="—"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        const v = draft.trim();
+        onCommit(v === "" ? null : v);
+      }}
+    />
+  );
+}
+
 
 function CurrencyInput({ value, onCommit }: { value: number | null; onCommit: (v: number | null) => void }) {
   const [draft, setDraft] = useState<string>(value != null ? String(value).replace(".", ",") : "");
