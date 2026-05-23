@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Scale } from "lucide-react";
+import { Trash2, Scale, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/cmv/")({
   component: CmvPage,
@@ -39,6 +39,9 @@ type CmvReport = {
   revenue: number;
   total_cost: number;
   cmv_percent: number;
+  theoretical_cost?: number | null;
+  theoretical_percent?: number | null;
+  sales_data?: Record<string, number> | null;
 };
 
 type Product = {
@@ -46,9 +49,11 @@ type Product = {
   source: "menu_product" | "recipe";
   name: string;
   category: string | null;
+  code: string | null;
   unit_cost: number;
   current_price: number;
 };
+
 
 function CmvPage() {
   const qc = useQueryClient();
@@ -261,9 +266,11 @@ function CmvPage() {
                                 revenue: Number(r.revenue),
                                 total_cost: Number(r.total_cost),
                                 cmv_percent: Number(r.cmv_percent),
+                                sales_data: ((r as any).sales_data ?? null) as Record<string, number> | null,
                               })
                             }
                           >
+
                             <Scale className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => remove(r.id)}>
@@ -332,24 +339,39 @@ function TheoreticalCompareDialog({
   onClose: () => void;
 }) {
   const open = !!report;
+  const qc = useQueryClient();
   const [qty, setQty] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (!open) setQty({});
-  }, [open]);
+    if (!open) {
+      setQty({});
+      return;
+    }
+    const saved = report?.sales_data ?? null;
+    if (saved && typeof saved === "object") {
+      const next: Record<string, string> = {};
+      for (const [k, v] of Object.entries(saved)) next[k] = String(v);
+      setQty(next);
+    } else {
+      setQty({});
+    }
+  }, [open, report?.id]);
+
 
   const { data: products } = useQuery<Product[]>({
     queryKey: ["cmv-theoretical-products"],
     enabled: open,
     queryFn: async () => {
       const [mp, rec] = await Promise.all([
-        supabase
+        (supabase as any)
           .from("menu_products")
-          .select("id, name, category, current_price, cost")
+          .select("id, name, category, current_price, cost, product_code")
           .order("name"),
         supabase
           .from("recipes")
-          .select("id, name, menu_category, current_price, is_on_menu")
+          .select("id, name, menu_category, current_price, is_on_menu, product_code")
           .eq("is_on_menu", true)
           .order("name"),
       ]);
@@ -360,11 +382,11 @@ function TheoreticalCompareDialog({
           source: "menu_product",
           name: p.name,
           category: p.category,
+          code: p.product_code ?? null,
           unit_cost: Number(p.cost ?? 0),
           current_price: Number(p.current_price ?? 0),
         });
       }
-      // Fetch unit cost for each menu recipe via RPC
       const recipeRows = rec.data ?? [];
       const costs = await Promise.all(
         recipeRows.map((r) =>
@@ -377,6 +399,7 @@ function TheoreticalCompareDialog({
           source: "recipe",
           name: r.name,
           category: r.menu_category,
+          code: (r as any).product_code ?? null,
           unit_cost: costs[idx] ?? 0,
           current_price: Number(r.current_price ?? 0),
         });
@@ -384,6 +407,7 @@ function TheoreticalCompareDialog({
       return out;
     },
   });
+
 
   const { theoreticalCost, theoreticalRevenue } = useMemo(() => {
     let c = 0;
@@ -402,6 +426,78 @@ function TheoreticalCompareDialog({
   const realPct = Number(report?.cmv_percent ?? 0);
   const diff = realPct - theoreticalPct;
 
+  async function handleImport(file: File) {
+    try {
+      const XLSX = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error("Planilha vazia");
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+      const codeMap = new Map<string, string>();
+      for (const p of products ?? []) {
+        if (p.code) codeMap.set(p.code.trim().toLowerCase(), p.id);
+      }
+      let matched = 0;
+      let unmatched = 0;
+      const next: Record<string, string> = {};
+      for (const row of rows) {
+        if (!row || row.length < 2) continue;
+        const codeRaw = row[0];
+        const qtyRaw = row[1];
+        if (codeRaw == null || qtyRaw == null) continue;
+        const codeKey = String(codeRaw).trim().toLowerCase();
+        if (!codeKey) continue;
+        const qNum = Number(String(qtyRaw).replace(",", "."));
+        if (!Number.isFinite(qNum) || qNum <= 0) continue;
+        // Skip likely header row
+        if (codeKey === "codigo" || codeKey === "código" || codeKey === "code" || codeKey === "produto") continue;
+        const pid = codeMap.get(codeKey);
+        if (pid) {
+          next[pid] = String((Number(next[pid] ?? 0) || 0) + qNum);
+          matched++;
+        } else {
+          unmatched++;
+        }
+      }
+      setQty((s) => ({ ...s, ...next }));
+      if (matched === 0) {
+        toast.error("Nenhum código encontrado. Cadastre o código dos produtos no Cardápio.");
+      } else {
+        toast.success(
+          `${matched} produto(s) importado(s)` + (unmatched > 0 ? ` • ${unmatched} código(s) sem correspondência` : ""),
+        );
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Falha ao ler a planilha");
+    }
+  }
+
+  async function handleSave() {
+    if (!report) return;
+    setSaving(true);
+    const salesPayload: Record<string, number> = {};
+    for (const p of products ?? []) {
+      const q = Number(qty[p.id] ?? 0) || 0;
+      if (q > 0) salesPayload[p.id] = q;
+    }
+    const { error } = await supabase
+      .from("cmv_reports")
+      .update({
+        theoretical_cost: theoreticalCost,
+        theoretical_percent: theoreticalPct,
+        sales_data: salesPayload as any,
+      })
+      .eq("id", report.id);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Comparação salva");
+    qc.invalidateQueries({ queryKey: ["cmv-reports"] });
+    onClose();
+  }
+
+  const productsWithoutCode = (products ?? []).filter((p) => !p.code).length;
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -411,27 +507,61 @@ function TheoreticalCompareDialog({
 
         {report && (
           <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              Período:{" "}
-              <span className="font-medium text-foreground">
-                {new Date(report.period_start).toLocaleDateString("pt-BR")} —{" "}
-                {new Date(report.period_end).toLocaleDateString("pt-BR")}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm text-muted-foreground">
+                Período:{" "}
+                <span className="font-medium text-foreground">
+                  {new Date(report.period_start).toLocaleDateString("pt-BR")} —{" "}
+                  {new Date(report.period_end).toLocaleDateString("pt-BR")}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImport(f);
+                    e.target.value = "";
+                  }}
+                />
+                <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                  <Upload className="mr-1 h-4 w-4" /> Importar do PDV
+                </Button>
+              </div>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              A planilha deve ter o código do produto na 1ª coluna e a quantidade vendida na 2ª.
+              {productsWithoutCode > 0 && (
+                <>
+                  {" "}
+                  <span className="text-destructive">
+                    {productsWithoutCode} produto(s) sem código — cadastre na aba Cardápio para que sejam reconhecidos.
+                  </span>
+                </>
+              )}
+            </p>
 
             <div className="rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-24">Código</TableHead>
                     <TableHead>Produto</TableHead>
                     <TableHead className="text-right">Custo unit.</TableHead>
                     <TableHead className="text-right">Preço</TableHead>
-                    <TableHead className="w-32 text-right">Vendidos</TableHead>
+                    <TableHead className="w-28 text-right">Vendidos</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {(products ?? []).map((p) => (
                     <TableRow key={p.id}>
+                      <TableCell className="font-mono text-xs">
+                        {p.code ?? <span className="text-muted-foreground">—</span>}
+                      </TableCell>
                       <TableCell>
                         <div className="font-medium">{p.name}</div>
                         {p.category && (
@@ -456,7 +586,7 @@ function TheoreticalCompareDialog({
                   ))}
                   {(products ?? []).length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
                         Nenhum produto no cardápio
                       </TableCell>
                     </TableRow>
@@ -506,10 +636,14 @@ function TheoreticalCompareDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Fechar
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={saving || !report}>
+            {saving ? "Salvando..." : "Salvar comparação"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+

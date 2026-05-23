@@ -34,7 +34,9 @@ type MenuProduct = {
   current_price: number | null;
   cost: number;
   items: MenuItem[];
+  product_code: string | null;
 };
+
 
 type Row = {
   id: string;
@@ -44,7 +46,9 @@ type Row = {
   yield_qty: number;
   yield_unit: string;
   unit_cost: number;
+  product_code: string | null;
 };
+
 
 function PricingPage() {
   const qc = useQueryClient();
@@ -79,7 +83,7 @@ function PricingPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, menu_category, current_price, yield_qty, yield_unit")
+        .select("id, name, menu_category, current_price, yield_qty, yield_unit, product_code")
         .eq("is_on_menu", true)
         .order("name");
       if (error) throw error;
@@ -98,12 +102,13 @@ function PricingPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("menu_products")
-        .select("id, name, category, current_price, cost, items")
+        .select("id, name, category, current_price, cost, items, product_code")
         .order("name");
       if (error) throw error;
       return (data ?? []).map((p: any) => ({ ...p, items: Array.isArray(p.items) ? p.items : [] }));
     },
   });
+
 
   const [filter, setFilter] = useState<"all" | "above" | "below">("all");
   const [search, setSearch] = useState("");
@@ -118,6 +123,7 @@ function PricingPage() {
     unit_cost: number;
     subtitle?: string;
     yield_unit?: string;
+    product_code: string | null;
   };
 
   const unified: UnifiedRow[] = useMemo(() => {
@@ -130,6 +136,7 @@ function PricingPage() {
       unit_cost: r.unit_cost,
       subtitle: `por ${r.yield_unit}`,
       yield_unit: r.yield_unit,
+      product_code: r.product_code,
     }));
     const manualRows: UnifiedRow[] = (manualProducts ?? []).map((p) => ({
       source: "manual",
@@ -139,9 +146,11 @@ function PricingPage() {
       current_price: p.current_price,
       unit_cost: Number(p.cost) || 0,
       subtitle: p.items.length > 0 ? p.items.map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(" • ") : undefined,
+      product_code: p.product_code,
     }));
     return [...recipeRows, ...manualRows].sort((a, b) => a.name.localeCompare(b.name));
   }, [rows, manualProducts]);
+
 
   const enrichedRows = useMemo(() => {
     return unified.map((r) => {
@@ -166,16 +175,17 @@ function PricingPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [unified]);
 
-  async function updateRecipe(id: string, patch: { current_price?: number | null; menu_category?: string | null }) {
+  async function updateRecipe(id: string, patch: { current_price?: number | null; menu_category?: string | null; product_code?: string | null }) {
     const { error } = await supabase.from("recipes").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["pricing-rows"] });
   }
-  async function updateManual(id: string, patch: { current_price?: number | null; category?: string | null }) {
+  async function updateManual(id: string, patch: { current_price?: number | null; category?: string | null; product_code?: string | null }) {
     const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
   }
+
   async function removeManual(id: string) {
     if (!confirm("Excluir este produto?")) return;
     const { error } = await (supabase as any).from("menu_products").delete().eq("id", id);
@@ -249,6 +259,7 @@ function PricingPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-28">Código</TableHead>
                 <TableHead>Produto</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
@@ -258,12 +269,23 @@ function PricingPage() {
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {filtered.map((r) => {
                 const above = r.currentCmv != null && r.currentCmv > idealCmv;
                 const below = r.currentCmv != null && r.currentCmv <= idealCmv;
                 return (
                   <TableRow key={`${r.source}:${r.id}`}>
+                    <TableCell>
+                      <CodeInput
+                        value={r.product_code}
+                        onCommit={(v) => {
+                          if ((v ?? null) === (r.product_code ?? null)) return;
+                          if (r.source === "recipe") updateRecipe(r.id, { product_code: v });
+                          else updateManual(r.id, { product_code: v });
+                        }}
+                      />
+                    </TableCell>
                     <TableCell>
                       {r.source === "recipe" ? (
                         <Link to="/recipes/$id" params={{ id: r.id }} className="font-medium hover:text-primary">{r.name}</Link>
@@ -272,6 +294,7 @@ function PricingPage() {
                       )}
                       {r.subtitle && <div className="text-xs text-muted-foreground">{r.subtitle}</div>}
                     </TableCell>
+
                     <TableCell>
                       <CategoryCell
                         value={r.category}
@@ -329,6 +352,22 @@ function PricingPage() {
     </div>
   );
 }
+function CodeInput({ value, onCommit }: { value: string | null; onCommit: (v: string | null) => void }) {
+  const [draft, setDraft] = useState<string>(value ?? "");
+  return (
+    <Input
+      className="h-8"
+      value={draft}
+      placeholder="—"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        const v = draft.trim();
+        onCommit(v === "" ? null : v);
+      }}
+    />
+  );
+}
+
 
 function CurrencyInput({ value, onCommit }: { value: number | null; onCommit: (v: number | null) => void }) {
   const [draft, setDraft] = useState<string>(value != null ? String(value).replace(".", ",") : "");

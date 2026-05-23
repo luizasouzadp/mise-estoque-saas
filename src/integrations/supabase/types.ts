@@ -25,6 +25,9 @@ export type Database = {
           period_start: string
           restaurant_id: string
           revenue: number
+          sales_data: Json | null
+          theoretical_cost: number | null
+          theoretical_percent: number | null
           total_cost: number
           updated_at: string
         }
@@ -38,6 +41,9 @@ export type Database = {
           period_start: string
           restaurant_id: string
           revenue?: number
+          sales_data?: Json | null
+          theoretical_cost?: number | null
+          theoretical_percent?: number | null
           total_cost?: number
           updated_at?: string
         }
@@ -51,6 +57,9 @@ export type Database = {
           period_start?: string
           restaurant_id?: string
           revenue?: number
+          sales_data?: Json | null
+          theoretical_cost?: number | null
+          theoretical_percent?: number | null
           total_cost?: number
           updated_at?: string
         }
@@ -450,6 +459,7 @@ export type Database = {
           id: string
           items: Json
           name: string
+          product_code: string | null
           restaurant_id: string
           updated_at: string
         }
@@ -462,6 +472,7 @@ export type Database = {
           id?: string
           items?: Json
           name: string
+          product_code?: string | null
           restaurant_id: string
           updated_at?: string
         }
@@ -474,6 +485,7 @@ export type Database = {
           id?: string
           items?: Json
           name?: string
+          product_code?: string | null
           restaurant_id?: string
           updated_at?: string
         }
