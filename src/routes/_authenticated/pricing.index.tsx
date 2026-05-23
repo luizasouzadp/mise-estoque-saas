@@ -277,6 +277,16 @@ function PricingPage() {
                 return (
                   <TableRow key={`${r.source}:${r.id}`}>
                     <TableCell>
+                      <CodeInput
+                        value={r.product_code}
+                        onCommit={(v) => {
+                          if ((v ?? null) === (r.product_code ?? null)) return;
+                          if (r.source === "recipe") updateRecipe(r.id, { product_code: v });
+                          else updateManual(r.id, { product_code: v });
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
                       {r.source === "recipe" ? (
                         <Link to="/recipes/$id" params={{ id: r.id }} className="font-medium hover:text-primary">{r.name}</Link>
                       ) : (
@@ -284,6 +294,7 @@ function PricingPage() {
                       )}
                       {r.subtitle && <div className="text-xs text-muted-foreground">{r.subtitle}</div>}
                     </TableCell>
+
                     <TableCell>
                       <CategoryCell
                         value={r.category}
