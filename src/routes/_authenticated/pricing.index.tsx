@@ -34,7 +34,9 @@ type MenuProduct = {
   current_price: number | null;
   cost: number;
   items: MenuItem[];
+  product_code: string | null;
 };
+
 
 type Row = {
   id: string;
