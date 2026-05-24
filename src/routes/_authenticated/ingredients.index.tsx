@@ -25,6 +25,9 @@ function parseNum(v: unknown): number {
 
 function IngredientsList() {
   const [q, setQ] = useState("");
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["ingredients"],
     queryFn: async () => {
@@ -40,6 +43,52 @@ function IngredientsList() {
   const filtered = (data ?? []).filter((i) =>
     !q || i.name.toLowerCase().includes(q.toLowerCase()) || (i.category ?? "").toLowerCase().includes(q.toLowerCase()),
   );
+
+  async function handleImport(file: File) {
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, blankrows: false });
+      const dataRows = rows.slice(1).filter((r) => r && r.length && String(r[0] ?? "").trim());
+
+      if (!dataRows.length) {
+        toast.error("Planilha vazia");
+        return;
+      }
+
+      const { data: prof, error: pErr } = await supabase
+        .from("profiles").select("restaurant_id").maybeSingle();
+      if (pErr || !prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+
+      const payload = dataRows.map((r) => {
+        const cost = parseNum(r[5]);
+        return {
+          restaurant_id: prof.restaurant_id,
+          name: String(r[0]).trim(),
+          unit: String(r[1] ?? "un").trim() || "un",
+          category: r[2] ? String(r[2]).trim() : null,
+          current_stock: parseNum(r[3]),
+          min_stock: parseNum(r[4]),
+          avg_cost: cost,
+          last_cost: cost,
+          composes_cmv: parseBool(r[6]),
+        };
+      });
+
+      const { error } = await supabase.from("ingredients").insert(payload);
+      if (error) throw error;
+      toast.success(`${payload.length} insumos importados`);
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Falha ao importar");
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
