@@ -97,9 +97,24 @@ function IngredientsList() {
           <h1 className="font-display text-3xl">Insumos</h1>
           <p className="text-sm text-muted-foreground">Catálogo do seu restaurante.</p>
         </div>
-        <Button asChild>
-          <Link to="/ingredients/new"><Plus className="mr-2 h-4 w-4" /> Novo insumo</Link>
-        </Button>
+        <div className="flex gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImport(f);
+            }}
+          />
+          <Button variant="outline" disabled={importing} onClick={() => fileRef.current?.click()}>
+            <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar Excel"}
+          </Button>
+          <Button asChild>
+            <Link to="/ingredients/new"><Plus className="mr-2 h-4 w-4" /> Novo insumo</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6 relative">
