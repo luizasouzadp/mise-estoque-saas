@@ -1,17 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Package } from "lucide-react";
+import { Plus, Search, Package, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,
 });
 
+function parseBool(v: unknown): boolean {
+  const s = String(v ?? "").trim().toLowerCase();
+  return ["sim", "s", "yes", "y", "true", "1", "x"].includes(s);
+}
+function parseNum(v: unknown): number {
+  if (v == null || v === "") return 0;
+  const s = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function IngredientsList() {
   const [q, setQ] = useState("");
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["ingredients"],
     queryFn: async () => {
@@ -28,6 +44,52 @@ function IngredientsList() {
     !q || i.name.toLowerCase().includes(q.toLowerCase()) || (i.category ?? "").toLowerCase().includes(q.toLowerCase()),
   );
 
+  async function handleImport(file: File) {
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, blankrows: false });
+      const dataRows = rows.slice(1).filter((r) => r && r.length && String(r[0] ?? "").trim());
+
+      if (!dataRows.length) {
+        toast.error("Planilha vazia");
+        return;
+      }
+
+      const { data: prof, error: pErr } = await supabase
+        .from("profiles").select("restaurant_id").maybeSingle();
+      if (pErr || !prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+
+      const payload = dataRows.map((r) => {
+        const cost = parseNum(r[5]);
+        return {
+          restaurant_id: prof.restaurant_id,
+          name: String(r[0]).trim(),
+          unit: String(r[1] ?? "un").trim() || "un",
+          category: r[2] ? String(r[2]).trim() : null,
+          current_stock: parseNum(r[3]),
+          min_stock: parseNum(r[4]),
+          avg_cost: cost,
+          last_cost: cost,
+          composes_cmv: parseBool(r[6]),
+        };
+      });
+
+      const { error } = await supabase.from("ingredients").insert(payload);
+      if (error) throw error;
+      toast.success(`${payload.length} insumos importados`);
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Falha ao importar");
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
       <div className="flex items-center justify-between gap-4">
@@ -35,9 +97,24 @@ function IngredientsList() {
           <h1 className="font-display text-3xl">Insumos</h1>
           <p className="text-sm text-muted-foreground">Catálogo do seu restaurante.</p>
         </div>
-        <Button asChild>
-          <Link to="/ingredients/new"><Plus className="mr-2 h-4 w-4" /> Novo insumo</Link>
-        </Button>
+        <div className="flex gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImport(f);
+            }}
+          />
+          <Button variant="outline" disabled={importing} onClick={() => fileRef.current?.click()}>
+            <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar Excel"}
+          </Button>
+          <Button asChild>
+            <Link to="/ingredients/new"><Plus className="mr-2 h-4 w-4" /> Novo insumo</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6 relative">
