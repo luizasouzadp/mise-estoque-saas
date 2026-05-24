@@ -18,7 +18,18 @@ function parseBool(v: unknown): boolean {
 }
 function parseNum(v: unknown): number {
   if (v == null || v === "") return 0;
-  const s = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  let s = String(v).trim();
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  if (hasComma && hasDot) {
+    // "1.234,56" → "1234.56"
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    // "12,50" → "12.50"
+    s = s.replace(",", ".");
+  }
+  s = s.replace(/[^\d.-]/g, "");
   const n = Number(s);
   return Number.isFinite(n) ? n : 0;
 }
