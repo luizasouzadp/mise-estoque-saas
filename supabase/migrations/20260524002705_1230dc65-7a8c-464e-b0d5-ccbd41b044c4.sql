@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.ingredient_avg_cost_last_30d(uuid) TO authenticated;
