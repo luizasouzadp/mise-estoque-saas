@@ -1,14 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Package } from "lucide-react";
+import { Plus, Search, Package, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,
 });
+
+function parseBool(v: unknown): boolean {
+  const s = String(v ?? "").trim().toLowerCase();
+  return ["sim", "s", "yes", "y", "true", "1", "x"].includes(s);
+}
+function parseNum(v: unknown): number {
+  if (v == null || v === "") return 0;
+  const s = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
 
 function IngredientsList() {
   const [q, setQ] = useState("");
