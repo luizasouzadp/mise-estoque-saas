@@ -643,11 +643,29 @@ function MovementsPage() {
                   onChange={(e) => setQuickQty(e.target.value)}
                 />
               </div>
+              {(quick.purchase || (quick.manual && quick.type === "in")) && (
+                <div>
+                  <Label>Custo unitário {quick.manual ? "(opcional)" : ""}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={quickCost}
+                    onChange={(e) => setQuickCost(e.target.value)}
+                  />
+                </div>
+              )}
+              {quick.purchase && (
+                <div>
+                  <Label>Fornecedor</Label>
+                  <Input value={quickSupplier} onChange={(e) => setQuickSupplier(e.target.value)} />
+                </div>
+              )}
               {quick.source === "inventory" && (
                 <p className="text-xs text-muted-foreground">
                   A contagem do inventário será ajustada mantendo a direção ({quick.type === "in" ? "entrada" : "saída"}).
                 </p>
               )}
+
             </div>
           )}
           <DialogFooter className="flex !justify-between sm:!justify-between">
