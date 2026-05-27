@@ -496,6 +496,10 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
     if (error) return toast.error(error.message);
     toast.success("Produto adicionado");
     qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
+    setName("");
+    setCategory("");
+    setPrice("");
+    setItems([{ key: "", quantity: "" }]);
     onClose();
   }
 
