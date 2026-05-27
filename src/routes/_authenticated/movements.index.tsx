@@ -452,16 +452,19 @@ function MovementsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={form.type === "in" ? "grid grid-cols-2 gap-3" : ""}>
                 <div>
                   <Label>Quantidade</Label>
                   <Input type="number" step="0.001" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
                 </div>
-                <div>
-                  <Label>Custo unitário (opcional)</Label>
-                  <Input type="number" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
-                </div>
+                {form.type === "in" && (
+                  <div>
+                    <Label>Custo unitário (opcional)</Label>
+                    <Input type="number" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
+                  </div>
+                )}
               </div>
+
               <div>
                 <Label>Data/hora</Label>
                 <Input type="datetime-local" value={form.occurred_at} onChange={(e) => setForm({ ...form, occurred_at: e.target.value })} />
