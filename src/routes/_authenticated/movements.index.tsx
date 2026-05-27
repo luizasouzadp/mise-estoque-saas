@@ -106,6 +106,9 @@ function MovementsPage() {
 
   const [quick, setQuick] = useState<UnifiedMovement | null>(null);
   const [quickQty, setQuickQty] = useState("");
+  const [quickCost, setQuickCost] = useState("");
+  const [quickSupplier, setQuickSupplier] = useState("");
+
 
   async function load() {
     setLoading(true);
