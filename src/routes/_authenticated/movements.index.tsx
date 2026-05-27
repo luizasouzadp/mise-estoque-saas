@@ -299,7 +299,7 @@ function MovementsPage() {
       ingredient_id: form.ingredient_id,
       type: form.type,
       quantity: qty,
-      unit_cost: form.unit_cost ? Number(form.unit_cost) : null,
+      unit_cost: form.type === "in" && form.unit_cost ? Number(form.unit_cost) : null,
       reason: form.reason || null,
       notes: form.notes || null,
       occurred_at: new Date(form.occurred_at).toISOString(),
