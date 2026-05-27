@@ -106,6 +106,9 @@ function MovementsPage() {
 
   const [quick, setQuick] = useState<UnifiedMovement | null>(null);
   const [quickQty, setQuickQty] = useState("");
+  const [quickCost, setQuickCost] = useState("");
+  const [quickSupplier, setQuickSupplier] = useState("");
+
 
   async function load() {
     setLoading(true);
@@ -296,7 +299,7 @@ function MovementsPage() {
       ingredient_id: form.ingredient_id,
       type: form.type,
       quantity: qty,
-      unit_cost: form.unit_cost ? Number(form.unit_cost) : null,
+      unit_cost: form.type === "in" && form.unit_cost ? Number(form.unit_cost) : null,
       reason: form.reason || null,
       notes: form.notes || null,
       occurred_at: new Date(form.occurred_at).toISOString(),
@@ -326,6 +329,16 @@ function MovementsPage() {
     if (!isEditable(m)) return;
     setQuick(m);
     setQuickQty(String(m.quantity));
+    if (m.purchase) {
+      setQuickCost(String(m.purchase.unit_cost ?? ""));
+      setQuickSupplier(m.purchase.supplier ?? "");
+    } else if (m.manual) {
+      setQuickCost(m.manual.unit_cost != null ? String(m.manual.unit_cost) : "");
+      setQuickSupplier("");
+    } else {
+      setQuickCost("");
+      setQuickSupplier("");
+    }
   }
   async function quickSave() {
     if (!quick) return;
@@ -333,16 +346,20 @@ function MovementsPage() {
     if (!Number.isFinite(qty) || qty <= 0) return toast.error("Quantidade inválida");
 
     if (quick.manual) {
+      const patch: { quantity: number; unit_cost?: number | null } = { quantity: qty };
+      if (quick.type === "in") {
+        patch.unit_cost = quickCost === "" ? null : Number(quickCost);
+      }
       const { error } = await supabase
         .from("stock_movements")
-        .update({ quantity: qty })
+        .update(patch)
         .eq("id", quick.manual.id);
       if (error) return toast.error(error.message);
     } else if (quick.purchase) {
-      const unit = Number(quick.purchase.unit_cost) || 0;
+      const unit = quickCost === "" ? Number(quick.purchase.unit_cost) || 0 : Number(quickCost);
       const { error } = await supabase
         .from("purchases")
-        .update({ quantity: qty, total_cost: qty * unit })
+        .update({ quantity: qty, unit_cost: unit, total_cost: qty * unit, supplier: quickSupplier || null })
         .eq("id", quick.purchase.id);
       if (error) return toast.error(error.message);
     } else if (quick.invItem) {
@@ -359,6 +376,7 @@ function MovementsPage() {
     setQuick(null);
     load();
   }
+
   async function quickDelete() {
     if (!quick) return;
     if (!confirm("Excluir esta movimentação? O estoque será ajustado.")) return;
@@ -434,16 +452,19 @@ function MovementsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={form.type === "in" ? "grid grid-cols-2 gap-3" : ""}>
                 <div>
                   <Label>Quantidade</Label>
                   <Input type="number" step="0.001" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
                 </div>
-                <div>
-                  <Label>Custo unitário (opcional)</Label>
-                  <Input type="number" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
-                </div>
+                {form.type === "in" && (
+                  <div>
+                    <Label>Custo unitário (opcional)</Label>
+                    <Input type="number" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
+                  </div>
+                )}
               </div>
+
               <div>
                 <Label>Data/hora</Label>
                 <Input type="datetime-local" value={form.occurred_at} onChange={(e) => setForm({ ...form, occurred_at: e.target.value })} />
@@ -622,11 +643,29 @@ function MovementsPage() {
                   onChange={(e) => setQuickQty(e.target.value)}
                 />
               </div>
+              {(quick.purchase || (quick.manual && quick.type === "in")) && (
+                <div>
+                  <Label>Custo unitário {quick.manual ? "(opcional)" : ""}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={quickCost}
+                    onChange={(e) => setQuickCost(e.target.value)}
+                  />
+                </div>
+              )}
+              {quick.purchase && (
+                <div>
+                  <Label>Fornecedor</Label>
+                  <Input value={quickSupplier} onChange={(e) => setQuickSupplier(e.target.value)} />
+                </div>
+              )}
               {quick.source === "inventory" && (
                 <p className="text-xs text-muted-foreground">
                   A contagem do inventário será ajustada mantendo a direção ({quick.type === "in" ? "entrada" : "saída"}).
                 </p>
               )}
+
             </div>
           )}
           <DialogFooter className="flex !justify-between sm:!justify-between">
