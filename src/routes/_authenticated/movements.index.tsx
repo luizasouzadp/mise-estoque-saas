@@ -329,6 +329,16 @@ function MovementsPage() {
     if (!isEditable(m)) return;
     setQuick(m);
     setQuickQty(String(m.quantity));
+    if (m.purchase) {
+      setQuickCost(String(m.purchase.unit_cost ?? ""));
+      setQuickSupplier(m.purchase.supplier ?? "");
+    } else if (m.manual) {
+      setQuickCost(m.manual.unit_cost != null ? String(m.manual.unit_cost) : "");
+      setQuickSupplier("");
+    } else {
+      setQuickCost("");
+      setQuickSupplier("");
+    }
   }
   async function quickSave() {
     if (!quick) return;
@@ -336,16 +346,20 @@ function MovementsPage() {
     if (!Number.isFinite(qty) || qty <= 0) return toast.error("Quantidade inválida");
 
     if (quick.manual) {
+      const patch: { quantity: number; unit_cost?: number | null } = { quantity: qty };
+      if (quick.type === "in") {
+        patch.unit_cost = quickCost === "" ? null : Number(quickCost);
+      }
       const { error } = await supabase
         .from("stock_movements")
-        .update({ quantity: qty })
+        .update(patch)
         .eq("id", quick.manual.id);
       if (error) return toast.error(error.message);
     } else if (quick.purchase) {
-      const unit = Number(quick.purchase.unit_cost) || 0;
+      const unit = quickCost === "" ? Number(quick.purchase.unit_cost) || 0 : Number(quickCost);
       const { error } = await supabase
         .from("purchases")
-        .update({ quantity: qty, total_cost: qty * unit })
+        .update({ quantity: qty, unit_cost: unit, total_cost: qty * unit, supplier: quickSupplier || null })
         .eq("id", quick.purchase.id);
       if (error) return toast.error(error.message);
     } else if (quick.invItem) {
@@ -362,6 +376,7 @@ function MovementsPage() {
     setQuick(null);
     load();
   }
+
   async function quickDelete() {
     if (!quick) return;
     if (!confirm("Excluir esta movimentação? O estoque será ajustado.")) return;
