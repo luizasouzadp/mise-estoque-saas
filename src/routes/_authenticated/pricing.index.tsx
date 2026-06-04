@@ -543,9 +543,21 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
 
   async function save() {
     if (!name.trim()) return toast.error("Informe o nome do produto");
+    const code = productCode.trim();
     setSaving(true);
     const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
     if (!profile?.restaurant_id) { setSaving(false); return toast.error("Restaurante não encontrado"); }
+
+    if (code) {
+      const [{ data: r }, { data: m }] = await Promise.all([
+        supabase.from("recipes").select("id").eq("product_code", code).limit(1),
+        (supabase as any).from("menu_products").select("id").eq("product_code", code).limit(1),
+      ]);
+      if ((r?.length ?? 0) > 0 || (m?.length ?? 0) > 0) {
+        setSaving(false);
+        return toast.error("Código já está em uso");
+      }
+    }
 
     const resolved: MenuItem[] = [];
     let totalCost = 0;
@@ -572,6 +584,7 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
       current_price: price === "" ? null : Number(price),
       cost: totalCost,
       items: resolved,
+      product_code: code || null,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -580,9 +593,11 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
     setName("");
     setCategory("");
     setPrice("");
+    setProductCode("");
     setItems([{ key: "", quantity: "" }]);
     onClose();
   }
+
 
   return (
     <DialogContent className="max-w-lg">
