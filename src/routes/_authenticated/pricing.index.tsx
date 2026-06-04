@@ -9,7 +9,16 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Trash2, X } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import { Plus, Trash2, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/pricing/")({
@@ -433,6 +442,53 @@ function CategoryCell({ value, options, onChange }: { value: string | null; opti
 
 type PickerOption = { key: string; ref_type: "ingredient" | "recipe"; ref_id: string; name: string; unit: string };
 
+function ItemCombobox({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: PickerOption[];
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.key === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" className="flex-1 justify-between">
+          {selected ? `${selected.ref_type === "recipe" ? "🍳 " : "📦 "}${selected.name}` : placeholder}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0">
+        <Command>
+          <CommandInput placeholder="Buscar item..." />
+          <CommandList>
+            <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem
+                  key={o.key}
+                  value={o.key}
+                  onSelect={(v) => {
+                    onChange(v);
+                    setOpen(false);
+                  }}
+                >
+                  {o.ref_type === "recipe" ? "🍳 " : "📦 "}{o.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ManualProductDialog({ onClose, existingCategories }: { onClose: () => void; existingCategories: string[] }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
@@ -539,16 +595,12 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
                 <div key={idx} className="flex gap-2">
                   <Input className="w-20" type="number" step="0.01" min="0" placeholder="Qtd" value={it.quantity} onChange={(e) => setItem(idx, { quantity: e.target.value })} />
                   <span className="self-center text-xs text-muted-foreground w-10">{opt?.unit ?? ""}</span>
-                  <Select value={it.key} onValueChange={(v) => setItem(idx, { key: v })}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione um item" /></SelectTrigger>
-                    <SelectContent>
-                      {(options ?? []).map((o) => (
-                        <SelectItem key={o.key} value={o.key}>
-                          {o.ref_type === "recipe" ? "🍳 " : "📦 "}{o.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ItemCombobox
+                    value={it.key}
+                    onChange={(v) => setItem(idx, { key: v })}
+                    options={options ?? []}
+                    placeholder="Selecione um item"
+                  />
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}><X /></Button>
                 </div>
               );
