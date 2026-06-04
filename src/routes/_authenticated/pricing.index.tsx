@@ -548,16 +548,12 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
                 <div key={idx} className="flex gap-2">
                   <Input className="w-20" type="number" step="0.01" min="0" placeholder="Qtd" value={it.quantity} onChange={(e) => setItem(idx, { quantity: e.target.value })} />
                   <span className="self-center text-xs text-muted-foreground w-10">{opt?.unit ?? ""}</span>
-                  <Select value={it.key} onValueChange={(v) => setItem(idx, { key: v })}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione um item" /></SelectTrigger>
-                    <SelectContent>
-                      {(options ?? []).map((o) => (
-                        <SelectItem key={o.key} value={o.key}>
-                          {o.ref_type === "recipe" ? "🍳 " : "📦 "}{o.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ItemCombobox
+                    value={it.key}
+                    onChange={(v) => setItem(idx, { key: v })}
+                    options={options ?? []}
+                    placeholder="Selecione um item"
+                  />
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}><X /></Button>
                 </div>
               );
