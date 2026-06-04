@@ -517,8 +517,10 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [productCode, setProductCode] = useState("");
   const [items, setItems] = useState<{ key: string; quantity: string }[]>([{ key: "", quantity: "" }]);
   const [saving, setSaving] = useState(false);
+
 
   const { data: options } = useQuery<PickerOption[]>({
     queryKey: ["menu-product-picker"],
