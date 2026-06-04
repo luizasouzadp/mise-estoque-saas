@@ -442,6 +442,53 @@ function CategoryCell({ value, options, onChange }: { value: string | null; opti
 
 type PickerOption = { key: string; ref_type: "ingredient" | "recipe"; ref_id: string; name: string; unit: string };
 
+function ItemCombobox({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: PickerOption[];
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.key === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" className="flex-1 justify-between">
+          {selected ? `${selected.ref_type === "recipe" ? "🍳 " : "📦 "}${selected.name}` : placeholder}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0">
+        <Command>
+          <CommandInput placeholder="Buscar item..." />
+          <CommandList>
+            <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem
+                  key={o.key}
+                  value={o.key}
+                  onSelect={(v) => {
+                    onChange(v);
+                    setOpen(false);
+                  }}
+                >
+                  {o.ref_type === "recipe" ? "🍳 " : "📦 "}{o.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ManualProductDialog({ onClose, existingCategories }: { onClose: () => void; existingCategories: string[] }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
