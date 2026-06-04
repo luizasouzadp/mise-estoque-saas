@@ -184,16 +184,39 @@ function PricingPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [unified]);
 
+  async function isCodeTaken(code: string, exclude: { source: "recipe" | "manual"; id: string }) {
+    const c = code.trim();
+    if (!c) return false;
+    const [{ data: r }, { data: m }] = await Promise.all([
+      supabase.from("recipes").select("id").eq("product_code", c).limit(5),
+      (supabase as any).from("menu_products").select("id").eq("product_code", c).limit(5),
+    ]);
+    const inR = (r ?? []).some((x: any) => !(exclude.source === "recipe" && x.id === exclude.id));
+    const inM = (m ?? []).some((x: any) => !(exclude.source === "manual" && x.id === exclude.id));
+    return inR || inM;
+  }
+
   async function updateRecipe(id: string, patch: { current_price?: number | null; menu_category?: string | null; product_code?: string | null }) {
+    if (patch.product_code) {
+      if (await isCodeTaken(patch.product_code, { source: "recipe", id })) {
+        return toast.error("Código já está em uso");
+      }
+    }
     const { error } = await supabase.from("recipes").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["pricing-rows"] });
   }
   async function updateManual(id: string, patch: { current_price?: number | null; category?: string | null; product_code?: string | null }) {
+    if (patch.product_code) {
+      if (await isCodeTaken(patch.product_code, { source: "manual", id })) {
+        return toast.error("Código já está em uso");
+      }
+    }
     const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
   }
+
 
   async function removeManual(id: string) {
     if (!confirm("Excluir este produto?")) return;
