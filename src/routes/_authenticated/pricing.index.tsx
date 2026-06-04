@@ -472,9 +472,9 @@ function ItemCombobox({
               {options.map((o) => (
                 <CommandItem
                   key={o.key}
-                  value={o.key}
-                  onSelect={(v) => {
-                    onChange(v);
+                  value={`${o.name} ${o.key}`}
+                  onSelect={() => {
+                    onChange(o.key);
                     setOpen(false);
                   }}
                 >
