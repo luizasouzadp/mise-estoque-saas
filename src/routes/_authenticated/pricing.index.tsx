@@ -620,8 +620,12 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
               <Input type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0,00" className="pl-9" />
             </div>
-          </div>
         </div>
+        <div>
+          <Label>Código do produto <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+          <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} placeholder="Ex: 101" />
+        </div>
+
         <div>
           <div className="flex items-center justify-between mb-2">
             <Label>Itens do produto</Label>
