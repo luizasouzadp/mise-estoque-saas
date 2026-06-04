@@ -184,16 +184,39 @@ function PricingPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [unified]);
 
+  async function isCodeTaken(code: string, exclude: { source: "recipe" | "manual"; id: string }) {
+    const c = code.trim();
+    if (!c) return false;
+    const [{ data: r }, { data: m }] = await Promise.all([
+      supabase.from("recipes").select("id").eq("product_code", c).limit(5),
+      (supabase as any).from("menu_products").select("id").eq("product_code", c).limit(5),
+    ]);
+    const inR = (r ?? []).some((x: any) => !(exclude.source === "recipe" && x.id === exclude.id));
+    const inM = (m ?? []).some((x: any) => !(exclude.source === "manual" && x.id === exclude.id));
+    return inR || inM;
+  }
+
   async function updateRecipe(id: string, patch: { current_price?: number | null; menu_category?: string | null; product_code?: string | null }) {
+    if (patch.product_code) {
+      if (await isCodeTaken(patch.product_code, { source: "recipe", id })) {
+        return toast.error("Código já está em uso");
+      }
+    }
     const { error } = await supabase.from("recipes").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["pricing-rows"] });
   }
   async function updateManual(id: string, patch: { current_price?: number | null; category?: string | null; product_code?: string | null }) {
+    if (patch.product_code) {
+      if (await isCodeTaken(patch.product_code, { source: "manual", id })) {
+        return toast.error("Código já está em uso");
+      }
+    }
     const { error } = await (supabase as any).from("menu_products").update(patch).eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["manual-menu-products"] });
   }
+
 
   async function removeManual(id: string) {
     if (!confirm("Excluir este produto?")) return;
@@ -494,8 +517,10 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [productCode, setProductCode] = useState("");
   const [items, setItems] = useState<{ key: string; quantity: string }[]>([{ key: "", quantity: "" }]);
   const [saving, setSaving] = useState(false);
+
 
   const { data: options } = useQuery<PickerOption[]>({
     queryKey: ["menu-product-picker"],
@@ -518,9 +543,21 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
 
   async function save() {
     if (!name.trim()) return toast.error("Informe o nome do produto");
+    const code = productCode.trim();
     setSaving(true);
     const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
     if (!profile?.restaurant_id) { setSaving(false); return toast.error("Restaurante não encontrado"); }
+
+    if (code) {
+      const [{ data: r }, { data: m }] = await Promise.all([
+        supabase.from("recipes").select("id").eq("product_code", code).limit(1),
+        (supabase as any).from("menu_products").select("id").eq("product_code", code).limit(1),
+      ]);
+      if ((r?.length ?? 0) > 0 || (m?.length ?? 0) > 0) {
+        setSaving(false);
+        return toast.error("Código já está em uso");
+      }
+    }
 
     const resolved: MenuItem[] = [];
     let totalCost = 0;
@@ -547,6 +584,7 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
       current_price: price === "" ? null : Number(price),
       cost: totalCost,
       items: resolved,
+      product_code: code || null,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -555,9 +593,11 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
     setName("");
     setCategory("");
     setPrice("");
+    setProductCode("");
     setItems([{ key: "", quantity: "" }]);
     onClose();
   }
+
 
   return (
     <DialogContent className="max-w-lg">
@@ -582,6 +622,12 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
             </div>
           </div>
         </div>
+
+        <div>
+          <Label>Código do produto <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+          <Input value={productCode} onChange={(e) => setProductCode(e.target.value)} placeholder="Ex: 101" />
+        </div>
+
         <div>
           <div className="flex items-center justify-between mb-2">
             <Label>Itens do produto</Label>
