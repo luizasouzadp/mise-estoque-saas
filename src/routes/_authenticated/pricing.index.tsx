@@ -262,6 +262,37 @@ function PricingPage() {
         </div>
       </div>
 
+      {/* CMV por categoria dashboard */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {categoryStats.map((cat) => (
+          <div
+            key={cat.name}
+            className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground truncate" title={cat.name}>
+                {cat.name}
+              </span>
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  cat.avgCmv > idealCmv
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-green-500/15 text-green-600 dark:text-green-400"
+                }`}
+              >
+                {cat.avgCmv.toFixed(1)}%
+              </span>
+            </div>
+            <div className="mt-2 font-display text-2xl">
+              {cat.above} <span className="text-sm text-muted-foreground font-normal">acima</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {cat.total} produtos · {cat.below} no/abaixo do ideal
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
         <div className="flex-1 min-w-[200px]">
