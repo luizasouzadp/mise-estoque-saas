@@ -184,6 +184,29 @@ function PricingPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [unified]);
 
+  const categoryStats = useMemo(() => {
+    const map = new Map<string, { total: number; above: number; below: number; sumCmv: number; countCmv: number }>();
+    for (const r of enrichedRows) {
+      const cat = r.category || "Sem categoria";
+      const entry = map.get(cat) ?? { total: 0, above: 0, below: 0, sumCmv: 0, countCmv: 0 };
+      entry.total += 1;
+      if (r.currentCmv != null) {
+        entry.sumCmv += r.currentCmv;
+        entry.countCmv += 1;
+        if (r.currentCmv > idealCmv) entry.above += 1;
+        else entry.below += 1;
+      }
+      map.set(cat, entry);
+    }
+    return Array.from(map.entries()).map(([name, v]) => ({
+      name,
+      total: v.total,
+      above: v.above,
+      below: v.below,
+      avgCmv: v.countCmv > 0 ? v.sumCmv / v.countCmv : 0,
+    })).sort((a, b) => b.avgCmv - a.avgCmv);
+  }, [enrichedRows, idealCmv]);
+
   async function isCodeTaken(code: string, exclude: { source: "recipe" | "manual"; id: string }) {
     const c = code.trim();
     if (!c) return false;
@@ -260,6 +283,37 @@ function PricingPage() {
           <span className="text-sm text-muted-foreground">Atual: {Number(restaurant?.ideal_cmv ?? 30)}%</span>
           <Button onClick={saveIdealCmv} disabled={idealCmvDraft === ""}>Salvar</Button>
         </div>
+      </div>
+
+      {/* CMV por categoria dashboard */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {categoryStats.map((cat) => (
+          <div
+            key={cat.name}
+            className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground truncate" title={cat.name}>
+                {cat.name}
+              </span>
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  cat.avgCmv > idealCmv
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-green-500/15 text-green-600 dark:text-green-400"
+                }`}
+              >
+                {cat.avgCmv.toFixed(1)}%
+              </span>
+            </div>
+            <div className="mt-2 font-display text-2xl">
+              {cat.above} <span className="text-sm text-muted-foreground font-normal">acima</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {cat.total} produtos · {cat.below} no/abaixo do ideal
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
