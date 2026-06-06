@@ -8,6 +8,13 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
+function formatBRL(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
 function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
@@ -42,7 +49,7 @@ function Dashboard() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Package} label="Insumos cadastrados" value={isLoading ? "—" : String(data?.ingredients.length ?? 0)} accent="primary" />
-        <StatCard icon={Wallet} label="Valor em estoque" value={isLoading ? "—" : `R$ ${(data?.stockValue ?? 0).toFixed(2)}`} accent="accent" />
+        <StatCard icon={Wallet} label="Valor em estoque" value={isLoading ? "—" : formatBRL(data?.stockValue ?? 0)} accent="accent" />
         <StatCard icon={AlertTriangle} label="Estoque baixo" value={isLoading ? "—" : String(data?.lowStock.length ?? 0)} accent="warning" />
         <StatCard icon={PackageX} label="Sem estoque" value={isLoading ? "—" : String(data?.outOfStock.length ?? 0)} accent="danger" />
       </div>
