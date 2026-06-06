@@ -184,6 +184,29 @@ function PricingPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [unified]);
 
+  const categoryStats = useMemo(() => {
+    const map = new Map<string, { total: number; above: number; below: number; sumCmv: number; countCmv: number }>();
+    for (const r of enrichedRows) {
+      const cat = r.category || "Sem categoria";
+      const entry = map.get(cat) ?? { total: 0, above: 0, below: 0, sumCmv: 0, countCmv: 0 };
+      entry.total += 1;
+      if (r.currentCmv != null) {
+        entry.sumCmv += r.currentCmv;
+        entry.countCmv += 1;
+        if (r.currentCmv > idealCmv) entry.above += 1;
+        else entry.below += 1;
+      }
+      map.set(cat, entry);
+    }
+    return Array.from(map.entries()).map(([name, v]) => ({
+      name,
+      total: v.total,
+      above: v.above,
+      below: v.below,
+      avgCmv: v.countCmv > 0 ? v.sumCmv / v.countCmv : 0,
+    })).sort((a, b) => b.avgCmv - a.avgCmv);
+  }, [enrichedRows, idealCmv]);
+
   async function isCodeTaken(code: string, exclude: { source: "recipe" | "manual"; id: string }) {
     const c = code.trim();
     if (!c) return false;
