@@ -36,11 +36,39 @@ function GroupDetail() {
     if (data?.memberIds) setSelected(new Set(data.memberIds));
   }, [data?.memberIds]);
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const i of data?.ingredients ?? []) {
+      if (i.category) set.add(i.category);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [data?.ingredients]);
+
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return data?.ingredients ?? [];
-    return (data?.ingredients ?? []).filter((i) => i.name.toLowerCase().includes(q) || (i.category ?? "").toLowerCase().includes(q));
-  }, [data?.ingredients, filter]);
+    return (data?.ingredients ?? []).filter((i) => {
+      const matchesText = !q || i.name.toLowerCase().includes(q) || (i.category ?? "").toLowerCase().includes(q);
+      const matchesCategory = categoryFilter === "all" || i.category === categoryFilter;
+      return matchesText && matchesCategory;
+    });
+  }, [data?.ingredients, filter, categoryFilter]);
+
+  const allFilteredSelected = useMemo(() => {
+    if (filtered.length === 0) return false;
+    return filtered.every((i) => selected.has(i.id));
+  }, [filtered, selected]);
+
+  function toggleAllFiltered() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const i of filtered) next.delete(i.id);
+      } else {
+        for (const i of filtered) next.add(i.id);
+      }
+      return next;
+    });
+  }
 
   function toggle(idg: string) {
     setSelected((p) => {
