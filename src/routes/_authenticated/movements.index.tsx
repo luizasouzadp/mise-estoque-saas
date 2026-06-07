@@ -294,12 +294,20 @@ function MovementsPage() {
     const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
     if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
 
+    let unitCost: number | null = form.type === "in" && form.unit_cost ? Number(form.unit_cost) : null;
+    if (form.type === "in" && unitCost === null) {
+      const ing = ingredients.find((i) => i.id === form.ingredient_id);
+      if (ing && ing.avg_cost > 0) {
+        unitCost = ing.avg_cost;
+      }
+    }
+
     const payload = {
       restaurant_id: prof.restaurant_id,
       ingredient_id: form.ingredient_id,
       type: form.type,
       quantity: qty,
-      unit_cost: form.type === "in" && form.unit_cost ? Number(form.unit_cost) : null,
+      unit_cost: unitCost,
       reason: form.reason || null,
       notes: form.notes || null,
       occurred_at: new Date(form.occurred_at).toISOString(),
