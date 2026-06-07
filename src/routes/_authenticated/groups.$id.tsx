@@ -17,6 +17,7 @@ function GroupDetail() {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [saving, setSaving] = useState(false);
 
   const { data, isLoading } = useQuery({
