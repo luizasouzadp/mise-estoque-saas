@@ -587,7 +587,7 @@ function MovementsPage() {
                   onClick={() => editable && openQuick(m)}
                 >
                   <TableCell className="whitespace-nowrap text-xs">
-                    {new Date(m.occurred_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    {new Date(m.occurred_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}
                   </TableCell>
                   <TableCell>{sourceBadge(m.source)}</TableCell>
                   <TableCell>
