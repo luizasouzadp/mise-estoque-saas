@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Search } from "lucide-react";
 
@@ -16,6 +17,7 @@ function GroupDetail() {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [saving, setSaving] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -34,11 +36,39 @@ function GroupDetail() {
     if (data?.memberIds) setSelected(new Set(data.memberIds));
   }, [data?.memberIds]);
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const i of data?.ingredients ?? []) {
+      if (i.category) set.add(i.category);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [data?.ingredients]);
+
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return data?.ingredients ?? [];
-    return (data?.ingredients ?? []).filter((i) => i.name.toLowerCase().includes(q) || (i.category ?? "").toLowerCase().includes(q));
-  }, [data?.ingredients, filter]);
+    return (data?.ingredients ?? []).filter((i) => {
+      const matchesText = !q || i.name.toLowerCase().includes(q) || (i.category ?? "").toLowerCase().includes(q);
+      const matchesCategory = categoryFilter === "all" || i.category === categoryFilter;
+      return matchesText && matchesCategory;
+    });
+  }, [data?.ingredients, filter, categoryFilter]);
+
+  const allFilteredSelected = useMemo(() => {
+    if (filtered.length === 0) return false;
+    return filtered.every((i) => selected.has(i.id));
+  }, [filtered, selected]);
+
+  function toggleAllFiltered() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const i of filtered) next.delete(i.id);
+      } else {
+        for (const i of filtered) next.add(i.id);
+      }
+      return next;
+    });
+  }
 
   function toggle(idg: string) {
     setSelected((p) => {
@@ -131,12 +161,33 @@ function GroupDetail() {
         </div>
       </div>
 
-      <div className="mt-4 relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Buscar insumo..." value={filter} onChange={(e) => setFilter(e.target.value)} />
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Buscar insumo..." value={filter} onChange={(e) => setFilter(e.target.value)} />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="Todas as categorias" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as categorias</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="mt-4 divide-y rounded-xl border bg-card shadow-[var(--shadow-soft)]">
+      <div className="mt-3 flex items-center gap-2">
+        <Checkbox id="select-all" checked={allFilteredSelected} onCheckedChange={toggleAllFiltered} />
+        <label htmlFor="select-all" className="cursor-pointer text-sm text-muted-foreground">
+          {allFilteredSelected ? "Desmarcar todos visíveis" : "Selecionar todos visíveis"}
+          <span className="ml-1 text-xs">({filtered.length})</span>
+        </label>
+      </div>
+
+      <div className="mt-2 divide-y rounded-xl border bg-card shadow-[var(--shadow-soft)]">
         {filtered.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">Nenhum insumo encontrado.</p>
         ) : filtered.map((i) => (
