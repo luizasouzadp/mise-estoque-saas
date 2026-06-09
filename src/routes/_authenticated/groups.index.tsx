@@ -66,6 +66,12 @@ function GroupsPage() {
 
   return (
     <div className="mx-auto max-w-4xl p-4 md:p-8">
+      <Button variant="ghost" className="mb-2 -ml-3" asChild>
+        <Link to="/inventories">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar ao inventário
+        </Link>
+      </Button>
       <div className="flex items-center gap-3">
         <FolderTree className="h-6 w-6 text-primary" />
         <div>
