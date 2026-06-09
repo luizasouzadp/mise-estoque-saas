@@ -236,6 +236,26 @@ function InventoryDetail() {
     }
   }
 
+  async function saveItemQty(itemId: string) {
+    const val = parseFloat(editingQty.replace(",", "."));
+    if (isNaN(val) || val < 0) {
+      toast.error("Informe uma quantidade válida");
+      return;
+    }
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ counted_qty: val })
+      .eq("id", itemId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Quantidade atualizada");
+    setEditingItemId(null);
+    setEditingQty("");
+    qc.invalidateQueries({ queryKey: ["inventory", id] });
+  }
+
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-8">
       <Link to="/inventories" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
