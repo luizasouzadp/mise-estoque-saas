@@ -43,6 +43,8 @@ function InventoryDetail() {
   const [contactDialog, setContactDialog] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingQty, setEditingQty] = useState("");
 
   const { data: contacts } = useQuery({
     queryKey: ["whatsapp_contacts"],
@@ -234,6 +236,26 @@ function InventoryDetail() {
     }
   }
 
+  async function saveItemQty(itemId: string) {
+    const val = parseFloat(editingQty.replace(",", "."));
+    if (isNaN(val) || val < 0) {
+      toast.error("Informe uma quantidade válida");
+      return;
+    }
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ counted_qty: val })
+      .eq("id", itemId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Quantidade atualizada");
+    setEditingItemId(null);
+    setEditingQty("");
+    qc.invalidateQueries({ queryKey: ["inventory", id] });
+  }
+
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-8">
       <Link to="/inventories" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -396,15 +418,48 @@ function InventoryDetail() {
                 {groupItems.length === 0 ? (
                   <p className="p-3 text-center text-xs text-muted-foreground">Sem insumos neste grupo.</p>
                 ) : groupItems.map((it) => (
-                  <div key={it.id} className="flex items-center justify-between gap-3 px-4 py-2">
+                  <div key={it.id} className="group flex items-center justify-between gap-3 px-4 py-2">
                     <div className="text-sm">{it.ingredient_name}</div>
-                    <div className="text-right text-sm">
-                      {it.counted_qty != null ? (
-                        <span className="font-medium">{Number(it.counted_qty).toFixed(2)} {it.unit}</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">aguardando</span>
-                      )}
-                    </div>
+                    {editingItemId === it.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-28 text-right"
+                          value={editingQty}
+                          onChange={(e) => setEditingQty(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveItemQty(it.id);
+                            if (e.key === "Escape") { setEditingItemId(null); setEditingQty(""); }
+                          }}
+                          autoFocus
+                        />
+                        <span className="text-xs text-muted-foreground">{it.unit}</span>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => saveItemQty(it.id)}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditingItemId(null); setEditingQty(""); }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-right text-sm">
+                        {it.counted_qty != null ? (
+                          <span className="font-medium">{Number(it.counted_qty).toFixed(2)} {it.unit}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">aguardando</span>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                          onClick={() => { setEditingItemId(it.id); setEditingQty(it.counted_qty != null ? String(Number(it.counted_qty).toFixed(2)) : "0"); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
