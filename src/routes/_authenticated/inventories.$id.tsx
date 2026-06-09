@@ -43,6 +43,8 @@ function InventoryDetail() {
   const [contactDialog, setContactDialog] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingQty, setEditingQty] = useState("");
 
   const { data: contacts } = useQuery({
     queryKey: ["whatsapp_contacts"],
