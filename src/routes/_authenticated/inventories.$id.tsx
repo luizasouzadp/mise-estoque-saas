@@ -418,7 +418,7 @@ function InventoryDetail() {
                 {groupItems.length === 0 ? (
                   <p className="p-3 text-center text-xs text-muted-foreground">Sem insumos neste grupo.</p>
                 ) : groupItems.map((it) => (
-                  <div key={it.id} className="flex items-center justify-between gap-3 px-4 py-2">
+                  <div key={it.id} className="group flex items-center justify-between gap-3 px-4 py-2">
                     <div className="text-sm">{it.ingredient_name}</div>
                     {editingItemId === it.id ? (
                       <div className="flex items-center gap-2">
