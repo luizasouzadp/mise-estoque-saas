@@ -408,6 +408,58 @@ function TheoreticalCompareDialog({
     },
   });
 
+  const { data: recipesExpand } = useQuery({
+    queryKey: ["cmv-recipes-expand"],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipes")
+        .select("id, yield_qty, recipe_items(item_type, ingredient_id, sub_recipe_id, quantity)");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: menuItemsData } = useQuery({
+    queryKey: ["cmv-menu-items"],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("menu_products")
+        .select("id, items");
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; items: any[] }>;
+    },
+  });
+
+  const { data: ingredientsList } = useQuery({
+    queryKey: ["cmv-ing-list"],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ingredients")
+        .select("id, name, unit, avg_cost, last_cost, composes_cmv");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: periodMovements } = useQuery({
+    queryKey: ["cmv-period-movs", report?.period_start, report?.period_end],
+    enabled: open && !!report,
+    queryFn: async () => {
+      const startISO = new Date(`${report!.period_start}T00:00:00`).toISOString();
+      const endISO = new Date(`${report!.period_end}T23:59:59.999`).toISOString();
+      const { data, error } = await supabase
+        .from("stock_movements")
+        .select("ingredient_id, quantity, type, notes, occurred_at")
+        .eq("type", "out")
+        .gte("occurred_at", startISO)
+        .lte("occurred_at", endISO);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const { theoreticalCost, theoreticalRevenue } = useMemo(() => {
     let c = 0;
@@ -420,6 +472,97 @@ function TheoreticalCompareDialog({
     }
     return { theoreticalCost: c, theoreticalRevenue: r };
   }, [products, qty]);
+
+  const ingredientDiffs = useMemo(() => {
+    if (!recipesExpand || !menuItemsData || !ingredientsList) return [];
+    const recipeMap = new Map<string, any>((recipesExpand as any[]).map((r) => [r.id, r]));
+    const menuMap = new Map<string, any>(menuItemsData.map((m) => [m.id, m]));
+    const theoretical = new Map<string, number>();
+
+    function addRecipe(recipeId: string, mult: number, depth = 0) {
+      if (depth > 10 || !mult) return;
+      const r = recipeMap.get(recipeId);
+      if (!r) return;
+      for (const it of (r.recipe_items ?? []) as any[]) {
+        const iq = Number(it.quantity ?? 0);
+        if (!iq) continue;
+        if (it.item_type === "ingredient" && it.ingredient_id) {
+          theoretical.set(
+            it.ingredient_id,
+            (theoretical.get(it.ingredient_id) ?? 0) + mult * iq,
+          );
+        } else if (it.item_type === "recipe" && it.sub_recipe_id) {
+          const sub = recipeMap.get(it.sub_recipe_id);
+          const y = Number(sub?.yield_qty ?? 1) || 1;
+          addRecipe(it.sub_recipe_id, (mult * iq) / y, depth + 1);
+        }
+      }
+    }
+
+    for (const [pid, qStr] of Object.entries(qty)) {
+      const q = Number(qStr) || 0;
+      if (!q) continue;
+      if (pid.startsWith("mp:")) {
+        const mp = menuMap.get(pid.slice(3));
+        if (!mp) continue;
+        for (const it of (mp.items ?? []) as any[]) {
+          const iq = Number(it.quantity ?? 0);
+          if (!it.ref_id || !iq) continue;
+          if (it.ref_type === "ingredient") {
+            theoretical.set(it.ref_id, (theoretical.get(it.ref_id) ?? 0) + q * iq);
+          } else if (it.ref_type === "recipe") {
+            const sub = recipeMap.get(it.ref_id);
+            const y = Number(sub?.yield_qty ?? 1) || 1;
+            addRecipe(it.ref_id, (q * iq) / y);
+          }
+        }
+      } else if (pid.startsWith("rec:")) {
+        const rid = pid.slice(4);
+        const sub = recipeMap.get(rid);
+        const y = Number(sub?.yield_qty ?? 1) || 1;
+        addRecipe(rid, q / y);
+      }
+    }
+
+    const real = new Map<string, number>();
+    for (const m of (periodMovements ?? []) as any[]) {
+      if ((m.notes ?? "").startsWith("production:")) continue;
+      real.set(m.ingredient_id, (real.get(m.ingredient_id) ?? 0) + Number(m.quantity ?? 0));
+    }
+
+    const ingMap = new Map<string, any>((ingredientsList as any[]).map((i) => [i.id, i]));
+    const ids = new Set<string>([...theoretical.keys(), ...real.keys()]);
+    const rows: Array<{
+      id: string;
+      name: string;
+      unit: string;
+      theoretical: number;
+      real: number;
+      diff: number;
+      costDiff: number;
+      pctDiff: number | null;
+    }> = [];
+    for (const id of ids) {
+      const ing = ingMap.get(id);
+      if (!ing) continue;
+      const t = theoretical.get(id) ?? 0;
+      const r = real.get(id) ?? 0;
+      const d = r - t;
+      const cost = Number(ing.avg_cost ?? 0) || Number(ing.last_cost ?? 0) || 0;
+      rows.push({
+        id,
+        name: ing.name,
+        unit: ing.unit,
+        theoretical: t,
+        real: r,
+        diff: d,
+        costDiff: d * cost,
+        pctDiff: t > 0 ? (d / t) * 100 : null,
+      });
+    }
+    rows.sort((a, b) => Math.abs(b.costDiff) - Math.abs(a.costDiff));
+    return rows;
+  }, [recipesExpand, menuItemsData, ingredientsList, periodMovements, qty]);
 
   const realRevenue = Number(report?.revenue ?? 0);
   const theoreticalPct = realRevenue > 0 ? (theoreticalCost / realRevenue) * 100 : 0;
