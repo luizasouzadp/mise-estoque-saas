@@ -774,8 +774,11 @@ function TheoreticalCompareDialog({
                 <span className="text-muted-foreground">Ideal: {idealCmv}%.</span>
               </div>
             )}
+
+            <IngredientDiffsTable rows={ingredientDiffs} />
           </div>
         )}
+
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
