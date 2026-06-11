@@ -793,3 +793,102 @@ function TheoreticalCompareDialog({
   );
 }
 
+
+const QTY_FMT = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+
+function IngredientDiffsTable({
+  rows,
+}: {
+  rows: Array<{
+    id: string;
+    name: string;
+    unit: string;
+    theoretical: number;
+    real: number;
+    diff: number;
+    costDiff: number;
+    pctDiff: number | null;
+  }>;
+}) {
+  if (!rows.length) return null;
+
+  const flagged = rows.filter(
+    (r) =>
+      Math.abs(r.costDiff) >= 1 &&
+      (r.pctDiff === null || Math.abs(r.pctDiff) >= 5),
+  );
+  const totalCostDiff = rows.reduce((s, r) => s + r.costDiff, 0);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <h3 className="font-medium text-sm">Saída real x teórica por insumo</h3>
+        <span className="text-xs text-muted-foreground">
+          Impacto líquido: <strong className={totalCostDiff > 0 ? "text-destructive" : "text-emerald-700"}>{BRL.format(totalCostDiff)}</strong>
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Compara a quantidade que saiu do estoque (movimentações) com o quanto deveria
+        ter saído conforme as fichas técnicas dos produtos vendidos. Saídas de produção
+        não são consideradas. Diferenças positivas indicam saída acima do esperado
+        (possíveis perdas, furtos, erro de ficha ou de contagem).
+      </p>
+      <div className="rounded-lg border overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Insumo</TableHead>
+              <TableHead className="text-right">Teórico</TableHead>
+              <TableHead className="text-right">Real</TableHead>
+              <TableHead className="text-right">Diferença</TableHead>
+              <TableHead className="text-right">% </TableHead>
+              <TableHead className="text-right">R$ impacto</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => {
+              const isFlagged =
+                Math.abs(r.costDiff) >= 1 &&
+                (r.pctDiff === null || Math.abs(r.pctDiff) >= 5);
+              const bad = r.diff > 0;
+              return (
+                <TableRow key={r.id} className={isFlagged ? (bad ? "bg-destructive/5" : "bg-emerald-500/5") : ""}>
+                  <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableCell className="text-right">
+                    {QTY_FMT.format(r.theoretical)} {r.unit}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {QTY_FMT.format(r.real)} {r.unit}
+                  </TableCell>
+                  <TableCell className={`text-right ${bad ? "text-destructive" : r.diff < 0 ? "text-emerald-700" : ""}`}>
+                    {r.diff > 0 ? "+" : ""}{QTY_FMT.format(r.diff)} {r.unit}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {r.pctDiff === null ? "—" : `${r.pctDiff > 0 ? "+" : ""}${r.pctDiff.toFixed(1)}%`}
+                  </TableCell>
+                  <TableCell className={`text-right ${r.costDiff > 0 ? "text-destructive" : r.costDiff < 0 ? "text-emerald-700" : ""}`}>
+                    {r.costDiff > 0 ? "+" : ""}{BRL.format(r.costDiff)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isFlagged && (
+                      <Badge variant={bad ? "destructive" : "default"} className={bad ? "" : "bg-emerald-600 hover:bg-emerald-600"}>
+                        {bad ? "Furo" : "Sobra"}
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      {flagged.length > 0 && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          {flagged.length} insumo(s) com diferença relevante — verifique fichas técnicas,
+          desperdício, perdas ou contagem.
+        </div>
+      )}
+    </div>
+  );
+}
