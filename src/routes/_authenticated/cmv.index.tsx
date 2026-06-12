@@ -342,11 +342,13 @@ function TheoreticalCompareDialog({
   const qc = useQueryClient();
   const [qty, setQty] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showIngredientAnalysis, setShowIngredientAnalysis] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) {
       setQty({});
+      setShowIngredientAnalysis(false);
       return;
     }
     const saved = report?.sales_data ?? null;
@@ -357,6 +359,7 @@ function TheoreticalCompareDialog({
     } else {
       setQty({});
     }
+    setShowIngredientAnalysis(false);
   }, [open, report?.id]);
 
 
@@ -775,18 +778,27 @@ function TheoreticalCompareDialog({
               </div>
             )}
 
-            <IngredientDiffsTable rows={ingredientDiffs} />
+            {showIngredientAnalysis && <IngredientDiffsTable rows={ingredientDiffs} />}
           </div>
         )}
 
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+          <Button
+            variant="secondary"
+            onClick={() => setShowIngredientAnalysis((v) => !v)}
+            disabled={!report}
+          >
+            {showIngredientAnalysis ? "Ocultar análise dos insumos" : "Análise dos insumos utilizados"}
           </Button>
-          <Button onClick={handleSave} disabled={saving || !report}>
-            {saving ? "Salvando..." : "Salvar comparação"}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !report}>
+              {saving ? "Salvando..." : "Salvar comparação"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
