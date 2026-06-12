@@ -430,7 +430,7 @@ function TheoreticalCompareDialog({
       const { data, error } = await (supabase as any)
         .from("menu_products")
         .select("id, items");
-      if (error) throw error;
+      if (error) return [] as Array<{ id: string; items: any[] }>;
       return (data ?? []) as Array<{ id: string; items: any[] }>;
     },
   });
