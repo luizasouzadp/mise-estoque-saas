@@ -348,6 +348,7 @@ function TheoreticalCompareDialog({
   useEffect(() => {
     if (!open) {
       setQty({});
+      setShowIngredientAnalysis(false);
       return;
     }
     const saved = report?.sales_data ?? null;
@@ -358,6 +359,7 @@ function TheoreticalCompareDialog({
     } else {
       setQty({});
     }
+    setShowIngredientAnalysis(false);
   }, [open, report?.id]);
 
 
