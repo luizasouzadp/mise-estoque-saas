@@ -276,8 +276,8 @@ function CmvPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button
-                            variant="ghost"
-                            size="icon"
+                            variant="outline"
+                            size="sm"
                             title="Comparar com CMV teórico"
                             onClick={() =>
                               setCompareReport({
@@ -291,8 +291,8 @@ function CmvPage() {
                               })
                             }
                           >
-
-                            <Scale className="h-4 w-4" />
+                            <Scale className="mr-2 h-4 w-4" />
+                            Comparar
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => remove(r.id)}>
                             <Trash2 className="h-4 w-4" />
