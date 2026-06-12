@@ -415,11 +415,13 @@ function TheoreticalCompareDialog({
     queryKey: ["cmv-recipes-expand"],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("recipes")
-        .select("id, yield_qty, recipe_items(item_type, ingredient_id, sub_recipe_id, quantity)");
+        .select(
+          "id, yield_qty, recipe_items!recipe_items_recipe_id_fkey(item_type, ingredient_id, sub_recipe_id, quantity)",
+        );
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
   });
 
