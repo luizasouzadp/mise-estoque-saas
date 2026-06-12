@@ -816,6 +816,8 @@ const QTY_FMT = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 
 function IngredientDiffsTable({
   rows,
+  hasSales,
+  loading,
 }: {
   rows: Array<{
     id: string;
@@ -827,8 +829,26 @@ function IngredientDiffsTable({
     costDiff: number;
     pctDiff: number | null;
   }>;
+  hasSales?: boolean;
+  loading?: boolean;
 }) {
-  if (!rows.length) return null;
+  if (loading) {
+    return (
+      <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+        Carregando análise dos insumos…
+      </div>
+    );
+  }
+  if (!rows.length) {
+    return (
+      <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+        {hasSales
+          ? "Não há insumos para comparar. Verifique se os produtos vendidos possuem fichas técnicas e se houve movimentações de saída no período."
+          : "Preencha as quantidades vendidas acima para gerar a análise dos insumos teóricos x reais."}
+      </div>
+    );
+  }
+
 
   const flagged = rows.filter(
     (r) =>
