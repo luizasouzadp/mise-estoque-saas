@@ -778,7 +778,13 @@ function TheoreticalCompareDialog({
               </div>
             )}
 
-            {showIngredientAnalysis && <IngredientDiffsTable rows={ingredientDiffs} />}
+            {showIngredientAnalysis && (
+              <IngredientDiffsTable
+                rows={ingredientDiffs}
+                hasSales={Object.values(qty).some((v) => Number(v) > 0)}
+                loading={!recipesExpand || !ingredientsList || !periodMovements}
+              />
+            )}
           </div>
         )}
 
