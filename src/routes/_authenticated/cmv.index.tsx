@@ -342,6 +342,7 @@ function TheoreticalCompareDialog({
   const qc = useQueryClient();
   const [qty, setQty] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showIngredientAnalysis, setShowIngredientAnalysis] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
