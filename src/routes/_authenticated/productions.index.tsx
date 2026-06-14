@@ -71,6 +71,17 @@ type DraftItem = {
   unit: string;
 };
 
+type QueuedProduction = {
+  key: string;
+  recipeId: string;
+  recipeName: string;
+  yieldUnit: string;
+  produced: string;
+  producedAt: string;
+  notes: string;
+  items: DraftItem[];
+};
+
 function ProductionsPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -88,6 +99,8 @@ function ProductionsPage() {
   const [producedAt, setProducedAt] = useState(new Date().toISOString().slice(0, 16));
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+  const [queue, setQueue] = useState<QueuedProduction[]>([]);
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -145,6 +158,7 @@ function ProductionsPage() {
     setProducedAt(new Date().toISOString().slice(0, 16));
     setNotes("");
     setDraftItems([]);
+    setQueue([]);
     setOpen(true);
   }
 
@@ -158,49 +172,73 @@ function ProductionsPage() {
     setDraftItems((d) => [...d, { ingredient_id: "", ingredient_name: "", baseUnit: "", quantity: "", unit: "" }]);
   }
 
-  async function save() {
+  function validateCurrent(): QueuedProduction | null {
     const rec = recipes.find((r) => r.id === recipeId);
-    if (!rec) return toast.error("Selecione uma ficha técnica");
+    if (!rec) { toast.error("Selecione uma ficha técnica"); return null; }
     const qty = Number(produced);
-    if (!qty || qty <= 0) return toast.error("Quantidade produzida inválida");
+    if (!qty || qty <= 0) { toast.error("Quantidade produzida inválida"); return null; }
+    for (const it of draftItems) {
+      if (!it.ingredient_id) { toast.error("Selecione o insumo de todas as linhas"); return null; }
+      const q = Number(it.quantity);
+      if (!q || q <= 0) { toast.error(`Quantidade inválida para ${it.ingredient_name}`); return null; }
+      const converted = convert(q, it.unit, it.baseUnit);
+      if (converted === null) { toast.error(`Unidade ${it.unit} incompatível com ${it.baseUnit} (${it.ingredient_name})`); return null; }
+    }
+    return {
+      key: crypto.randomUUID(),
+      recipeId: rec.id,
+      recipeName: rec.name,
+      yieldUnit: rec.yield_unit,
+      produced,
+      producedAt,
+      notes,
+      items: draftItems,
+    };
+  }
 
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+  function addToQueue() {
+    const q = validateCurrent();
+    if (!q) return;
+    setQueue((prev) => [...prev, q]);
+    // reset form for next entry, keep date
+    setRecipeId("");
+    setProduced("");
+    setNotes("");
+    setDraftItems([]);
+    toast.success("Produção adicionada à lista");
+  }
 
-    // Find mirror ingredient
+  function removeFromQueue(key: string) {
+    setQueue((prev) => prev.filter((q) => q.key !== key));
+  }
+
+  async function persistOne(q: QueuedProduction, restaurantId: string): Promise<string | null> {
     const { data: mirror } = await supabase
       .from("ingredients")
       .select("id")
-      .eq("source_recipe_id", rec.id)
+      .eq("source_recipe_id", q.recipeId)
       .maybeSingle();
-    if (!mirror) return toast.error("Ficha não tem insumo de estoque vinculado. Marque 'armazenada em estoque'.");
+    if (!mirror) return `Ficha "${q.recipeName}" não tem insumo de estoque vinculado.`;
 
-    // Convert and validate all draft items
     const outMoves: { ingredient_id: string; quantity: number; unit: string; name: string }[] = [];
-    for (const it of draftItems) {
-      if (!it.ingredient_id) return toast.error("Selecione o insumo de todas as linhas");
-      const q = Number(it.quantity);
-      if (!q || q <= 0) return toast.error(`Quantidade inválida para ${it.ingredient_name}`);
-      const converted = convert(q, it.unit, it.baseUnit);
-      if (converted === null) return toast.error(`Unidade ${it.unit} incompatível com ${it.baseUnit} (${it.ingredient_name})`);
+    for (const it of q.items) {
+      const converted = convert(Number(it.quantity), it.unit, it.baseUnit)!;
       outMoves.push({ ingredient_id: it.ingredient_id, quantity: converted, unit: it.baseUnit, name: it.ingredient_name });
     }
 
-    // 1. Create production
     const { data: prod, error: pErr } = await supabase
       .from("productions")
       .insert({
-        restaurant_id: prof.restaurant_id,
-        recipe_id: rec.id,
-        quantity_produced: qty,
-        produced_at: new Date(producedAt).toISOString(),
-        notes: notes || null,
+        restaurant_id: restaurantId,
+        recipe_id: q.recipeId,
+        quantity_produced: Number(q.produced),
+        produced_at: new Date(q.producedAt).toISOString(),
+        notes: q.notes || null,
       })
       .select("id")
       .single();
-    if (pErr || !prod) return toast.error(pErr?.message ?? "Erro ao salvar produção");
+    if (pErr || !prod) return pErr?.message ?? "Erro ao salvar produção";
 
-    // 2. Create production_items
     if (outMoves.length > 0) {
       const { error: piErr } = await supabase.from("production_items").insert(
         outMoves.map((m) => ({
@@ -211,45 +249,60 @@ function ProductionsPage() {
           unit: m.unit,
         })),
       );
-      if (piErr) return toast.error(piErr.message);
+      if (piErr) return piErr.message;
     }
 
-    // 3. Create stock_movements: OUT for each consumed ingredient
     const tag = `production:${prod.id}`;
-    const occurredAt = new Date(producedAt).toISOString();
-    type MvRow = {
-      restaurant_id: string;
-      ingredient_id: string;
-      type: "in" | "out";
-      quantity: number;
-      reason: string;
-      notes: string;
-      occurred_at: string;
-    };
-    const mvRows: MvRow[] = outMoves.map((m) => ({
-      restaurant_id: prof.restaurant_id,
+    const occurredAt = new Date(q.producedAt).toISOString();
+    const mvRows: Array<{ restaurant_id: string; ingredient_id: string; type: "in" | "out"; quantity: number; reason: string; notes: string; occurred_at: string }> = outMoves.map((m) => ({
+      restaurant_id: restaurantId,
       ingredient_id: m.ingredient_id,
-      type: "out",
+      type: "out" as const,
       quantity: m.quantity,
       reason: "Produção",
       notes: tag,
       occurred_at: occurredAt,
     }));
-    // 4. IN movement for produced item
     mvRows.push({
-      restaurant_id: prof.restaurant_id,
+      restaurant_id: restaurantId,
       ingredient_id: mirror.id,
-      type: "in",
-      quantity: qty,
+      type: "in" as const,
+      quantity: Number(q.produced),
       reason: "Produção",
       notes: tag,
       occurred_at: occurredAt,
     });
     const { error: mErr } = await supabase.from("stock_movements").insert(mvRows);
-    if (mErr) return toast.error(mErr.message);
+    if (mErr) return mErr.message;
+    return null;
+  }
 
-    toast.success("Produção registrada");
-    setOpen(false);
+  async function save() {
+    // Build the final list: queued items + current form (if filled)
+    const toSave = [...queue];
+    if (recipeId || produced || draftItems.length > 0) {
+      const current = validateCurrent();
+      if (!current) return;
+      toSave.push(current);
+    }
+    if (toSave.length === 0) return toast.error("Adicione ao menos uma produção");
+
+    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+
+    setSaving(true);
+    let ok = 0;
+    const errors: string[] = [];
+    for (const q of toSave) {
+      const err = await persistOne(q, prof.restaurant_id);
+      if (err) errors.push(`${q.recipeName}: ${err}`);
+      else ok++;
+    }
+    setSaving(false);
+
+    if (ok > 0) toast.success(`${ok} produção${ok > 1 ? "ões" : ""} registrada${ok > 1 ? "s" : ""}`);
+    if (errors.length > 0) toast.error(errors.join(" | "));
+    if (errors.length === 0) setOpen(false);
     load();
   }
 
@@ -302,9 +355,24 @@ function ProductionsPage() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Registrar produção</DialogTitle>
+              <DialogTitle>Registrar produções</DialogTitle>
             </DialogHeader>
             <div className="grid gap-3">
+              {queue.length > 0 && (
+                <div className="rounded-md border bg-muted/30 p-2 space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Na lista ({queue.length}):</p>
+                  {queue.map((q) => (
+                    <div key={q.key} className="flex items-center justify-between gap-2 rounded bg-background border px-2 py-1 text-sm">
+                      <span className="truncate">
+                        <strong>{q.recipeName}</strong> · {q.produced} {q.yieldUnit} · {q.items.length} insumo{q.items.length !== 1 ? "s" : ""}
+                      </span>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFromQueue(q.key)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Ficha técnica</Label>
@@ -401,9 +469,14 @@ function ProductionsPage() {
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={save}>Registrar</Button>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
+              <Button variant="outline" onClick={addToQueue} disabled={saving}>
+                <Plus className="h-4 w-4" /> Adicionar à lista
+              </Button>
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Registrando..." : queue.length > 0 ? `Registrar ${queue.length + (recipeId ? 1 : 0)}` : "Registrar"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
