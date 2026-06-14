@@ -355,9 +355,24 @@ function ProductionsPage() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Registrar produção</DialogTitle>
+              <DialogTitle>Registrar produções</DialogTitle>
             </DialogHeader>
             <div className="grid gap-3">
+              {queue.length > 0 && (
+                <div className="rounded-md border bg-muted/30 p-2 space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Na lista ({queue.length}):</p>
+                  {queue.map((q) => (
+                    <div key={q.key} className="flex items-center justify-between gap-2 rounded bg-background border px-2 py-1 text-sm">
+                      <span className="truncate">
+                        <strong>{q.recipeName}</strong> · {q.produced} {q.yieldUnit} · {q.items.length} insumo{q.items.length !== 1 ? "s" : ""}
+                      </span>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFromQueue(q.key)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Ficha técnica</Label>
