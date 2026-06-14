@@ -63,13 +63,39 @@ function NewRecipe() {
   });
 
   const { data: allRecipes } = useQuery({
-    queryKey: ["recipes-min"],
+    queryKey: ["recipes-min-with-yield"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name, yield_unit").order("name");
+      const { data, error } = await supabase.from("recipes").select("id, name, yield_qty, yield_unit").order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  // Unit cost lookup for selected draft items (sub-recipes use recipe_total_cost / yield_qty; ingredients use 30d avg)
+  const itemKeys = items.map((i) => `${i.item_type}:${i.target_id}`).join("|");
+  const { data: unitCosts } = useQuery({
+    queryKey: ["draft-item-costs", itemKeys],
+    enabled: items.length > 0,
+    queryFn: async () => {
+      const map: Record<string, number> = {};
+      await Promise.all(
+        items.map(async (it) => {
+          const key = `${it.item_type}:${it.target_id}`;
+          if (it.item_type === "ingredient") {
+            const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: it.target_id });
+            map[key] = Number(data ?? 0);
+          } else {
+            const { data: total } = await supabase.rpc("recipe_total_cost", { _recipe_id: it.target_id, _depth: 0 });
+            const sub = allRecipes?.find((r) => r.id === it.target_id);
+            const y = Number(sub?.yield_qty ?? 1) || 1;
+            map[key] = Number(total ?? 0) / y;
+          }
+        }),
+      );
+      return map;
+    },
+  });
+
 
   const { data: menuCategories } = useQuery({
     queryKey: ["menu-categories"],
