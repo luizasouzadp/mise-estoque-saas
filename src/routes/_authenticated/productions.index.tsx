@@ -71,6 +71,17 @@ type DraftItem = {
   unit: string;
 };
 
+type QueuedProduction = {
+  key: string;
+  recipeId: string;
+  recipeName: string;
+  yieldUnit: string;
+  produced: string;
+  producedAt: string;
+  notes: string;
+  items: DraftItem[];
+};
+
 function ProductionsPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -88,6 +99,8 @@ function ProductionsPage() {
   const [producedAt, setProducedAt] = useState(new Date().toISOString().slice(0, 16));
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+  const [queue, setQueue] = useState<QueuedProduction[]>([]);
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     setLoading(true);
