@@ -254,7 +254,7 @@ function ProductionsPage() {
 
     const tag = `production:${prod.id}`;
     const occurredAt = new Date(q.producedAt).toISOString();
-    const mvRows = outMoves.map((m) => ({
+    const mvRows: Array<{ restaurant_id: string; ingredient_id: string; type: "in" | "out"; quantity: number; reason: string; notes: string; occurred_at: string }> = outMoves.map((m) => ({
       restaurant_id: restaurantId,
       ingredient_id: m.ingredient_id,
       type: "out" as const,
