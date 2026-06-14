@@ -88,7 +88,12 @@ function NewRecipe() {
             const { data: total } = await supabase.rpc("recipe_total_cost", { _recipe_id: it.target_id, _depth: 0 });
             const sub = allRecipes?.find((r) => r.id === it.target_id);
             const y = Number(sub?.yield_qty ?? 1) || 1;
-            map[key] = Number(total ?? 0) / y;
+            let uc = Number(total ?? 0) / y;
+            if (!uc) {
+              const { data: mirror } = await supabase.from("ingredients").select("avg_cost, last_cost").eq("source_recipe_id", it.target_id).maybeSingle();
+              uc = Number(mirror?.avg_cost ?? mirror?.last_cost ?? 0);
+            }
+            map[key] = uc;
           }
         }),
       );
