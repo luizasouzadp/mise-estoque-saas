@@ -61,7 +61,11 @@ function RecipeDetail() {
             const { data: sub } = await supabase.from("recipes").select("name, yield_qty, yield_unit").eq("id", it.sub_recipe_id).single();
             const { data: subTotal } = await supabase.rpc("recipe_total_cost", { _recipe_id: it.sub_recipe_id, _depth: 0 });
             const subYield = Number(sub?.yield_qty ?? 1) || 1;
-            const unitCost = Number(subTotal ?? 0) / subYield;
+            let unitCost = Number(subTotal ?? 0) / subYield;
+            if (!unitCost) {
+              const { data: mirror } = await supabase.from("ingredients").select("avg_cost, last_cost").eq("source_recipe_id", it.sub_recipe_id).maybeSingle();
+              unitCost = Number(mirror?.avg_cost ?? mirror?.last_cost ?? 0);
+            }
             return { ...it, name: sub?.name ?? "—", baseUnit: sub?.yield_unit ?? "", unitCost, lineCost: unitCost * Number(it.quantity) };
           }
           return { ...it, name: "—", baseUnit: "", unitCost: 0, lineCost: 0 };
