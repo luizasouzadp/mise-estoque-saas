@@ -292,20 +292,35 @@ function NewRecipe() {
           <div className="space-y-2">
             {items.length === 0 ? (
               <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum item adicionado.</p>
-            ) : items.map((it) => (
+            ) : items.map((it) => {
+              const uc = unitCosts?.[`${it.item_type}:${it.target_id}`] ?? 0;
+              const line = uc * Number(it.quantity);
+              return (
               <div key={it.key} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {it.item_type === "ingredient" ? <Package className="h-4 w-4 text-muted-foreground shrink-0" /> : <BookOpen className="h-4 w-4 text-primary shrink-0" />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{it.target_name}</p>
-                    <p className="text-xs text-muted-foreground">{it.quantity} {it.unit}</p>
+                    <p className="text-xs text-muted-foreground">{it.quantity} {it.unit} · R$ {uc.toFixed(4)}/{it.unit}</p>
                   </div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeDraft(it.key)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium tabular-nums">R$ {line.toFixed(2)}</span>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeDraft(it.key)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            ))}
+              );
+            })}
+            {items.length > 0 && (
+              <div className="flex justify-end pt-2 text-sm">
+                <span className="text-muted-foreground mr-2">Custo total:</span>
+                <span className="font-semibold tabular-nums">
+                  R$ {items.reduce((s, it) => s + (unitCosts?.[`${it.item_type}:${it.target_id}`] ?? 0) * Number(it.quantity), 0).toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-12">
