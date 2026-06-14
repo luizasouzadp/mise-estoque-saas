@@ -63,13 +63,39 @@ function NewRecipe() {
   });
 
   const { data: allRecipes } = useQuery({
-    queryKey: ["recipes-min"],
+    queryKey: ["recipes-min-with-yield"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name, yield_unit").order("name");
+      const { data, error } = await supabase.from("recipes").select("id, name, yield_qty, yield_unit").order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  // Unit cost lookup for selected draft items (sub-recipes use recipe_total_cost / yield_qty; ingredients use 30d avg)
+  const itemKeys = items.map((i) => `${i.item_type}:${i.target_id}`).join("|");
+  const { data: unitCosts } = useQuery({
+    queryKey: ["draft-item-costs", itemKeys],
+    enabled: items.length > 0,
+    queryFn: async () => {
+      const map: Record<string, number> = {};
+      await Promise.all(
+        items.map(async (it) => {
+          const key = `${it.item_type}:${it.target_id}`;
+          if (it.item_type === "ingredient") {
+            const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: it.target_id });
+            map[key] = Number(data ?? 0);
+          } else {
+            const { data: total } = await supabase.rpc("recipe_total_cost", { _recipe_id: it.target_id, _depth: 0 });
+            const sub = allRecipes?.find((r) => r.id === it.target_id);
+            const y = Number(sub?.yield_qty ?? 1) || 1;
+            map[key] = Number(total ?? 0) / y;
+          }
+        }),
+      );
+      return map;
+    },
+  });
+
 
   const { data: menuCategories } = useQuery({
     queryKey: ["menu-categories"],
@@ -266,20 +292,35 @@ function NewRecipe() {
           <div className="space-y-2">
             {items.length === 0 ? (
               <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum item adicionado.</p>
-            ) : items.map((it) => (
+            ) : items.map((it) => {
+              const uc = unitCosts?.[`${it.item_type}:${it.target_id}`] ?? 0;
+              const line = uc * Number(it.quantity);
+              return (
               <div key={it.key} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {it.item_type === "ingredient" ? <Package className="h-4 w-4 text-muted-foreground shrink-0" /> : <BookOpen className="h-4 w-4 text-primary shrink-0" />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{it.target_name}</p>
-                    <p className="text-xs text-muted-foreground">{it.quantity} {it.unit}</p>
+                    <p className="text-xs text-muted-foreground">{it.quantity} {it.unit} · R$ {uc.toFixed(4)}/{it.unit}</p>
                   </div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeDraft(it.key)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium tabular-nums">R$ {line.toFixed(2)}</span>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeDraft(it.key)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            ))}
+              );
+            })}
+            {items.length > 0 && (
+              <div className="flex justify-end pt-2 text-sm">
+                <span className="text-muted-foreground mr-2">Custo total:</span>
+                <span className="font-semibold tabular-nums">
+                  R$ {items.reduce((s, it) => s + (unitCosts?.[`${it.item_type}:${it.target_id}`] ?? 0) * Number(it.quantity), 0).toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-12">
