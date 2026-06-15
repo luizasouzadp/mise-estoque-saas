@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ChefHat, Filter, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { ChefHat, Filter, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { compatibleUnits, convert } from "@/lib/units";
 import { createChef } from "@/lib/chefs.functions";
 import { useUserRoles } from "@/hooks/use-roles";
@@ -104,6 +104,7 @@ function ProductionsPage() {
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [queue, setQueue] = useState<QueuedProduction[]>([]);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -125,8 +126,9 @@ function ProductionsPage() {
   }
   useEffect(() => { load(); }, []);
 
-  // When recipe + produced change, pre-fill items proportionally
+  // When recipe + produced change, pre-fill items proportionally (skip while editing)
   useEffect(() => {
+    if (editingId) return;
     if (!recipeId || !produced) return;
     const rec = recipes.find((r) => r.id === recipeId);
     if (!rec) return;
@@ -153,15 +155,38 @@ function ProductionsPage() {
       }
       setDraftItems(drafts);
     })();
-  }, [recipeId, produced, recipes, ingredients]);
+  }, [recipeId, produced, recipes, ingredients, editingId]);
 
   function openNew() {
+    setEditingId(null);
     setRecipeId("");
     setProduced("");
     setProducedAt(new Date().toISOString().slice(0, 16));
     setNotes("");
     setDraftItems([]);
     setQueue([]);
+    setOpen(true);
+  }
+
+  async function openEdit(p: ProductionRow) {
+    setEditingId(p.id);
+    setQueue([]);
+    setRecipeId(p.recipe_id);
+    setProduced(String(p.quantity_produced));
+    setProducedAt(new Date(p.produced_at).toISOString().slice(0, 16));
+    setNotes(p.notes ?? "");
+    const list = itemsByProduction.get(p.id) ?? [];
+    const drafts: DraftItem[] = list.map((it) => {
+      const ing = ingredients.find((x) => x.name === it.ingredient_name);
+      return {
+        ingredient_id: ing?.id ?? "",
+        ingredient_name: it.ingredient_name,
+        baseUnit: ing?.unit ?? it.unit,
+        quantity: String(Number(it.quantity)),
+        unit: it.unit,
+      };
+    });
+    setDraftItems(drafts);
     setOpen(true);
   }
 
@@ -281,6 +306,27 @@ function ProductionsPage() {
   }
 
   async function save() {
+    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+
+    if (editingId) {
+      const current = validateCurrent();
+      if (!current) return;
+      setSaving(true);
+      // Revert previous: delete movements + production (cascades items)
+      await supabase.from("stock_movements").delete().eq("notes", `production:${editingId}`);
+      const { error: delErr } = await supabase.from("productions").delete().eq("id", editingId);
+      if (delErr) { setSaving(false); return toast.error(delErr.message); }
+      const err = await persistOne(current, prof.restaurant_id);
+      setSaving(false);
+      if (err) return toast.error(err);
+      toast.success("Produção atualizada");
+      setOpen(false);
+      setEditingId(null);
+      load();
+      return;
+    }
+
     // Build the final list: queued items + current form (if filled)
     const toSave = [...queue];
     if (recipeId || produced || draftItems.length > 0) {
@@ -289,9 +335,6 @@ function ProductionsPage() {
       toSave.push(current);
     }
     if (toSave.length === 0) return toast.error("Adicione ao menos uma produção");
-
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
 
     setSaving(true);
     let ok = 0;
@@ -360,7 +403,7 @@ function ProductionsPage() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Registrar produções</DialogTitle>
+                <DialogTitle>{editingId ? "Editar produção" : "Registrar produções"}</DialogTitle>
               </DialogHeader>
             <div className="grid gap-3">
               {queue.length > 0 && (
@@ -476,11 +519,17 @@ function ProductionsPage() {
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
-              <Button variant="outline" onClick={addToQueue} disabled={saving}>
-                <Plus className="h-4 w-4" /> Adicionar à lista
-              </Button>
+              {!editingId && (
+                <Button variant="outline" onClick={addToQueue} disabled={saving}>
+                  <Plus className="h-4 w-4" /> Adicionar à lista
+                </Button>
+              )}
               <Button onClick={save} disabled={saving}>
-                {saving ? "Registrando..." : queue.length > 0 ? `Registrar ${queue.length + (recipeId ? 1 : 0)}` : "Registrar"}
+                {saving
+                  ? (editingId ? "Salvando..." : "Registrando...")
+                  : editingId
+                    ? "Salvar alterações"
+                    : queue.length > 0 ? `Registrar ${queue.length + (recipeId ? 1 : 0)}` : "Registrar"}
               </Button>
             </DialogFooter>
             </DialogContent>
@@ -552,8 +601,11 @@ function ProductionsPage() {
                   <TableCell className="text-xs text-muted-foreground">
                     {list.length === 0 ? "—" : list.map((it) => `${it.ingredient_name} (${Number(it.quantity)} ${it.unit})`).join(", ")}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => remove(p)}>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => remove(p)} title="Excluir">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
