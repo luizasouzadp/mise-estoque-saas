@@ -158,12 +158,35 @@ function ProductionsPage() {
   }, [recipeId, produced, recipes, ingredients, editingId]);
 
   function openNew() {
+    setEditingId(null);
     setRecipeId("");
     setProduced("");
     setProducedAt(new Date().toISOString().slice(0, 16));
     setNotes("");
     setDraftItems([]);
     setQueue([]);
+    setOpen(true);
+  }
+
+  async function openEdit(p: ProductionRow) {
+    setEditingId(p.id);
+    setQueue([]);
+    setRecipeId(p.recipe_id);
+    setProduced(String(p.quantity_produced));
+    setProducedAt(new Date(p.produced_at).toISOString().slice(0, 16));
+    setNotes(p.notes ?? "");
+    const list = itemsByProduction.get(p.id) ?? [];
+    const drafts: DraftItem[] = list.map((it) => {
+      const ing = ingredients.find((x) => x.name === it.ingredient_name);
+      return {
+        ingredient_id: ing?.id ?? "",
+        ingredient_name: it.ingredient_name,
+        baseUnit: ing?.unit ?? it.unit,
+        quantity: String(Number(it.quantity)),
+        unit: it.unit,
+      };
+    });
+    setDraftItems(drafts);
     setOpen(true);
   }
 
