@@ -104,6 +104,7 @@ function ProductionsPage() {
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [queue, setQueue] = useState<QueuedProduction[]>([]);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
