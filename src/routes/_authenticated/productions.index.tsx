@@ -483,8 +483,9 @@ function ProductionsPage() {
                 {saving ? "Registrando..." : queue.length > 0 ? `Registrar ${queue.length + (recipeId ? 1 : 0)}` : "Registrar"}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filtros */}
