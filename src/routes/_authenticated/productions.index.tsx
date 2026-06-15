@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ChefHat, Filter, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { ChefHat, Filter, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { compatibleUnits, convert } from "@/lib/units";
 import { createChef } from "@/lib/chefs.functions";
 import { useUserRoles } from "@/hooks/use-roles";
