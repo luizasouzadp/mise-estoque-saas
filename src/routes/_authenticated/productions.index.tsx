@@ -306,6 +306,27 @@ function ProductionsPage() {
   }
 
   async function save() {
+    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+
+    if (editingId) {
+      const current = validateCurrent();
+      if (!current) return;
+      setSaving(true);
+      // Revert previous: delete movements + production (cascades items)
+      await supabase.from("stock_movements").delete().eq("notes", `production:${editingId}`);
+      const { error: delErr } = await supabase.from("productions").delete().eq("id", editingId);
+      if (delErr) { setSaving(false); return toast.error(delErr.message); }
+      const err = await persistOne(current, prof.restaurant_id);
+      setSaving(false);
+      if (err) return toast.error(err);
+      toast.success("Produção atualizada");
+      setOpen(false);
+      setEditingId(null);
+      load();
+      return;
+    }
+
     // Build the final list: queued items + current form (if filled)
     const toSave = [...queue];
     if (recipeId || produced || draftItems.length > 0) {
@@ -314,9 +335,6 @@ function ProductionsPage() {
       toSave.push(current);
     }
     if (toSave.length === 0) return toast.error("Adicione ao menos uma produção");
-
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
 
     setSaving(true);
     let ok = 0;
