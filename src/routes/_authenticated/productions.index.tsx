@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,10 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ChefHat, Filter, Plus, Trash2, X } from "lucide-react";
+import { ChefHat, Filter, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { compatibleUnits, convert } from "@/lib/units";
+import { createChef } from "@/lib/chefs.functions";
+import { useUserRoles } from "@/hooks/use-roles";
 
 export const Route = createFileRoute("/_authenticated/productions/")({
   component: ProductionsPage,
@@ -344,19 +347,21 @@ function ProductionsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h1 className="font-display text-2xl">Produção</h1>
           <p className="text-sm text-muted-foreground">Lance o que foi produzido na cozinha</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova produção</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Registrar produções</DialogTitle>
-            </DialogHeader>
+        <div className="flex gap-2">
+          <AddChefButton />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova produção</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Registrar produções</DialogTitle>
+              </DialogHeader>
             <div className="grid gap-3">
               {queue.length > 0 && (
                 <div className="rounded-md border bg-muted/30 p-2 space-y-1">
