@@ -126,8 +126,9 @@ function ProductionsPage() {
   }
   useEffect(() => { load(); }, []);
 
-  // When recipe + produced change, pre-fill items proportionally
+  // When recipe + produced change, pre-fill items proportionally (skip while editing)
   useEffect(() => {
+    if (editingId) return;
     if (!recipeId || !produced) return;
     const rec = recipes.find((r) => r.id === recipeId);
     if (!rec) return;
@@ -154,7 +155,7 @@ function ProductionsPage() {
       }
       setDraftItems(drafts);
     })();
-  }, [recipeId, produced, recipes, ingredients]);
+  }, [recipeId, produced, recipes, ingredients, editingId]);
 
   function openNew() {
     setRecipeId("");
