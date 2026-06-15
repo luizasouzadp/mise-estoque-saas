@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,10 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ChefHat, Filter, Plus, Trash2, X } from "lucide-react";
+import { ChefHat, Filter, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { compatibleUnits, convert } from "@/lib/units";
+import { createChef } from "@/lib/chefs.functions";
+import { useUserRoles } from "@/hooks/use-roles";
 
 export const Route = createFileRoute("/_authenticated/productions/")({
   component: ProductionsPage,
@@ -344,19 +347,21 @@ function ProductionsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h1 className="font-display text-2xl">Produção</h1>
           <p className="text-sm text-muted-foreground">Lance o que foi produzido na cozinha</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova produção</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Registrar produções</DialogTitle>
-            </DialogHeader>
+        <div className="flex gap-2">
+          <AddChefButton />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova produção</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Registrar produções</DialogTitle>
+              </DialogHeader>
             <div className="grid gap-3">
               {queue.length > 0 && (
                 <div className="rounded-md border bg-muted/30 p-2 space-y-1">
@@ -478,8 +483,9 @@ function ProductionsPage() {
                 {saving ? "Registrando..." : queue.length > 0 ? `Registrar ${queue.length + (recipeId ? 1 : 0)}` : "Registrar"}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -558,5 +564,60 @@ function ProductionsPage() {
         </Table>
       </div>
     </div>
+  );
+}
+
+function AddChefButton() {
+  const { isChef, loading } = useUserRoles();
+  const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const create = useServerFn(createChef);
+
+  if (loading || isChef) return null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!/^[a-zA-Z0-9_.-]{3,40}$/.test(username)) return toast.error("Usuário inválido (3-40 caracteres, letras/números/_.-)");
+    if (password.length < 6) return toast.error("Senha deve ter ao menos 6 caracteres");
+    setBusy(true);
+    try {
+      await create({ data: { username, password } });
+      toast.success(`Chef "${username}" criado. Use o usuário e senha para entrar.`);
+      setUsername(""); setPassword(""); setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar chef");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline"><UserPlus className="h-4 w-4" /> Adicionar chef</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Cadastrar chef de cozinha</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <Label>Nome de usuário</Label>
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ex: chef.joao" autoComplete="off" />
+            <p className="mt-1 text-xs text-muted-foreground">O chef entrará digitando este usuário no login.</p>
+          </div>
+          <div>
+            <Label>Senha</Label>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>Cancelar</Button>
+            <Button type="submit" disabled={busy}>{busy ? "Criando..." : "Criar chef"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

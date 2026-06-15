@@ -1,10 +1,12 @@
+import { useEffect } from "react";
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, ArrowLeftRight, BookOpen, DollarSign, Flame, Percent } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useUserRoles } from "@/hooks/use-roles";
 
-const navItems = [
+const allNavItems = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
   { to: "/ingredients", label: "Insumos", icon: Package },
   { to: "/recipes", label: "Fichas", icon: BookOpen },
@@ -19,6 +21,16 @@ const navItems = [
 export function AppShell() {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isChef, loading } = useUserRoles();
+
+  const navItems = isChef ? allNavItems.filter((n) => n.to === "/productions") : allNavItems;
+
+  useEffect(() => {
+    if (loading) return;
+    if (isChef && !pathname.startsWith("/productions")) {
+      router.navigate({ to: "/productions" });
+    }
+  }, [isChef, loading, pathname, router]);
 
   async function logout() {
     await supabase.auth.signOut();
@@ -79,7 +91,7 @@ export function AppShell() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-9 border-t bg-card md:hidden">
+      <nav className={cn("fixed inset-x-0 bottom-0 z-50 grid border-t bg-card md:hidden", `grid-cols-${navItems.length}`)} style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}>
         {navItems.map((it) => {
           const active = pathname.startsWith(it.to);
           return (
