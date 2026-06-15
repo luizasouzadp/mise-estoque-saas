@@ -601,8 +601,11 @@ function ProductionsPage() {
                   <TableCell className="text-xs text-muted-foreground">
                     {list.length === 0 ? "—" : list.map((it) => `${it.ingredient_name} (${Number(it.quantity)} ${it.unit})`).join(", ")}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => remove(p)}>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => remove(p)} title="Excluir">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
