@@ -519,11 +519,17 @@ function ProductionsPage() {
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
-              <Button variant="outline" onClick={addToQueue} disabled={saving}>
-                <Plus className="h-4 w-4" /> Adicionar à lista
-              </Button>
+              {!editingId && (
+                <Button variant="outline" onClick={addToQueue} disabled={saving}>
+                  <Plus className="h-4 w-4" /> Adicionar à lista
+                </Button>
+              )}
               <Button onClick={save} disabled={saving}>
-                {saving ? "Registrando..." : queue.length > 0 ? `Registrar ${queue.length + (recipeId ? 1 : 0)}` : "Registrar"}
+                {saving
+                  ? (editingId ? "Salvando..." : "Registrando...")
+                  : editingId
+                    ? "Salvar alterações"
+                    : queue.length > 0 ? `Registrar ${queue.length + (recipeId ? 1 : 0)}` : "Registrar"}
               </Button>
             </DialogFooter>
             </DialogContent>
