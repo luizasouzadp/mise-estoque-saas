@@ -403,7 +403,7 @@ function ProductionsPage() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Registrar produções</DialogTitle>
+                <DialogTitle>{editingId ? "Editar produção" : "Registrar produções"}</DialogTitle>
               </DialogHeader>
             <div className="grid gap-3">
               {queue.length > 0 && (
