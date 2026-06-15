@@ -18,13 +18,15 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const nav = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    const id = identifier.trim();
+    const email = id.includes("@") ? id : `${id.toLowerCase()}@chef.mise.local`;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
@@ -32,7 +34,9 @@ function LoginPage() {
       return;
     }
     toast.success("Bem-vindo de volta!");
-    nav({ to: "/dashboard" });
+    // Route to productions; chef users are restricted there. Owners go via dashboard.
+    const isChefLogin = !id.includes("@");
+    nav({ to: isChefLogin ? "/productions" : "/dashboard" });
   }
 
   return (
@@ -46,11 +50,11 @@ function LoginPage() {
         </Link>
         <div className="rounded-2xl border bg-card p-8 shadow-[var(--shadow-card)]">
           <h1 className="font-display text-2xl">Entrar</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Acesse sua cozinha digital.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Use seu e-mail ou nome de usuário (chef).</p>
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
-              <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Label htmlFor="identifier">E-mail ou usuário</Label>
+              <Input id="identifier" type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="password">Senha</Label>
