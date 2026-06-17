@@ -20,6 +20,7 @@ import { Route as AuthenticatedPurchasesIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedProductionsIndexRouteImport } from './routes/_authenticated/productions.index'
 import { Route as AuthenticatedPricingIndexRouteImport } from './routes/_authenticated/pricing.index'
 import { Route as AuthenticatedMovementsIndexRouteImport } from './routes/_authenticated/movements.index'
+import { Route as AuthenticatedMenuAnalysisIndexRouteImport } from './routes/_authenticated/menu-analysis.index'
 import { Route as AuthenticatedInventoriesIndexRouteImport } from './routes/_authenticated/inventories.index'
 import { Route as AuthenticatedIngredientsIndexRouteImport } from './routes/_authenticated/ingredients.index'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups.index'
@@ -27,6 +28,7 @@ import { Route as AuthenticatedCmvIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRecipesNewRouteImport } from './routes/_authenticated/recipes.new'
 import { Route as AuthenticatedRecipesIdRouteImport } from './routes/_authenticated/recipes.$id'
 import { Route as AuthenticatedPurchasesNewRouteImport } from './routes/_authenticated/purchases.new'
+import { Route as AuthenticatedMenuAnalysisIdRouteImport } from './routes/_authenticated/menu-analysis.$id'
 import { Route as AuthenticatedInventoriesNewRouteImport } from './routes/_authenticated/inventories.new'
 import { Route as AuthenticatedInventoriesIdRouteImport } from './routes/_authenticated/inventories.$id'
 import { Route as AuthenticatedIngredientsNewRouteImport } from './routes/_authenticated/ingredients.new'
@@ -92,6 +94,12 @@ const AuthenticatedMovementsIndexRoute =
     path: '/movements/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMenuAnalysisIndexRoute =
+  AuthenticatedMenuAnalysisIndexRouteImport.update({
+    id: '/menu-analysis/',
+    path: '/menu-analysis/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInventoriesIndexRoute =
   AuthenticatedInventoriesIndexRouteImport.update({
     id: '/inventories/',
@@ -129,6 +137,12 @@ const AuthenticatedPurchasesNewRoute =
   AuthenticatedPurchasesNewRouteImport.update({
     id: '/purchases/new',
     path: '/purchases/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMenuAnalysisIdRoute =
+  AuthenticatedMenuAnalysisIdRouteImport.update({
+    id: '/menu-analysis/$id',
+    path: '/menu-analysis/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedInventoriesNewRoute =
@@ -172,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
   '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
+  '/menu-analysis/$id': typeof AuthenticatedMenuAnalysisIdRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
@@ -179,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/groups/': typeof AuthenticatedGroupsIndexRoute
   '/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/inventories/': typeof AuthenticatedInventoriesIndexRoute
+  '/menu-analysis/': typeof AuthenticatedMenuAnalysisIndexRoute
   '/movements/': typeof AuthenticatedMovementsIndexRoute
   '/pricing/': typeof AuthenticatedPricingIndexRoute
   '/productions/': typeof AuthenticatedProductionsIndexRoute
@@ -196,6 +212,7 @@ export interface FileRoutesByTo {
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
   '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
+  '/menu-analysis/$id': typeof AuthenticatedMenuAnalysisIdRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
@@ -203,6 +220,7 @@ export interface FileRoutesByTo {
   '/groups': typeof AuthenticatedGroupsIndexRoute
   '/ingredients': typeof AuthenticatedIngredientsIndexRoute
   '/inventories': typeof AuthenticatedInventoriesIndexRoute
+  '/menu-analysis': typeof AuthenticatedMenuAnalysisIndexRoute
   '/movements': typeof AuthenticatedMovementsIndexRoute
   '/pricing': typeof AuthenticatedPricingIndexRoute
   '/productions': typeof AuthenticatedProductionsIndexRoute
@@ -222,6 +240,7 @@ export interface FileRoutesById {
   '/_authenticated/ingredients/new': typeof AuthenticatedIngredientsNewRoute
   '/_authenticated/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/_authenticated/inventories/new': typeof AuthenticatedInventoriesNewRoute
+  '/_authenticated/menu-analysis/$id': typeof AuthenticatedMenuAnalysisIdRoute
   '/_authenticated/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/_authenticated/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/_authenticated/recipes/new': typeof AuthenticatedRecipesNewRoute
@@ -229,6 +248,7 @@ export interface FileRoutesById {
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
   '/_authenticated/ingredients/': typeof AuthenticatedIngredientsIndexRoute
   '/_authenticated/inventories/': typeof AuthenticatedInventoriesIndexRoute
+  '/_authenticated/menu-analysis/': typeof AuthenticatedMenuAnalysisIndexRoute
   '/_authenticated/movements/': typeof AuthenticatedMovementsIndexRoute
   '/_authenticated/pricing/': typeof AuthenticatedPricingIndexRoute
   '/_authenticated/productions/': typeof AuthenticatedProductionsIndexRoute
@@ -248,6 +268,7 @@ export interface FileRouteTypes {
     | '/ingredients/new'
     | '/inventories/$id'
     | '/inventories/new'
+    | '/menu-analysis/$id'
     | '/purchases/new'
     | '/recipes/$id'
     | '/recipes/new'
@@ -255,6 +276,7 @@ export interface FileRouteTypes {
     | '/groups/'
     | '/ingredients/'
     | '/inventories/'
+    | '/menu-analysis/'
     | '/movements/'
     | '/pricing/'
     | '/productions/'
@@ -272,6 +294,7 @@ export interface FileRouteTypes {
     | '/ingredients/new'
     | '/inventories/$id'
     | '/inventories/new'
+    | '/menu-analysis/$id'
     | '/purchases/new'
     | '/recipes/$id'
     | '/recipes/new'
@@ -279,6 +302,7 @@ export interface FileRouteTypes {
     | '/groups'
     | '/ingredients'
     | '/inventories'
+    | '/menu-analysis'
     | '/movements'
     | '/pricing'
     | '/productions'
@@ -297,6 +321,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ingredients/new'
     | '/_authenticated/inventories/$id'
     | '/_authenticated/inventories/new'
+    | '/_authenticated/menu-analysis/$id'
     | '/_authenticated/purchases/new'
     | '/_authenticated/recipes/$id'
     | '/_authenticated/recipes/new'
@@ -304,6 +329,7 @@ export interface FileRouteTypes {
     | '/_authenticated/groups/'
     | '/_authenticated/ingredients/'
     | '/_authenticated/inventories/'
+    | '/_authenticated/menu-analysis/'
     | '/_authenticated/movements/'
     | '/_authenticated/pricing/'
     | '/_authenticated/productions/'
@@ -398,6 +424,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMovementsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/menu-analysis/': {
+      id: '/_authenticated/menu-analysis/'
+      path: '/menu-analysis'
+      fullPath: '/menu-analysis/'
+      preLoaderRoute: typeof AuthenticatedMenuAnalysisIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inventories/': {
       id: '/_authenticated/inventories/'
       path: '/inventories'
@@ -447,6 +480,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPurchasesNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/menu-analysis/$id': {
+      id: '/_authenticated/menu-analysis/$id'
+      path: '/menu-analysis/$id'
+      fullPath: '/menu-analysis/$id'
+      preLoaderRoute: typeof AuthenticatedMenuAnalysisIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inventories/new': {
       id: '/_authenticated/inventories/new'
       path: '/inventories/new'
@@ -492,6 +532,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIngredientsNewRoute: typeof AuthenticatedIngredientsNewRoute
   AuthenticatedInventoriesIdRoute: typeof AuthenticatedInventoriesIdRoute
   AuthenticatedInventoriesNewRoute: typeof AuthenticatedInventoriesNewRoute
+  AuthenticatedMenuAnalysisIdRoute: typeof AuthenticatedMenuAnalysisIdRoute
   AuthenticatedPurchasesNewRoute: typeof AuthenticatedPurchasesNewRoute
   AuthenticatedRecipesIdRoute: typeof AuthenticatedRecipesIdRoute
   AuthenticatedRecipesNewRoute: typeof AuthenticatedRecipesNewRoute
@@ -499,6 +540,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
   AuthenticatedIngredientsIndexRoute: typeof AuthenticatedIngredientsIndexRoute
   AuthenticatedInventoriesIndexRoute: typeof AuthenticatedInventoriesIndexRoute
+  AuthenticatedMenuAnalysisIndexRoute: typeof AuthenticatedMenuAnalysisIndexRoute
   AuthenticatedMovementsIndexRoute: typeof AuthenticatedMovementsIndexRoute
   AuthenticatedPricingIndexRoute: typeof AuthenticatedPricingIndexRoute
   AuthenticatedProductionsIndexRoute: typeof AuthenticatedProductionsIndexRoute
@@ -513,6 +555,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIngredientsNewRoute: AuthenticatedIngredientsNewRoute,
   AuthenticatedInventoriesIdRoute: AuthenticatedInventoriesIdRoute,
   AuthenticatedInventoriesNewRoute: AuthenticatedInventoriesNewRoute,
+  AuthenticatedMenuAnalysisIdRoute: AuthenticatedMenuAnalysisIdRoute,
   AuthenticatedPurchasesNewRoute: AuthenticatedPurchasesNewRoute,
   AuthenticatedRecipesIdRoute: AuthenticatedRecipesIdRoute,
   AuthenticatedRecipesNewRoute: AuthenticatedRecipesNewRoute,
@@ -520,6 +563,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
   AuthenticatedIngredientsIndexRoute: AuthenticatedIngredientsIndexRoute,
   AuthenticatedInventoriesIndexRoute: AuthenticatedInventoriesIndexRoute,
+  AuthenticatedMenuAnalysisIndexRoute: AuthenticatedMenuAnalysisIndexRoute,
   AuthenticatedMovementsIndexRoute: AuthenticatedMovementsIndexRoute,
   AuthenticatedPricingIndexRoute: AuthenticatedPricingIndexRoute,
   AuthenticatedProductionsIndexRoute: AuthenticatedProductionsIndexRoute,
