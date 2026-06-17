@@ -790,6 +790,170 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_report_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          item_name: string
+          margin: number
+          menu_product_id: string | null
+          product_code: string
+          quantity: number
+          recipe_id: string | null
+          report_id: string
+          revenue: number
+          source: string
+          total_cost: number
+          unit_cost: number
+          unit_price: number
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          item_name: string
+          margin?: number
+          menu_product_id?: string | null
+          product_code: string
+          quantity?: number
+          recipe_id?: string | null
+          report_id: string
+          revenue?: number
+          source: string
+          total_cost?: number
+          unit_cost?: number
+          unit_price?: number
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          item_name?: string
+          margin?: number
+          menu_product_id?: string | null
+          product_code?: string
+          quantity?: number
+          recipe_id?: string | null
+          report_id?: string
+          revenue?: number
+          source?: string
+          total_cost?: number
+          unit_cost?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_report_items_menu_product_id_fkey"
+            columns: ["menu_product_id"]
+            isOneToOne: false
+            referencedRelation: "menu_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_report_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_report_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_report_unmapped: {
+        Row: {
+          created_at: string
+          id: string
+          product_code: string
+          quantity: number
+          report_id: string
+          revenue: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_code: string
+          quantity?: number
+          report_id: string
+          revenue?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_code?: string
+          quantity?: number
+          report_id?: string
+          revenue?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_report_unmapped_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_reports: {
+        Row: {
+          ai_insights: string | null
+          created_at: string
+          created_by: string | null
+          file_name: string | null
+          id: string
+          reference_month: string
+          restaurant_id: string
+          total_cost: number
+          total_margin: number
+          total_quantity: number
+          total_revenue: number
+          updated_at: string
+        }
+        Insert: {
+          ai_insights?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          reference_month: string
+          restaurant_id: string
+          total_cost?: number
+          total_margin?: number
+          total_quantity?: number
+          total_revenue?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_insights?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          reference_month?: string
+          restaurant_id?: string
+          total_cost?: number
+          total_margin?: number
+          total_quantity?: number
+          total_revenue?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_reports_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_movements: {
         Row: {
           created_at: string
