@@ -18,7 +18,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import { Plus, Trash2, X, ChevronDown } from "lucide-react";
+import { Plus, Trash2, X, ChevronDown, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/pricing/")({
@@ -256,12 +256,17 @@ function PricingPage() {
           <h1 className="font-display text-3xl">Precificação</h1>
           <p className="text-sm text-muted-foreground">Defina seu CMV ideal e acompanhe a saúde dos preços do seu cardápio.</p>
         </div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-1" /> Adicionar produto</Button>
-          </DialogTrigger>
-          <ManualProductDialog onClose={() => setAddOpen(false)} existingCategories={existingCategories} />
-        </Dialog>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link to="/menu-analysis"><BarChart3 className="mr-1" /> Análise de vendas</Link>
+          </Button>
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="mr-1" /> Adicionar produto</Button>
+            </DialogTrigger>
+            <ManualProductDialog onClose={() => setAddOpen(false)} existingCategories={existingCategories} />
+          </Dialog>
+        </div>
       </div>
 
       {/* CMV ideal */}
