@@ -39,7 +39,7 @@ function LoginPage() {
     toast.success("Bem-vindo de volta!");
     // Route to productions; chef users are restricted there. Owners go via dashboard.
     const isChefLogin = !id.includes("@");
-    nav({ to: isChefLogin ? "/productions" : "/dashboard" });
+    nav({ to: isChefLogin ? "/productions" : "/dashboard", replace: true });
   }
 
   return (
