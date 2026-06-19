@@ -27,6 +27,7 @@ function RecipeDetail() {
   const { id } = Route.useParams();
   const nav = useNavigate();
   const qc = useQueryClient();
+  const dup = useServerFn(duplicateRecipe);
 
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
