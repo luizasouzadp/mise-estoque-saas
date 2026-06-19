@@ -95,7 +95,7 @@ function RecipesList() {
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
-                      const res = await dup({ recipeId: r.id });
+                      const res = await dup({ data: { recipeId: r.id } });
                       toast.success("Ficha duplicada!");
                       qc.invalidateQueries({ queryKey: ["recipes"] });
                       qc.invalidateQueries({ queryKey: ["ingredients"] });
