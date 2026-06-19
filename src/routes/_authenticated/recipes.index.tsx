@@ -17,6 +17,9 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 
 function RecipesList() {
   const [q, setQ] = useState("");
+  const qc = useQueryClient();
+  const nav = useNavigate();
+  const dup = useServerFn(duplicateRecipe);
   const { data, isLoading } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
