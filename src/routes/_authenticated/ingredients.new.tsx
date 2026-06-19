@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, ChevronsUpDown, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ingredients/new")({
   component: NewIngredient,
@@ -28,6 +31,17 @@ function NewIngredient() {
   const [unitValue, setUnitValue] = useState("");
   const [composesCmv, setComposesCmv] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [catOpen, setCatOpen] = useState(false);
+  const [catQuery, setCatQuery] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("ingredients").select("category").not("category", "is", null);
+      const unique = Array.from(new Set((data ?? []).map((r: any) => (r.category ?? "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setCategories(unique);
+    })();
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,7 +99,59 @@ function NewIngredient() {
           </div>
           <div>
             <Label htmlFor="category">Categoria (opcional)</Label>
-            <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Hortifruti" />
+            <Popover open={catOpen} onOpenChange={setCatOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="category"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  className={cn("w-full justify-between font-normal", !category && "text-muted-foreground")}
+                >
+                  {category || "Selecione ou crie..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar ou criar..." value={catQuery} onValueChange={setCatQuery} />
+                  <CommandList>
+                    <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                    <CommandGroup>
+                      {categories.map((c) => (
+                        <CommandItem
+                          key={c}
+                          value={c}
+                          onSelect={() => {
+                            setCategory(c);
+                            setCatOpen(false);
+                            setCatQuery("");
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", category === c ? "opacity-100" : "opacity-0")} />
+                          {c}
+                        </CommandItem>
+                      ))}
+                      {catQuery.trim() && !categories.some((c) => c.toLowerCase() === catQuery.trim().toLowerCase()) && (
+                        <CommandItem
+                          value={`__create__${catQuery}`}
+                          onSelect={() => {
+                            const v = catQuery.trim();
+                            setCategory(v);
+                            setCategories((prev) => [...prev, v].sort((a, b) => a.localeCompare(b, "pt-BR")));
+                            setCatOpen(false);
+                            setCatQuery("");
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Criar "{catQuery.trim()}"
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
