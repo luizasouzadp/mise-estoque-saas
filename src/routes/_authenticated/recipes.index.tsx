@@ -4,7 +4,12 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookOpen } from "lucide-react";
+import { Plus, Search, BookOpen, Copy } from "lucide-react";
+import { duplicateRecipe } from "@/lib/recipes.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/recipes/")({
   component: RecipesList,
