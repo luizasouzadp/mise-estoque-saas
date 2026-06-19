@@ -1,10 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookOpen } from "lucide-react";
+import { Plus, Search, BookOpen, Copy } from "lucide-react";
+import { duplicateRecipe } from "@/lib/recipes.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/recipes/")({
   component: RecipesList,
@@ -14,6 +17,9 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 
 function RecipesList() {
   const [q, setQ] = useState("");
+  const qc = useQueryClient();
+  const nav = useNavigate();
+  const dup = useServerFn(duplicateRecipe);
   const { data, isLoading } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
@@ -66,26 +72,44 @@ function RecipesList() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((r) => (
-              <Link
+              <div
                 key={r.id}
-                to="/recipes/$id"
-                params={{ id: r.id }}
-                className="group rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] transition hover:border-primary"
+                className="group relative rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] transition hover:border-primary"
               >
-                <h3 className="font-semibold group-hover:text-primary">{r.name}</h3>
-                {r.description && <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{r.description}</p>}
-                <div className="mt-4 flex items-end justify-between text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Rendimento</p>
-                    <p className="font-medium">{Number(r.yield_qty)} {r.yield_unit}</p>
+                <Link to="/recipes/$id" params={{ id: r.id }} className="block">
+                  <h3 className="font-semibold group-hover:text-primary">{r.name}</h3>
+                  {r.description && <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{r.description}</p>}
+                  <div className="mt-4 flex items-end justify-between text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Rendimento</p>
+                      <p className="font-medium">{Number(r.yield_qty)} {r.yield_unit}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Custo / {r.yield_unit}</p>
+                      <p className="font-semibold text-primary">{BRL.format(r.unit_cost)}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Custo / {r.yield_unit}</p>
-                    <p className="font-semibold text-primary">{BRL.format(r.unit_cost)}</p>
-                  </div>
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">Total da receita: {BRL.format(r.total_cost)}</div>
-              </Link>
+                  <div className="mt-2 text-xs text-muted-foreground">Total da receita: {BRL.format(r.total_cost)}</div>
+                </Link>
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const res = await dup({ data: { recipeId: r.id } });
+                      toast.success("Ficha duplicada!");
+                      qc.invalidateQueries({ queryKey: ["recipes"] });
+                      qc.invalidateQueries({ queryKey: ["ingredients"] });
+                      nav({ to: "/recipes/$id", params: { id: res.id } });
+                    } catch (err: any) {
+                      toast.error(err?.message || "Erro ao duplicar");
+                    }
+                  }}
+                  className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                  title="Duplicar ficha"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
             ))}
           </div>
         )}

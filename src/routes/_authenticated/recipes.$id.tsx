@@ -10,9 +10,11 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy } from "lucide-react";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
+import { duplicateRecipe } from "@/lib/recipes.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/_authenticated/recipes/$id")({
   component: RecipeDetail,
@@ -25,6 +27,7 @@ function RecipeDetail() {
   const { id } = Route.useParams();
   const nav = useNavigate();
   const qc = useQueryClient();
+  const dup = useServerFn(duplicateRecipe);
 
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
@@ -255,6 +258,23 @@ function RecipeDetail() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={startEdit}>Editar</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const res = await dup({ data: { recipeId: id } });
+                      toast.success("Ficha duplicada!");
+                      qc.invalidateQueries({ queryKey: ["recipes"] });
+                      qc.invalidateQueries({ queryKey: ["ingredients"] });
+                      nav({ to: "/recipes/$id", params: { id: res.id } });
+                    } catch (err: any) {
+                      toast.error(err?.message || "Erro ao duplicar");
+                    }
+                  }}
+                >
+                  <Copy className="mr-1 h-4 w-4" /> Duplicar
+                </Button>
                 <Button variant="ghost" size="sm" onClick={deleteRecipe}><Trash2 className="h-4 w-4" /></Button>
               </div>
             </div>
