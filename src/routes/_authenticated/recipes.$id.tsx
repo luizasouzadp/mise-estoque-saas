@@ -258,6 +258,23 @@ function RecipeDetail() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={startEdit}>Editar</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const res = await dup({ data: { recipeId: id } });
+                      toast.success("Ficha duplicada!");
+                      qc.invalidateQueries({ queryKey: ["recipes"] });
+                      qc.invalidateQueries({ queryKey: ["ingredients"] });
+                      nav({ to: "/recipes/$id", params: { id: res.id } });
+                    } catch (err: any) {
+                      toast.error(err?.message || "Erro ao duplicar");
+                    }
+                  }}
+                >
+                  <Copy className="mr-1 h-4 w-4" /> Duplicar
+                </Button>
                 <Button variant="ghost" size="sm" onClick={deleteRecipe}><Trash2 className="h-4 w-4" /></Button>
               </div>
             </div>
