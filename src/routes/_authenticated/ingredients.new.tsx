@@ -31,6 +31,17 @@ function NewIngredient() {
   const [unitValue, setUnitValue] = useState("");
   const [composesCmv, setComposesCmv] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [catOpen, setCatOpen] = useState(false);
+  const [catQuery, setCatQuery] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("ingredients").select("category").not("category", "is", null);
+      const unique = Array.from(new Set((data ?? []).map((r: any) => (r.category ?? "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setCategories(unique);
+    })();
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
