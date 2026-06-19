@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,6 @@ import { Plus, Search, BookOpen, Copy } from "lucide-react";
 import { duplicateRecipe } from "@/lib/recipes.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/recipes/")({
   component: RecipesList,
