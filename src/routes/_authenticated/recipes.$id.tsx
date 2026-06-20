@@ -468,7 +468,15 @@ function RecipeDetail() {
               <SelectContent>{unitOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="sm:col-span-12 flex justify-end">
+          <div className="sm:col-span-12 flex items-center justify-between gap-3">
+            {targetId && selectedUnitCost != null ? (
+              <p className="text-xs text-muted-foreground">
+                Custo: <span className="font-medium text-foreground">{BRL.format(selectedUnitCost)}</span> / {selectedBaseUnit || "—"}
+                {previewLineCost != null && (
+                  <> · Total da linha: <span className="font-semibold text-foreground">{BRL.format(previewLineCost)}</span></>
+                )}
+              </p>
+            ) : <span />}
             <Button type="submit" disabled={adding}><Plus className="mr-2 h-4 w-4" /> Adicionar</Button>
           </div>
         </form>
