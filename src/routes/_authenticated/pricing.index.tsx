@@ -121,6 +121,7 @@ function PricingPage() {
 
   const [filter, setFilter] = useState<"all" | "above" | "below">("all");
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("__all");
   const [addOpen, setAddOpen] = useState(false);
 
   type UnifiedRow = {
