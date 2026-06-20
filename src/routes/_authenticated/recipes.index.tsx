@@ -93,8 +93,13 @@ function RecipesList() {
                   <div className="mt-2 text-xs text-muted-foreground">Total da receita: {BRL.format(r.total_cost)}</div>
                 </Link>
                 <button
+                  type="button"
+                  disabled={duplicatingId !== null}
                   onClick={async (e) => {
                     e.stopPropagation();
+                    e.preventDefault();
+                    if (duplicatingId !== null) return;
+                    setDuplicatingId(r.id);
                     try {
                       const res = await dup({ data: { recipeId: r.id } });
                       toast.success("Ficha duplicada!");
@@ -103,9 +108,11 @@ function RecipesList() {
                       nav({ to: "/recipes/$id", params: { id: res.id } });
                     } catch (err: any) {
                       toast.error(err?.message || "Erro ao duplicar");
+                    } finally {
+                      setDuplicatingId(null);
                     }
                   }}
-                  className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                  className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100 disabled:opacity-50 disabled:pointer-events-none"
                   title="Duplicar ficha"
                 >
                   <Copy className="h-4 w-4" />
