@@ -196,6 +196,38 @@ function RecipeDetail() {
     if (selectedBaseUnit) setUnit(selectedBaseUnit);
   }, [selectedBaseUnit]);
 
+  // Custo unitário do item selecionado (para preview ao adicionar)
+  const { data: selectedUnitCost } = useQuery({
+    queryKey: ["item-unit-cost", itemType, targetId],
+    enabled: !!targetId,
+    queryFn: async () => {
+      if (itemType === "ingredient") {
+        const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: targetId });
+        return Number(data ?? 0);
+      } else {
+        const { data: subTotal } = await supabase.rpc("recipe_total_cost", { _recipe_id: targetId, _depth: 0 });
+        const r = allRecipes?.find((r) => r.id === targetId);
+        const y = Number(r?.yield_unit ? 0 : 0); // placeholder, fetch yield below
+        // Buscar yield_qty
+        const { data: sub } = await supabase.from("recipes").select("yield_qty").eq("id", targetId).single();
+        const yq = Number(sub?.yield_qty ?? 1) || 1;
+        let uc = Number(subTotal ?? 0) / yq;
+        if (!uc) {
+          const { data: mirror } = await supabase.from("ingredients").select("avg_cost, last_cost").eq("source_recipe_id", targetId).maybeSingle();
+          uc = Number(mirror?.avg_cost ?? mirror?.last_cost ?? 0);
+        }
+        return uc;
+      }
+    },
+  });
+
+  const previewQtyBase = (() => {
+    if (!qty || !selectedBaseUnit) return null;
+    return convert(Number(qty), unit, selectedBaseUnit);
+  })();
+  const previewLineCost =
+    selectedUnitCost != null && previewQtyBase != null ? selectedUnitCost * previewQtyBase : null;
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!targetId || !qty) return toast.error("Selecione o item e informe a quantidade");
