@@ -173,11 +173,12 @@ function PricingPage() {
   const filtered = useMemo(() => {
     return enrichedRows.filter((r) => {
       if (search && !r.name.toLowerCase().includes(search.toLowerCase()) && !(r.category ?? "").toLowerCase().includes(search.toLowerCase())) return false;
+      if (categoryFilter !== "__all" && (r.category || "__none") !== categoryFilter) return false;
       if (filter === "above") return r.currentCmv != null && r.currentCmv > idealCmv;
       if (filter === "below") return r.currentCmv != null && r.currentCmv <= idealCmv;
       return true;
     });
-  }, [enrichedRows, filter, search, idealCmv]);
+  }, [enrichedRows, filter, search, categoryFilter, idealCmv]);
 
   const existingCategories = useMemo(() => {
     const set = new Set<string>();
