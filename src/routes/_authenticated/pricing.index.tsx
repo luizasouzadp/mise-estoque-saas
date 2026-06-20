@@ -121,6 +121,7 @@ function PricingPage() {
 
   const [filter, setFilter] = useState<"all" | "above" | "below">("all");
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("__all");
   const [addOpen, setAddOpen] = useState(false);
 
   type UnifiedRow = {
@@ -172,11 +173,12 @@ function PricingPage() {
   const filtered = useMemo(() => {
     return enrichedRows.filter((r) => {
       if (search && !r.name.toLowerCase().includes(search.toLowerCase()) && !(r.category ?? "").toLowerCase().includes(search.toLowerCase())) return false;
+      if (categoryFilter !== "__all" && (r.category || "__none") !== categoryFilter) return false;
       if (filter === "above") return r.currentCmv != null && r.currentCmv > idealCmv;
       if (filter === "below") return r.currentCmv != null && r.currentCmv <= idealCmv;
       return true;
     });
-  }, [enrichedRows, filter, search, idealCmv]);
+  }, [enrichedRows, filter, search, categoryFilter, idealCmv]);
 
   const existingCategories = useMemo(() => {
     const set = new Set<string>();
@@ -326,6 +328,17 @@ function PricingPage() {
         <div className="flex-1 min-w-[200px]">
           <Label>Buscar</Label>
           <Input placeholder="Nome ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div className="min-w-[180px]">
+          <Label>Categoria</Label>
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">Todas</SelectItem>
+              <SelectItem value="__none">Sem categoria</SelectItem>
+              {existingCategories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="min-w-[180px]">
           <Label>Filtrar por CMV</Label>
