@@ -330,6 +330,17 @@ function PricingPage() {
           <Input placeholder="Nome ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="min-w-[180px]">
+          <Label>Categoria</Label>
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">Todas</SelectItem>
+              <SelectItem value="__none">Sem categoria</SelectItem>
+              {existingCategories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-[180px]">
           <Label>Filtrar por CMV</Label>
           <Select value={filter} onValueChange={(v: "all" | "above" | "below") => setFilter(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
