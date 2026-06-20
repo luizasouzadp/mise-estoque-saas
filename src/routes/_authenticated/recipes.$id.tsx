@@ -28,6 +28,7 @@ function RecipeDetail() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const dup = useServerFn(duplicateRecipe);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
@@ -293,7 +294,10 @@ function RecipeDetail() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isDuplicating}
                   onClick={async () => {
+                    if (isDuplicating) return;
+                    setIsDuplicating(true);
                     try {
                       const res = await dup({ data: { recipeId: id } });
                       toast.success("Ficha duplicada!");
@@ -302,10 +306,12 @@ function RecipeDetail() {
                       nav({ to: "/recipes/$id", params: { id: res.id } });
                     } catch (err: any) {
                       toast.error(err?.message || "Erro ao duplicar");
+                    } finally {
+                      setIsDuplicating(false);
                     }
                   }}
                 >
-                  <Copy className="mr-1 h-4 w-4" /> Duplicar
+                  <Copy className="mr-1 h-4 w-4" /> {isDuplicating ? "Duplicando..." : "Duplicar"}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={deleteRecipe}><Trash2 className="h-4 w-4" /></Button>
               </div>
