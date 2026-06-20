@@ -28,6 +28,7 @@ function RecipeDetail() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const dup = useServerFn(duplicateRecipe);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
