@@ -139,6 +139,46 @@ function IngredientDetail() {
     nav({ to: "/ingredients" });
   }
 
+  function openAdjust() {
+    setAdjustValue(String(Number(data?.current_stock ?? 0)));
+    setAdjustNotes("");
+    setAdjustOpen(true);
+  }
+
+  async function confirmAdjust() {
+    const target = Number(String(adjustValue).replace(",", "."));
+    if (!isFinite(target) || target < 0) return toast.error("Valor inválido");
+    const current = Number(data?.current_stock ?? 0);
+    const diff = Number((target - current).toFixed(4));
+    if (diff === 0) {
+      setAdjustOpen(false);
+      return;
+    }
+    setAdjusting(true);
+    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) {
+      setAdjusting(false);
+      return toast.error("Restaurante não encontrado");
+    }
+    const { error } = await supabase.from("stock_movements").insert({
+      restaurant_id: prof.restaurant_id,
+      ingredient_id: id,
+      type: diff > 0 ? "in" : "out",
+      quantity: Math.abs(diff),
+      reason: "Ajuste manual",
+      notes: adjustNotes || null,
+      occurred_at: new Date().toISOString(),
+    });
+    setAdjusting(false);
+    if (error) return toast.error(error.message);
+    toast.success("Estoque ajustado");
+    setAdjustOpen(false);
+    qc.invalidateQueries({ queryKey: ["ingredient", id] });
+    qc.invalidateQueries({ queryKey: ["ingredient_movements", id] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
+  }
+
+
   if (isLoading || !data) return <div className="p-8 text-muted-foreground">Carregando...</div>;
 
   // Analytics
