@@ -100,6 +100,20 @@ function RecipeDetail() {
     },
   });
 
+  const { data: menuCategories } = useQuery({
+    queryKey: ["menu-categories"],
+    queryFn: async () => {
+      const [{ data: r }, { data: m }] = await Promise.all([
+        supabase.from("recipes").select("menu_category").not("menu_category", "is", null),
+        (supabase as any).from("menu_products").select("category").not("category", "is", null),
+      ]);
+      const set = new Set<string>();
+      (r ?? []).forEach((x: any) => x.menu_category && set.add(x.menu_category));
+      (m ?? []).forEach((x: any) => x.category && set.add(x.category));
+      return Array.from(set).sort((a, b) => a.localeCompare(b));
+    },
+  });
+
   const totalCost = (items ?? []).reduce((s, it) => s + it.lineCost, 0);
   const unitCost = recipe && Number(recipe.yield_qty) > 0 ? totalCost / Number(recipe.yield_qty) : 0;
 
