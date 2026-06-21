@@ -44,7 +44,37 @@ function NewRecipe() {
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
   const [productCode, setProductCode] = useState("");
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Imagem deve ter no máximo 5MB");
+    setUploadingImage(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert: false, contentType: file.type });
+    if (error) {
+      setUploadingImage(false);
+      return toast.error("Falha ao enviar imagem: " + error.message);
+    }
+    if (imagePath) {
+      await supabase.storage.from("recipe-images").remove([imagePath]);
+    }
+    const { data: signed } = await supabase.storage.from("recipe-images").createSignedUrl(path, 3600);
+    setImagePath(path);
+    setImagePreview(signed?.signedUrl ?? null);
+    setUploadingImage(false);
+  }
+
+  async function removeImage() {
+    if (imagePath) await supabase.storage.from("recipe-images").remove([imagePath]);
+    setImagePath(null);
+    setImagePreview(null);
+  }
 
   // Composition draft
   const [items, setItems] = useState<DraftItem[]>([]);
@@ -167,6 +197,7 @@ function NewRecipe() {
       menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
       current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
       product_code: isOnMenu === "yes" && productCode ? productCode.trim() : null,
+      image_url: isOnMenu === "yes" ? imagePath : null,
     }).select("id").single();
 
     if (error || !recipe) {
@@ -282,6 +313,27 @@ function NewRecipe() {
               <div>
                 <Label>Preço de venda atual (R$)</Label>
                 <Input type="number" step="0.01" min="0" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)} />
+              </div>
+            </div>
+          )}
+          {isOnMenu === "yes" && (
+            <div>
+              <Label>Foto do produto (opcional)</Label>
+              <div className="mt-2 flex items-start gap-4">
+                {imagePreview ? (
+                  <div className="relative">
+                    <img src={imagePreview} alt="Prévia" className="h-24 w-24 rounded-lg border object-cover" />
+                    <Button type="button" variant="ghost" size="icon" onClick={removeImage} className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-background border">
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">Sem foto</div>
+                )}
+                <div className="flex-1">
+                  <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+                  <p className="mt-1 text-xs text-muted-foreground">{uploadingImage ? "Enviando..." : "JPG ou PNG, até 5MB."}</p>
+                </div>
               </div>
             </div>
           )}
