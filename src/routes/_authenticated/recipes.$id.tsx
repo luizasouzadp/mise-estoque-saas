@@ -338,7 +338,7 @@ function RecipeDetail() {
             </div>
             <div className={`mt-4 grid gap-4 ${recipe.is_on_menu ? "sm:grid-cols-2 md:grid-cols-4" : "sm:grid-cols-3"}`}>
               <Stat label="Rendimento" value={`${Number(recipe.yield_qty)} ${recipe.yield_unit}`} />
-              <Stat label="Custo total" value={BRL.format(totalCost)} />
+              <Stat label="Custo total X" value={BRL.format(totalCost)} />
               <Stat label={`Custo por ${recipe.yield_unit}`} value={BRL.format(unitCost)} highlight />
               {recipe.is_on_menu && (
                 <Stat
