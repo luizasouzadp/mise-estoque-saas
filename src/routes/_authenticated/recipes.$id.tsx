@@ -660,13 +660,10 @@ function RecipeDetail() {
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
-              <Button onClick={saveRecipe}>Salvar</Button>
-            </div>
           </div>
         )}
       </div>
+
 
       {/* Items list */}
       <div className="rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
