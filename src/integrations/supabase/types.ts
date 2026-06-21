@@ -725,6 +725,7 @@ export type Database = {
           current_price: number | null
           description: string | null
           id: string
+          image_url: string | null
           is_on_menu: boolean
           is_stocked: boolean
           menu_category: string | null
@@ -741,6 +742,7 @@ export type Database = {
           current_price?: number | null
           description?: string | null
           id?: string
+          image_url?: string | null
           is_on_menu?: boolean
           is_stocked?: boolean
           menu_category?: string | null
@@ -757,6 +759,7 @@ export type Database = {
           current_price?: number | null
           description?: string | null
           id?: string
+          image_url?: string | null
           is_on_menu?: boolean
           is_stocked?: boolean
           menu_category?: string | null
