@@ -76,6 +76,10 @@ function IngredientDetail() {
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustValue, setAdjustValue] = useState("");
+  const [adjustNotes, setAdjustNotes] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
 
   useEffect(() => {
     if (data) {
