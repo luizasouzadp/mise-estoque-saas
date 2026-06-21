@@ -12,12 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown, Download, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
 import { duplicateRecipe } from "@/lib/recipes.functions";
 import { useServerFn } from "@tanstack/react-start";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/recipes/$id")({
   component: RecipeDetail,
