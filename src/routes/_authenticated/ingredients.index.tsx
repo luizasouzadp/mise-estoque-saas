@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Plus, Search, Package, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { normalizeName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,
@@ -85,7 +86,7 @@ function IngredientsList() {
         const cost = parseNum(r[5]);
         return {
           restaurant_id: prof.restaurant_id,
-          name: String(r[0]).trim(),
+          name: normalizeName(String(r[0])),
           unit: String(r[1] ?? "un").trim() || "un",
           category: r[2] ? String(r[2]).trim() : null,
           current_stock: parseNum(r[3]),

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { normalizeName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ingredients/$id")({
   component: IngredientDetail,
@@ -106,7 +107,7 @@ function IngredientDetail() {
     setSaving(true);
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
-      name, unit, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
+      name: normalizeName(name), unit, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
     }).eq("id", id);
     if (error) {
       setSaving(false);

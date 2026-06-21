@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Package, BookOpen, Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, normalizeName } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
 
@@ -212,7 +212,6 @@ function NewRecipe() {
       menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
       current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
       product_code: isOnMenu === "yes" && productCode ? productCode.trim() : null,
-
       image_url: isOnMenu === "yes" ? imagePath : null,
     }).select("id").single();
 
@@ -242,7 +241,7 @@ function NewRecipe() {
         recipeId: recipe.id,
         restaurantId: profile.restaurant_id,
         isStocked: true,
-        name,
+        name: normalizeName(name),
         unit: yieldUnit,
       });
     }
