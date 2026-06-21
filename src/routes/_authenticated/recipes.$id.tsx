@@ -330,34 +330,131 @@ function RecipeDetail() {
     qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
-  function exportPdf() {
+  async function fetchImageDataUrl(url: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve({ w: 1, h: 1 });
+        img.src = dataUrl;
+      });
+      return { dataUrl, w: dims.w, h: dims.h };
+    } catch {
+      return null;
+    }
+  }
+
+  async function exportPdf() {
     if (!recipe) return;
-    const doc = new jsPDF();
-    const margin = 14;
-    let y = 18;
-    doc.setFontSize(18);
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 16;
+
+    // Top accent bar
+    doc.setFillColor(17, 24, 39); // slate-900
+    doc.rect(0, 0, pageW, 6, "F");
+
+    let y = 20;
+
+    // Image
+    if (headerImageUrl) {
+      const img = await fetchImageDataUrl(headerImageUrl);
+      if (img) {
+        const maxW = pageW - margin * 2;
+        const targetH = 70;
+        const ratio = img.w / img.h;
+        let drawW = targetH * ratio;
+        let drawH = targetH;
+        if (drawW > maxW) { drawW = maxW; drawH = maxW / ratio; }
+        const x = (pageW - drawW) / 2;
+        const fmt = img.dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+        doc.addImage(img.dataUrl, fmt, x, y, drawW, drawH, undefined, "FAST");
+        y += drawH + 8;
+      }
+    }
+
+    // Title
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(17, 24, 39);
+    doc.setFontSize(24);
     doc.text(recipe.name, margin, y);
     y += 8;
-    doc.setFontSize(11);
-    doc.setTextColor(90);
-    doc.text(`Rendimento: ${Number(recipe.yield_qty)} ${recipe.yield_unit}`, margin, y);
-    y += 6;
+
+    // Yield pill
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const yieldText = `Rendimento  ·  ${Number(recipe.yield_qty)} ${recipe.yield_unit}`;
+    const pillW = doc.getTextWidth(yieldText) + 8;
+    doc.setFillColor(243, 244, 246); // gray-100
+    doc.roundedRect(margin, y - 4, pillW, 7, 2, 2, "F");
+    doc.setTextColor(55, 65, 81);
+    doc.text(yieldText, margin + 4, y + 1);
+    y += 10;
+
+    // Description
     if (recipe.description) {
-      doc.setTextColor(60);
-      const lines = doc.splitTextToSize(recipe.description, 180);
+      doc.setTextColor(75, 85, 99);
+      doc.setFontSize(10.5);
+      const lines = doc.splitTextToSize(recipe.description, pageW - margin * 2);
       doc.text(lines, margin, y);
-      y += lines.length * 5 + 2;
+      y += lines.length * 5 + 4;
     }
-    doc.setTextColor(0);
+
+    // Divider
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+
+    // Section heading
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(17, 24, 39);
+    doc.text("Composição", margin, y);
+    y += 2;
+
+    // Composition table
     autoTable(doc, {
       startY: y + 2,
       head: [["Item", "Quantidade", "Unidade"]],
       body: (items ?? []).map((it) => [it.name, String(Number(it.quantity)), it.unit]),
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [60, 60, 60] },
+      theme: "plain",
+      styles: { fontSize: 10.5, cellPadding: 3.5, textColor: [31, 41, 55] },
+      headStyles: {
+        fillColor: [17, 24, 39],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "left",
+      },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      columnStyles: {
+        1: { halign: "right", cellWidth: 32 },
+        2: { halign: "left", cellWidth: 26 },
+      },
+      margin: { left: margin, right: margin },
     });
+
+    // Footer
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setTextColor(156, 163, 175);
+    doc.text(
+      `Ficha técnica · ${new Date().toLocaleDateString("pt-BR")}`,
+      margin,
+      pageH - 8,
+    );
+
     doc.save(`${recipe.name.replace(/[^a-z0-9-_ ]/gi, "_")}.pdf`);
   }
+
 
   if (isLoading || !recipe) {
     return <div className="mx-auto max-w-4xl p-4 md:p-8"><p className="text-sm text-muted-foreground">Carregando...</p></div>;
