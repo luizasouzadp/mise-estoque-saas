@@ -516,3 +516,51 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
     </div>
   );
 }
+
+function CategoryCombobox({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+  const exists = options.some((o) => o.toLowerCase() === trimmed.toLowerCase());
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" className="w-full justify-between font-normal">
+          <span className={cn("truncate", !value && "text-muted-foreground")}>{value || "Selecione ou crie..."}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar categoria..." value={query} onValueChange={setQuery} />
+          <CommandList>
+            <CommandEmpty>
+              {trimmed ? (
+                <button
+                  type="button"
+                  className="w-full rounded-sm px-2 py-2 text-sm hover:bg-accent text-left"
+                  onClick={() => { onChange(trimmed); setOpen(false); setQuery(""); }}
+                >
+                  + Criar "{trimmed}"
+                </button>
+              ) : "Nenhuma categoria"}
+            </CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem key={o} value={o} onSelect={() => { onChange(o); setOpen(false); setQuery(""); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === o ? "opacity-100" : "opacity-0")} />
+                  {o}
+                </CommandItem>
+              ))}
+              {trimmed && !exists && (
+                <CommandItem value={`__create_${trimmed}`} onSelect={() => { onChange(trimmed); setOpen(false); setQuery(""); }}>
+                  <Plus className="mr-2 h-4 w-4" /> Criar "{trimmed}"
+                </CommandItem>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
