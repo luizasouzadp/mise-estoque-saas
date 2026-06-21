@@ -6,7 +6,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Package, Upload } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Plus, Search, Package, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,
@@ -37,6 +44,7 @@ function parseNum(v: unknown): number {
 function IngredientsList() {
   const [q, setQ] = useState("");
   const [importing, setImporting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -119,7 +127,7 @@ function IngredientsList() {
               if (f) handleImport(f);
             }}
           />
-          <Button variant="outline" disabled={importing} onClick={() => fileRef.current?.click()}>
+          <Button variant="outline" disabled={importing} onClick={() => setImportDialogOpen(true)}>
             <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar Excel"}
           </Button>
           <Button asChild>
@@ -189,6 +197,74 @@ function IngredientsList() {
 
         )}
       </div>
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-primary" />
+              Importar estoque via Excel
+            </DialogTitle>
+            <DialogDescription>
+              Siga o formato abaixo para montar sua planilha e importar o estoque completo de insumos.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/50 p-3">
+              <p className="text-sm font-medium mb-2">Estrutura da planilha (1ª linha = cabeçalho)</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-1 px-2 font-semibold">Coluna</th>
+                      <th className="text-left py-1 px-2 font-semibold">Campo</th>
+                      <th className="text-left py-1 px-2 font-semibold">Tipo</th>
+                      <th className="text-left py-1 px-2 font-semibold">Exemplo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-muted-foreground">
+                    <tr className="border-b border-border/50"><td className="py-1 px-2">A</td><td className="py-1 px-2">Nome</td><td className="py-1 px-2">Texto</td><td className="py-1 px-2">Farinha de trigo</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-1 px-2">B</td><td className="py-1 px-2">Unidade</td><td className="py-1 px-2">Texto</td><td className="py-1 px-2">kg</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-1 px-2">C</td><td className="py-1 px-2">Categoria</td><td className="py-1 px-2">Texto</td><td className="py-1 px-2">Secos</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-1 px-2">D</td><td className="py-1 px-2">Estoque atual</td><td className="py-1 px-2">Número</td><td className="py-1 px-2">15,5</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-1 px-2">E</td><td className="py-1 px-2">Estoque mínimo</td><td className="py-1 px-2">Número</td><td className="py-1 px-2">5,0</td></tr>
+                    <tr className="border-b border-border/50"><td className="py-1 px-2">F</td><td className="py-1 px-2">Custo</td><td className="py-1 px-2">Número</td><td className="py-1 px-2">12,90</td></tr>
+                    <tr><td className="py-1 px-2">G</td><td className="py-1 px-2">Compõe CMV</td><td className="py-1 px-2">Sim/Não</td><td className="py-1 px-2">Sim</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm dark:border-yellow-900 dark:bg-yellow-950">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-700 dark:text-yellow-400" />
+              <div className="text-yellow-800 dark:text-yellow-200">
+                <p className="font-medium">Dicas importantes</p>
+                <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                  <li>Valores numéricos podem usar vírgula ou ponto como separador decimal.</li>
+                  <li>Para <strong>Compõe CMV</strong>, use: <em>Sim, S, Yes, True, 1</em> para sim; qualquer outro valor será tratado como não.</li>
+                  <li>Formatos aceitos: <strong>.xlsx, .xls, .csv</strong></li>
+                  <li>A primeira linha será ignorada (cabeçalho). Os dados começam na segunda linha.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                setImportDialogOpen(false);
+                fileRef.current?.click();
+              }}
+            >
+              <Upload className="mr-2 h-4 w-4" /> Selecionar arquivo
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
