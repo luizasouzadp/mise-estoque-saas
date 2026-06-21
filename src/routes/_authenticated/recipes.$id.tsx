@@ -116,6 +116,9 @@ function RecipeDetail() {
 
   const totalCost = (items ?? []).reduce((s, it) => s + it.lineCost, 0);
   const unitCost = recipe && Number(recipe.yield_qty) > 0 ? totalCost / Number(recipe.yield_qty) : 0;
+  const cmvPercent = recipe?.is_on_menu && recipe.current_price && Number(recipe.current_price) > 0
+    ? (unitCost / Number(recipe.current_price)) * 100
+    : null;
 
   // Edit recipe state
   const [editing, setEditing] = useState(false);
@@ -333,10 +336,17 @@ function RecipeDetail() {
                 <Button variant="ghost" size="sm" onClick={deleteRecipe}><Trash2 className="h-4 w-4" /></Button>
               </div>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className={`mt-4 grid gap-4 ${recipe.is_on_menu ? "sm:grid-cols-2 md:grid-cols-4" : "sm:grid-cols-3"}`}>
               <Stat label="Rendimento" value={`${Number(recipe.yield_qty)} ${recipe.yield_unit}`} />
               <Stat label="Custo total" value={BRL.format(totalCost)} />
               <Stat label={`Custo por ${recipe.yield_unit}`} value={BRL.format(unitCost)} highlight />
+              {recipe.is_on_menu && (
+                <Stat
+                  label="CMV"
+                  value={cmvPercent != null ? `${cmvPercent.toFixed(1)}%` : "—"}
+                  highlight
+                />
+              )}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
               Custos calculados pela média ponderada das compras dos últimos 30 dias (com fallback para a média histórica quando não há compras recentes).
