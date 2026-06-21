@@ -212,7 +212,6 @@ function NewRecipe() {
       menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
       current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
       product_code: isOnMenu === "yes" && productCode ? productCode.trim() : null,
-
       image_url: isOnMenu === "yes" ? imagePath : null,
     }).select("id").single();
 
@@ -242,7 +241,7 @@ function NewRecipe() {
         recipeId: recipe.id,
         restaurantId: profile.restaurant_id,
         isStocked: true,
-        name,
+        name: normalizeName(name),
         unit: yieldUnit,
       });
     }

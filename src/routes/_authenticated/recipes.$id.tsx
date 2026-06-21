@@ -226,7 +226,7 @@ function RecipeDetail() {
       recipeId: id,
       restaurantId: recipe.restaurant_id,
       isStocked: newIsStocked,
-      name,
+      name: normalizeName(name),
       unit: yieldUnit,
     });
     toast.success("Ficha atualizada");

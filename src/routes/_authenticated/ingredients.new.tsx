@@ -55,7 +55,7 @@ function NewIngredient() {
     const valueNum = unitValue.trim() === "" ? null : Number(unitValue);
     const { error } = await supabase.from("ingredients").insert({
       restaurant_id: profile.restaurant_id,
-      name,
+      name: normalizeName(name),
       unit,
       category: category || null,
       min_stock: Number(minStock) || 0,
