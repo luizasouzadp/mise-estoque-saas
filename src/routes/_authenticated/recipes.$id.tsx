@@ -133,6 +133,47 @@ function RecipeDetail() {
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
   const [productCode, setProductCode] = useState("");
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Signed URL for displaying recipe image at header
+  const { data: headerImageUrl } = useQuery({
+    queryKey: ["recipe-image-url", (recipe as any)?.image_url],
+    enabled: !!(recipe as any)?.image_url,
+    queryFn: async () => {
+      const path = (recipe as any).image_url as string;
+      const { data } = await supabase.storage.from("recipe-images").createSignedUrl(path, 3600);
+      return data?.signedUrl ?? null;
+    },
+  });
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Imagem deve ter no máximo 5MB");
+    setUploadingImage(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert: false, contentType: file.type });
+    if (error) {
+      setUploadingImage(false);
+      return toast.error("Falha ao enviar imagem: " + error.message);
+    }
+    if (imagePath) {
+      await supabase.storage.from("recipe-images").remove([imagePath]);
+    }
+    const { data: signed } = await supabase.storage.from("recipe-images").createSignedUrl(path, 3600);
+    setImagePath(path);
+    setImagePreview(signed?.signedUrl ?? null);
+    setUploadingImage(false);
+  }
+
+  async function removeImage() {
+    if (imagePath) await supabase.storage.from("recipe-images").remove([imagePath]);
+    setImagePath(null);
+    setImagePreview(null);
+  }
 
   function startEdit() {
     if (!recipe) return;
