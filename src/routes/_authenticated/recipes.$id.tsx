@@ -504,6 +504,29 @@ function RecipeDetail() {
                 </div>
               </div>
             )}
+            {isOnMenu === "yes" && (
+              <div>
+                <Label>Foto do produto (opcional)</Label>
+                <div className="mt-2 flex items-start gap-4">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img src={imagePreview} alt="Prévia" className="h-24 w-24 rounded-lg border object-cover" />
+                      <Button type="button" variant="ghost" size="icon" onClick={removeImage} className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-background border">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
+                      <ImageIcon className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+                    <p className="mt-1 text-xs text-muted-foreground">{uploadingImage ? "Enviando..." : "JPG ou PNG, até 5MB."}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
               <Button onClick={saveRecipe}>Salvar</Button>
