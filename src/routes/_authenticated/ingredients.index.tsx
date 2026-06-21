@@ -127,7 +127,7 @@ function IngredientsList() {
               if (f) handleImport(f);
             }}
           />
-          <Button variant="outline" disabled={importing} onClick={() => fileRef.current?.click()}>
+          <Button variant="outline" disabled={importing} onClick={() => setImportDialogOpen(true)}>
             <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar Excel"}
           </Button>
           <Button asChild>
