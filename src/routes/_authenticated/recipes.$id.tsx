@@ -330,9 +330,39 @@ function RecipeDetail() {
     qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
+  function exportPdf() {
+    if (!recipe) return;
+    const doc = new jsPDF();
+    const margin = 14;
+    let y = 18;
+    doc.setFontSize(18);
+    doc.text(recipe.name, margin, y);
+    y += 8;
+    doc.setFontSize(11);
+    doc.setTextColor(90);
+    doc.text(`Rendimento: ${Number(recipe.yield_qty)} ${recipe.yield_unit}`, margin, y);
+    y += 6;
+    if (recipe.description) {
+      doc.setTextColor(60);
+      const lines = doc.splitTextToSize(recipe.description, 180);
+      doc.text(lines, margin, y);
+      y += lines.length * 5 + 2;
+    }
+    doc.setTextColor(0);
+    autoTable(doc, {
+      startY: y + 2,
+      head: [["Item", "Quantidade", "Unidade"]],
+      body: (items ?? []).map((it) => [it.name, String(Number(it.quantity)), it.unit]),
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [60, 60, 60] },
+    });
+    doc.save(`${recipe.name.replace(/[^a-z0-9-_ ]/gi, "_")}.pdf`);
+  }
+
   if (isLoading || !recipe) {
     return <div className="mx-auto max-w-4xl p-4 md:p-8"><p className="text-sm text-muted-foreground">Carregando...</p></div>;
   }
+
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-8">
