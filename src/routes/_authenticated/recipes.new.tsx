@@ -177,9 +177,24 @@ function NewRecipe() {
     setItems((prev) => prev.filter((i) => i.key !== key));
   }
 
+  async function isCodeTaken(code: string) {
+    const c = code.trim();
+    if (!c) return false;
+    const [{ data: r }, { data: m }] = await Promise.all([
+      supabase.from("recipes").select("id").eq("product_code", c).limit(1),
+      (supabase as any).from("menu_products").select("id").eq("product_code", c).limit(1),
+    ]);
+    return (r?.length ?? 0) > 0 || (m?.length ?? 0) > 0;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return toast.error("Informe o nome");
+    if (isOnMenu === "yes" && productCode.trim()) {
+      if (await isCodeTaken(productCode)) {
+        return toast.error(`Já existe um item no cardápio com o código "${productCode.trim()}".`);
+      }
+    }
     setSaving(true);
     const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
     if (!profile?.restaurant_id) {
@@ -197,6 +212,7 @@ function NewRecipe() {
       menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
       current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
       product_code: isOnMenu === "yes" && productCode ? productCode.trim() : null,
+
       image_url: isOnMenu === "yes" ? imagePath : null,
     }).select("id").single();
 
