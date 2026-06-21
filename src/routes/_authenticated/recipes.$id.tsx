@@ -401,7 +401,7 @@ function RecipeDetail() {
                 </div>
                 <div>
                   <Label>Categoria do cardápio</Label>
-                  <Input value={menuCategory} onChange={(e) => setMenuCategory(e.target.value)} placeholder="Ex.: Pratos, Bebidas..." />
+                  <CategoryCombobox value={menuCategory} onChange={setMenuCategory} options={menuCategories ?? []} />
                 </div>
                 <div>
                   <Label>Preço de venda atual (R$)</Label>
