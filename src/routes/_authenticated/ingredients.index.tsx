@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Plus, Search, Package, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { normalizeName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,

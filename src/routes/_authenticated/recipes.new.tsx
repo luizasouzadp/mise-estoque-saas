@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Package, BookOpen, Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, normalizeName } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
 

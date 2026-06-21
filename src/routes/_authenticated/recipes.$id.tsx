@@ -13,7 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown, Download, ImageIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, normalizeName } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
 import { duplicateRecipe } from "@/lib/recipes.functions";

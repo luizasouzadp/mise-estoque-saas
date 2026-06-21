@@ -12,7 +12,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { toast } from "sonner";
 import { ArrowLeft, Check, ChevronsUpDown, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { cn } from "@/lib/utils";
+import { cn, normalizeName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/ingredients/new")({
   component: NewIngredient,
