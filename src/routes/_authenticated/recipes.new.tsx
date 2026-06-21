@@ -44,7 +44,37 @@ function NewRecipe() {
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
   const [productCode, setProductCode] = useState("");
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Imagem deve ter no máximo 5MB");
+    setUploadingImage(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert: false, contentType: file.type });
+    if (error) {
+      setUploadingImage(false);
+      return toast.error("Falha ao enviar imagem: " + error.message);
+    }
+    if (imagePath) {
+      await supabase.storage.from("recipe-images").remove([imagePath]);
+    }
+    const { data: signed } = await supabase.storage.from("recipe-images").createSignedUrl(path, 3600);
+    setImagePath(path);
+    setImagePreview(signed?.signedUrl ?? null);
+    setUploadingImage(false);
+  }
+
+  async function removeImage() {
+    if (imagePath) await supabase.storage.from("recipe-images").remove([imagePath]);
+    setImagePath(null);
+    setImagePreview(null);
+  }
 
   // Composition draft
   const [items, setItems] = useState<DraftItem[]>([]);
