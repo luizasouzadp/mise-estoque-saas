@@ -146,9 +146,9 @@ function BulkStockDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
     for (const ing of ingredients) {
       const raw = values[ing.id];
       if (raw === undefined || raw === "") continue;
-      const newQty = Number(String(raw).replace(",", "."));
+      const newQty = Number(String(raw).replace(/\./g, "").replace(",", "."));
       if (!Number.isFinite(newQty)) continue;
-      const diff = newQty - Number(ing.current_stock ?? 0);
+      const diff = Number((newQty - Number(ing.current_stock ?? 0)).toFixed(4));
       if (diff === 0) continue;
       movements.push({
         ingredient_id: ing.id,
@@ -163,7 +163,13 @@ function BulkStockDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("stock_movements").insert(movements);
+    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) {
+      setSaving(false);
+      return toast.error("Restaurante não encontrado");
+    }
+    const payload = movements.map((m) => ({ ...m, restaurant_id: prof.restaurant_id }));
+    const { error } = await supabase.from("stock_movements").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success(`Estoque atualizado (${movements.length} ${movements.length === 1 ? "item" : "itens"})`);
@@ -171,6 +177,7 @@ function BulkStockDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     onOpenChange(false);
   }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
