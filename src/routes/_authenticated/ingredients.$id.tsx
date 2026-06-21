@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, TrendingDown } from "lucide-react";
+import { ArrowLeft, Trash2, TrendingDown, Pencil } from "lucide-react";
 import { ComposedChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Bar, Cell, ReferenceDot } from "recharts";
 import {
   AlertDialog,
@@ -22,6 +22,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/ingredients/$id")({
   component: IngredientDetail,
@@ -74,6 +76,10 @@ function IngredientDetail() {
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustValue, setAdjustValue] = useState("");
+  const [adjustNotes, setAdjustNotes] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
 
   useEffect(() => {
     if (data) {
@@ -132,6 +138,46 @@ function IngredientDetail() {
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     nav({ to: "/ingredients" });
   }
+
+  function openAdjust() {
+    setAdjustValue(String(Number(data?.current_stock ?? 0)));
+    setAdjustNotes("");
+    setAdjustOpen(true);
+  }
+
+  async function confirmAdjust() {
+    const target = Number(String(adjustValue).replace(",", "."));
+    if (!isFinite(target) || target < 0) return toast.error("Valor inválido");
+    const current = Number(data?.current_stock ?? 0);
+    const diff = Number((target - current).toFixed(4));
+    if (diff === 0) {
+      setAdjustOpen(false);
+      return;
+    }
+    setAdjusting(true);
+    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) {
+      setAdjusting(false);
+      return toast.error("Restaurante não encontrado");
+    }
+    const { error } = await supabase.from("stock_movements").insert({
+      restaurant_id: prof.restaurant_id,
+      ingredient_id: id,
+      type: diff > 0 ? "in" : "out",
+      quantity: Math.abs(diff),
+      reason: "Ajuste manual",
+      notes: adjustNotes || null,
+      occurred_at: new Date().toISOString(),
+    });
+    setAdjusting(false);
+    if (error) return toast.error(error.message);
+    toast.success("Estoque ajustado");
+    setAdjustOpen(false);
+    qc.invalidateQueries({ queryKey: ["ingredient", id] });
+    qc.invalidateQueries({ queryKey: ["ingredient_movements", id] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
+  }
+
 
   if (isLoading || !data) return <div className="p-8 text-muted-foreground">Carregando...</div>;
 
@@ -193,10 +239,65 @@ function IngredientDetail() {
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <Stat label="Estoque" value={`${currentStock.toFixed(2)} ${data.unit}`} />
+        <button
+          type="button"
+          onClick={openAdjust}
+          className="group rounded-lg border bg-card p-3 text-center transition-colors hover:border-primary hover:bg-muted/40"
+          title="Ajustar estoque"
+        >
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            Estoque <Pencil className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+          </div>
+          <div className="mt-1 font-display text-lg">{currentStock.toFixed(2)} {data.unit}</div>
+        </button>
         <Stat label="Custo médio" value={`R$ ${Number(data.avg_cost).toFixed(2)}`} />
         <Stat label="Última compra" value={`R$ ${Number(data.last_cost).toFixed(2)}`} />
       </div>
+
+      <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajustar estoque</DialogTitle>
+            <DialogDescription>
+              Informe a quantidade atual em estoque. A diferença gera automaticamente uma movimentação de entrada ou saída.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="adjust-current">Estoque atual ({data.unit})</Label>
+              <Input
+                id="adjust-current"
+                type="number"
+                step="0.01"
+                min="0"
+                value={adjustValue}
+                onChange={(e) => setAdjustValue(e.target.value)}
+                autoFocus
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Atual: {currentStock.toFixed(2)} {data.unit}
+                {adjustValue !== "" && isFinite(Number(String(adjustValue).replace(",", "."))) && (
+                  <> · Diferença: {(Number(String(adjustValue).replace(",", ".")) - currentStock).toFixed(2)} {data.unit}</>
+                )}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="adjust-notes">Observação (opcional)</Label>
+              <Textarea
+                id="adjust-notes"
+                rows={2}
+                value={adjustNotes}
+                onChange={(e) => setAdjustNotes(e.target.value)}
+                placeholder="Ex.: contagem semanal, perda, quebra..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustOpen(false)} disabled={adjusting}>Cancelar</Button>
+            <Button onClick={confirmAdjust} disabled={adjusting}>{adjusting ? "Salvando..." : "Confirmar ajuste"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
         <div className="flex flex-wrap items-end justify-between gap-3">
