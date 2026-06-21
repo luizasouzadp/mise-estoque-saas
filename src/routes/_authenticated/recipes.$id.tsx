@@ -192,10 +192,25 @@ function RecipeDetail() {
     setEditing(true);
   }
 
+  async function isCodeTaken(code: string) {
+    const c = code.trim();
+    if (!c) return false;
+    const [{ data: r }, { data: m }] = await Promise.all([
+      supabase.from("recipes").select("id").eq("product_code", c).neq("id", id).limit(1),
+      (supabase as any).from("menu_products").select("id").eq("product_code", c).limit(1),
+    ]);
+    return (r?.length ?? 0) > 0 || (m?.length ?? 0) > 0;
+  }
+
   async function saveRecipe() {
     if (!recipe) return;
     const newIsStocked = isStocked === "yes";
     const newIsOnMenu = isOnMenu === "yes";
+    if (newIsOnMenu && productCode.trim()) {
+      if (await isCodeTaken(productCode)) {
+        return toast.error(`Já existe um item no cardápio com o código "${productCode.trim()}".`);
+      }
+    }
     const { error } = await supabase.from("recipes").update({
       name, description: description || null,
       yield_qty: Number(yieldQty) || 1, yield_unit: yieldUnit,
@@ -220,6 +235,7 @@ function RecipeDetail() {
     qc.invalidateQueries({ queryKey: ["recipes"] });
     qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
+
 
   async function deleteRecipe() {
     if (!confirm("Excluir esta ficha técnica?")) return;
@@ -644,13 +660,10 @@ function RecipeDetail() {
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
-              <Button onClick={saveRecipe}>Salvar</Button>
-            </div>
           </div>
         )}
       </div>
+
 
       {/* Items list */}
       <div className="rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
@@ -739,7 +752,15 @@ function RecipeDetail() {
           </div>
         </form>
       </div>
+
+      {editing && (
+        <div className="sticky bottom-4 z-10 flex justify-end gap-2 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
+          <Button onClick={saveRecipe}>Salvar ficha técnica</Button>
+        </div>
+      )}
     </div>
+
   );
 }
 
