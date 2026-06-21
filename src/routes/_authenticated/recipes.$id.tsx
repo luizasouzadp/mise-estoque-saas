@@ -186,6 +186,9 @@ function RecipeDetail() {
     setMenuCategory(recipe.menu_category ?? "");
     setCurrentPrice(recipe.current_price != null ? String(recipe.current_price) : "");
     setProductCode((recipe as any).product_code ?? "");
+    const existingPath = (recipe as any).image_url ?? null;
+    setImagePath(existingPath);
+    setImagePreview(headerImageUrl ?? null);
     setEditing(true);
   }
 
