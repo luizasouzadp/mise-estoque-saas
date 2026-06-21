@@ -30,6 +30,8 @@ function statusInfo(frequency: string, last: string | null) {
 function InventoriesList() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const [bulkOpen, setBulkOpen] = useState(false);
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["inventories"],
