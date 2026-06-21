@@ -44,6 +44,7 @@ function parseNum(v: unknown): number {
 function IngredientsList() {
   const [q, setQ] = useState("");
   const [importing, setImporting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
