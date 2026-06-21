@@ -2,8 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, ClipboardList, Trash2, FolderTree } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Plus, ClipboardList, Trash2, FolderTree, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
+import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/inventories/")({ component: InventoriesList });
 
@@ -27,6 +30,8 @@ function statusInfo(frequency: string, last: string | null) {
 function InventoriesList() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const [bulkOpen, setBulkOpen] = useState(false);
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["inventories"],
@@ -61,10 +66,14 @@ function InventoriesList() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkOpen(true)}><RefreshCw className="mr-2 h-4 w-4" /> Atualizar estoque</Button>
           <Button variant="outline" onClick={() => nav({ to: "/groups" })}><FolderTree className="mr-2 h-4 w-4" /> Gerenciar grupos</Button>
           <Button onClick={() => nav({ to: "/inventories/new" })}><Plus className="mr-2 h-4 w-4" /> Novo</Button>
         </div>
       </div>
+
+      <BulkStockDialog open={bulkOpen} onOpenChange={setBulkOpen} />
+
 
       <div className="mt-6 space-y-3">
         {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> :
@@ -103,5 +112,132 @@ function InventoriesList() {
           )}
       </div>
     </div>
+  );
+}
+
+function BulkStockDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const { data: ingredients, isLoading } = useQuery({
+    queryKey: ["ingredients", "bulk-stock"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ingredients")
+        .select("id, name, unit, current_stock")
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: open,
+  });
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ingredients ?? [];
+    return (ingredients ?? []).filter((i) => i.name.toLowerCase().includes(q));
+  }, [ingredients, search]);
+
+  async function save() {
+    if (!ingredients) return;
+    const movements: any[] = [];
+    for (const ing of ingredients) {
+      const raw = values[ing.id];
+      if (raw === undefined || raw === "") continue;
+      const newQty = Number(String(raw).replace(",", "."));
+      if (!Number.isFinite(newQty)) continue;
+      const diff = newQty - Number(ing.current_stock ?? 0);
+      if (diff === 0) continue;
+      movements.push({
+        ingredient_id: ing.id,
+        type: diff > 0 ? "in" : "out",
+        quantity: Math.abs(diff),
+        reason: "Atualização de inventário",
+        occurred_at: new Date().toISOString(),
+      });
+    }
+    if (movements.length === 0) {
+      toast.info("Nenhuma quantidade alterada");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("stock_movements").insert(movements);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Estoque atualizado (${movements.length} ${movements.length === 1 ? "item" : "itens"})`);
+    setValues({});
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Atualizar todo o estoque</DialogTitle>
+          <DialogDescription>
+            Informe a quantidade atual contada para cada insumo. Itens em branco serão ignorados.
+            Cada alteração gera uma movimentação de ajuste.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar insumo..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        <div className="max-h-[55vh] overflow-y-auto rounded-lg border">
+          {isLoading ? (
+            <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
+          ) : filtered.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">Nenhum insumo encontrado.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                <tr className="text-left">
+                  <th className="px-3 py-2 font-medium">Insumo</th>
+                  <th className="px-3 py-2 font-medium">Unid.</th>
+                  <th className="px-3 py-2 font-medium text-right">Atual</th>
+                  <th className="px-3 py-2 font-medium text-right">Nova qtd.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((ing) => (
+                  <tr key={ing.id} className="border-t">
+                    <td className="px-3 py-2">{ing.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{ing.unit}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">
+                      {Number(ing.current_stock ?? 0).toLocaleString("pt-BR")}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="—"
+                        value={values[ing.id] ?? ""}
+                        onChange={(e) => setValues((v) => ({ ...v, [ing.id]: e.target.value }))}
+                        className="h-8 w-28 ml-auto text-right"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Salvar atualização"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
