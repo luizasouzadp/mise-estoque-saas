@@ -374,6 +374,11 @@ function RecipeDetail() {
       <div className="rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
         {!editing ? (
           <>
+            {headerImageUrl && (
+              <div className="mb-4 overflow-hidden rounded-lg border bg-muted">
+                <img src={headerImageUrl} alt={recipe.name} className="h-48 w-full object-cover sm:h-64" />
+              </div>
+            )}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -386,7 +391,10 @@ function RecipeDetail() {
                 </div>
                 {recipe.description && <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{recipe.description}</p>}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
+                <Button variant="outline" size="sm" onClick={exportPdf}>
+                  <Download className="mr-1 h-4 w-4" /> Exportar PDF
+                </Button>
                 <Button variant="outline" size="sm" onClick={startEdit}>Editar</Button>
                 <Button
                   variant="outline"
