@@ -356,24 +356,35 @@ function RecipeDetail() {
     if (!recipe) return;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
     const margin = 16;
+    const contentW = pageW - margin * 2;
+    const bottomLimit = pageH - 18;
 
-    // Top accent bar
-    doc.setFillColor(17, 24, 39); // slate-900
-    doc.rect(0, 0, pageW, 6, "F");
+    const drawAccentBar = () => {
+      doc.setFillColor(17, 24, 39);
+      doc.rect(0, 0, pageW, 6, "F");
+    };
+    drawAccentBar();
 
     let y = 20;
+    const ensureSpace = (needed: number) => {
+      if (y + needed > bottomLimit) {
+        doc.addPage();
+        drawAccentBar();
+        y = 20;
+      }
+    };
 
-    // Image
     if (headerImageUrl) {
       const img = await fetchImageDataUrl(headerImageUrl);
       if (img) {
-        const maxW = pageW - margin * 2;
         const targetH = 70;
         const ratio = img.w / img.h;
         let drawW = targetH * ratio;
         let drawH = targetH;
-        if (drawW > maxW) { drawW = maxW; drawH = maxW / ratio; }
+        if (drawW > contentW) { drawW = contentW; drawH = contentW / ratio; }
+        ensureSpace(drawH + 6);
         const x = (pageW - drawW) / 2;
         const fmt = img.dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
         doc.addImage(img.dataUrl, fmt, x, y, drawW, drawH, undefined, "FAST");
@@ -381,53 +392,56 @@ function RecipeDetail() {
       }
     }
 
-    // Title
     doc.setFont("helvetica", "bold");
     doc.setTextColor(17, 24, 39);
     doc.setFontSize(24);
-    doc.text(recipe.name, margin, y);
-    y += 8;
+    const titleLines = doc.splitTextToSize(recipe.name, contentW);
+    const titleLineH = 9;
+    ensureSpace(titleLines.length * titleLineH + 2);
+    doc.text(titleLines, margin, y);
+    y += titleLines.length * titleLineH;
 
-    // Yield pill
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     const yieldText = `Rendimento  ·  ${Number(recipe.yield_qty)} ${recipe.yield_unit}`;
-    const pillW = doc.getTextWidth(yieldText) + 8;
-    doc.setFillColor(243, 244, 246); // gray-100
+    const pillW = Math.min(doc.getTextWidth(yieldText) + 8, contentW);
+    ensureSpace(12);
+    doc.setFillColor(243, 244, 246);
     doc.roundedRect(margin, y - 4, pillW, 7, 2, 2, "F");
     doc.setTextColor(55, 65, 81);
     doc.text(yieldText, margin + 4, y + 1);
     y += 10;
 
-    // Description
     if (recipe.description) {
       doc.setTextColor(75, 85, 99);
       doc.setFontSize(10.5);
-      const lines = doc.splitTextToSize(recipe.description, pageW - margin * 2);
-      doc.text(lines, margin, y);
-      y += lines.length * 5 + 4;
+      const descLineH = 5;
+      const descLines = doc.splitTextToSize(recipe.description, contentW);
+      for (const line of descLines) {
+        ensureSpace(descLineH);
+        doc.text(line, margin, y);
+        y += descLineH;
+      }
+      y += 3;
     }
 
-    // Divider
+    ensureSpace(14);
     doc.setDrawColor(229, 231, 235);
     doc.setLineWidth(0.3);
     doc.line(margin, y, pageW - margin, y);
     y += 6;
-
-    // Section heading
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.setTextColor(17, 24, 39);
     doc.text("Composição", margin, y);
     y += 2;
 
-    // Composition table
     autoTable(doc, {
       startY: y + 2,
       head: [["Item", "Quantidade", "Unidade"]],
       body: (items ?? []).map((it) => [it.name, String(Number(it.quantity)), it.unit]),
       theme: "plain",
-      styles: { fontSize: 10.5, cellPadding: 3.5, textColor: [31, 41, 55] },
+      styles: { fontSize: 10.5, cellPadding: 3.5, textColor: [31, 41, 55], overflow: "linebreak" },
       headStyles: {
         fillColor: [17, 24, 39],
         textColor: [255, 255, 255],
@@ -436,21 +450,27 @@ function RecipeDetail() {
       },
       alternateRowStyles: { fillColor: [249, 250, 251] },
       columnStyles: {
+        0: { cellWidth: "auto" },
         1: { halign: "right", cellWidth: 32 },
         2: { halign: "left", cellWidth: 26 },
       },
-      margin: { left: margin, right: margin },
+      margin: { left: margin, right: margin, top: 20, bottom: 18 },
+      didDrawPage: () => { drawAccentBar(); },
     });
 
-    // Footer
-    const pageH = doc.internal.pageSize.getHeight();
-    doc.setFontSize(8);
-    doc.setTextColor(156, 163, 175);
-    doc.text(
-      `Ficha técnica · ${new Date().toLocaleDateString("pt-BR")}`,
-      margin,
-      pageH - 8,
-    );
+    const pages = doc.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(156, 163, 175);
+      doc.text(
+        `Ficha técnica · ${new Date().toLocaleDateString("pt-BR")}`,
+        margin,
+        pageH - 8,
+      );
+      doc.text(`${p} / ${pages}`, pageW - margin, pageH - 8, { align: "right" });
+    }
 
     doc.save(`${recipe.name.replace(/[^a-z0-9-_ ]/gi, "_")}.pdf`);
   }
