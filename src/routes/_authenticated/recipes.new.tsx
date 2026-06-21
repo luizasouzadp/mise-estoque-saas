@@ -197,6 +197,7 @@ function NewRecipe() {
       menu_category: isOnMenu === "yes" ? (menuCategory || null) : null,
       current_price: isOnMenu === "yes" && currentPrice ? Number(currentPrice) : null,
       product_code: isOnMenu === "yes" && productCode ? productCode.trim() : null,
+      image_url: isOnMenu === "yes" ? imagePath : null,
     }).select("id").single();
 
     if (error || !recipe) {
