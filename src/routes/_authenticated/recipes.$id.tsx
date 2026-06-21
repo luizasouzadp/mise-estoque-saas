@@ -116,6 +116,9 @@ function RecipeDetail() {
 
   const totalCost = (items ?? []).reduce((s, it) => s + it.lineCost, 0);
   const unitCost = recipe && Number(recipe.yield_qty) > 0 ? totalCost / Number(recipe.yield_qty) : 0;
+  const cmvPercent = recipe?.is_on_menu && recipe.current_price && Number(recipe.current_price) > 0
+    ? (unitCost / Number(recipe.current_price)) * 100
+    : null;
 
   // Edit recipe state
   const [editing, setEditing] = useState(false);
