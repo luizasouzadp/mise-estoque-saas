@@ -64,10 +64,14 @@ function InventoriesList() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkOpen(true)}><RefreshCw className="mr-2 h-4 w-4" /> Atualizar estoque</Button>
           <Button variant="outline" onClick={() => nav({ to: "/groups" })}><FolderTree className="mr-2 h-4 w-4" /> Gerenciar grupos</Button>
           <Button onClick={() => nav({ to: "/inventories/new" })}><Plus className="mr-2 h-4 w-4" /> Novo</Button>
         </div>
       </div>
+
+      <BulkStockDialog open={bulkOpen} onOpenChange={setBulkOpen} />
+
 
       <div className="mt-6 space-y-3">
         {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> :
