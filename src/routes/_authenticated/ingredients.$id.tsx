@@ -239,10 +239,65 @@ function IngredientDetail() {
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <Stat label="Estoque" value={`${currentStock.toFixed(2)} ${data.unit}`} />
+        <button
+          type="button"
+          onClick={openAdjust}
+          className="group rounded-lg border bg-card p-3 text-center transition-colors hover:border-primary hover:bg-muted/40"
+          title="Ajustar estoque"
+        >
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            Estoque <Pencil className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+          </div>
+          <div className="mt-1 font-display text-lg">{currentStock.toFixed(2)} {data.unit}</div>
+        </button>
         <Stat label="Custo médio" value={`R$ ${Number(data.avg_cost).toFixed(2)}`} />
         <Stat label="Última compra" value={`R$ ${Number(data.last_cost).toFixed(2)}`} />
       </div>
+
+      <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajustar estoque</DialogTitle>
+            <DialogDescription>
+              Informe a quantidade atual em estoque. A diferença gera automaticamente uma movimentação de entrada ou saída.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="adjust-current">Estoque atual ({data.unit})</Label>
+              <Input
+                id="adjust-current"
+                type="number"
+                step="0.01"
+                min="0"
+                value={adjustValue}
+                onChange={(e) => setAdjustValue(e.target.value)}
+                autoFocus
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Atual: {currentStock.toFixed(2)} {data.unit}
+                {adjustValue !== "" && isFinite(Number(String(adjustValue).replace(",", "."))) && (
+                  <> · Diferença: {(Number(String(adjustValue).replace(",", ".")) - currentStock).toFixed(2)} {data.unit}</>
+                )}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="adjust-notes">Observação (opcional)</Label>
+              <Textarea
+                id="adjust-notes"
+                rows={2}
+                value={adjustNotes}
+                onChange={(e) => setAdjustNotes(e.target.value)}
+                placeholder="Ex.: contagem semanal, perda, quebra..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustOpen(false)} disabled={adjusting}>Cancelar</Button>
+            <Button onClick={confirmAdjust} disabled={adjusting}>{adjusting ? "Salvando..." : "Confirmar ajuste"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
         <div className="flex flex-wrap items-end justify-between gap-3">
