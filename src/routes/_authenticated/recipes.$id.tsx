@@ -8,9 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
 import { duplicateRecipe } from "@/lib/recipes.functions";
@@ -94,6 +97,20 @@ function RecipeDetail() {
       const { data, error } = await supabase.from("recipes").select("id, name, yield_unit").order("name");
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: menuCategories } = useQuery({
+    queryKey: ["menu-categories"],
+    queryFn: async () => {
+      const [{ data: r }, { data: m }] = await Promise.all([
+        supabase.from("recipes").select("menu_category").not("menu_category", "is", null),
+        (supabase as any).from("menu_products").select("category").not("category", "is", null),
+      ]);
+      const set = new Set<string>();
+      (r ?? []).forEach((x: any) => x.menu_category && set.add(x.menu_category));
+      (m ?? []).forEach((x: any) => x.category && set.add(x.category));
+      return Array.from(set).sort((a, b) => a.localeCompare(b));
     },
   });
 
@@ -384,7 +401,7 @@ function RecipeDetail() {
                 </div>
                 <div>
                   <Label>Categoria do cardápio</Label>
-                  <Input value={menuCategory} onChange={(e) => setMenuCategory(e.target.value)} placeholder="Ex.: Pratos, Bebidas..." />
+                  <CategoryCombobox value={menuCategory} onChange={setMenuCategory} options={menuCategories ?? []} />
                 </div>
                 <div>
                   <Label>Preço de venda atual (R$)</Label>
@@ -497,5 +514,53 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={`mt-1 text-lg font-semibold ${highlight ? "text-primary" : ""}`}>{value}</p>
     </div>
+  );
+}
+
+function CategoryCombobox({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+  const exists = options.some((o) => o.toLowerCase() === trimmed.toLowerCase());
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" className="w-full justify-between font-normal">
+          <span className={cn("truncate", !value && "text-muted-foreground")}>{value || "Selecione ou crie..."}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar categoria..." value={query} onValueChange={setQuery} />
+          <CommandList>
+            <CommandEmpty>
+              {trimmed ? (
+                <button
+                  type="button"
+                  className="w-full rounded-sm px-2 py-2 text-sm hover:bg-accent text-left"
+                  onClick={() => { onChange(trimmed); setOpen(false); setQuery(""); }}
+                >
+                  + Criar "{trimmed}"
+                </button>
+              ) : "Nenhuma categoria"}
+            </CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem key={o} value={o} onSelect={() => { onChange(o); setOpen(false); setQuery(""); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === o ? "opacity-100" : "opacity-0")} />
+                  {o}
+                </CommandItem>
+              ))}
+              {trimmed && !exists && (
+                <CommandItem value={`__create_${trimmed}`} onSelect={() => { onChange(trimmed); setOpen(false); setQuery(""); }}>
+                  <Plus className="mr-2 h-4 w-4" /> Criar "{trimmed}"
+                </CommandItem>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
