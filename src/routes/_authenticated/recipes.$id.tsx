@@ -752,7 +752,15 @@ function RecipeDetail() {
           </div>
         </form>
       </div>
+
+      {editing && (
+        <div className="sticky bottom-4 z-10 flex justify-end gap-2 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
+          <Button onClick={saveRecipe}>Salvar ficha técnica</Button>
+        </div>
+      )}
     </div>
+
   );
 }
 
