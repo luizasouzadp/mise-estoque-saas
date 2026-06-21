@@ -12,12 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown, Download, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
 import { duplicateRecipe } from "@/lib/recipes.functions";
 import { useServerFn } from "@tanstack/react-start";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/recipes/$id")({
   component: RecipeDetail,
@@ -38,7 +40,7 @@ function RecipeDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipes")
-        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id, is_on_menu, menu_category, current_price, product_code")
+        .select("id, name, description, yield_qty, yield_unit, is_stocked, restaurant_id, is_on_menu, menu_category, current_price, product_code, image_url")
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -131,6 +133,47 @@ function RecipeDetail() {
   const [menuCategory, setMenuCategory] = useState("");
   const [currentPrice, setCurrentPrice] = useState("");
   const [productCode, setProductCode] = useState("");
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Signed URL for displaying recipe image at header
+  const { data: headerImageUrl } = useQuery({
+    queryKey: ["recipe-image-url", (recipe as any)?.image_url],
+    enabled: !!(recipe as any)?.image_url,
+    queryFn: async () => {
+      const path = (recipe as any).image_url as string;
+      const { data } = await supabase.storage.from("recipe-images").createSignedUrl(path, 3600);
+      return data?.signedUrl ?? null;
+    },
+  });
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Imagem deve ter no máximo 5MB");
+    setUploadingImage(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert: false, contentType: file.type });
+    if (error) {
+      setUploadingImage(false);
+      return toast.error("Falha ao enviar imagem: " + error.message);
+    }
+    if (imagePath) {
+      await supabase.storage.from("recipe-images").remove([imagePath]);
+    }
+    const { data: signed } = await supabase.storage.from("recipe-images").createSignedUrl(path, 3600);
+    setImagePath(path);
+    setImagePreview(signed?.signedUrl ?? null);
+    setUploadingImage(false);
+  }
+
+  async function removeImage() {
+    if (imagePath) await supabase.storage.from("recipe-images").remove([imagePath]);
+    setImagePath(null);
+    setImagePreview(null);
+  }
 
   function startEdit() {
     if (!recipe) return;
@@ -143,6 +186,9 @@ function RecipeDetail() {
     setMenuCategory(recipe.menu_category ?? "");
     setCurrentPrice(recipe.current_price != null ? String(recipe.current_price) : "");
     setProductCode((recipe as any).product_code ?? "");
+    const existingPath = (recipe as any).image_url ?? null;
+    setImagePath(existingPath);
+    setImagePreview(headerImageUrl ?? null);
     setEditing(true);
   }
 
@@ -158,6 +204,7 @@ function RecipeDetail() {
       menu_category: newIsOnMenu ? (menuCategory || null) : null,
       current_price: newIsOnMenu && currentPrice ? Number(currentPrice) : null,
       product_code: newIsOnMenu && productCode ? productCode.trim() : null,
+      image_url: newIsOnMenu ? imagePath : null,
     }).eq("id", id);
     if (error) return toast.error(error.message);
     await syncRecipeStockIngredient({
@@ -283,9 +330,39 @@ function RecipeDetail() {
     qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
+  function exportPdf() {
+    if (!recipe) return;
+    const doc = new jsPDF();
+    const margin = 14;
+    let y = 18;
+    doc.setFontSize(18);
+    doc.text(recipe.name, margin, y);
+    y += 8;
+    doc.setFontSize(11);
+    doc.setTextColor(90);
+    doc.text(`Rendimento: ${Number(recipe.yield_qty)} ${recipe.yield_unit}`, margin, y);
+    y += 6;
+    if (recipe.description) {
+      doc.setTextColor(60);
+      const lines = doc.splitTextToSize(recipe.description, 180);
+      doc.text(lines, margin, y);
+      y += lines.length * 5 + 2;
+    }
+    doc.setTextColor(0);
+    autoTable(doc, {
+      startY: y + 2,
+      head: [["Item", "Quantidade", "Unidade"]],
+      body: (items ?? []).map((it) => [it.name, String(Number(it.quantity)), it.unit]),
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [60, 60, 60] },
+    });
+    doc.save(`${recipe.name.replace(/[^a-z0-9-_ ]/gi, "_")}.pdf`);
+  }
+
   if (isLoading || !recipe) {
     return <div className="mx-auto max-w-4xl p-4 md:p-8"><p className="text-sm text-muted-foreground">Carregando...</p></div>;
   }
+
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-8">
@@ -297,6 +374,11 @@ function RecipeDetail() {
       <div className="rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
         {!editing ? (
           <>
+            {headerImageUrl && (
+              <div className="mb-4 overflow-hidden rounded-lg border bg-muted">
+                <img src={headerImageUrl} alt={recipe.name} className="h-48 w-full object-cover sm:h-64" />
+              </div>
+            )}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -309,7 +391,10 @@ function RecipeDetail() {
                 </div>
                 {recipe.description && <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{recipe.description}</p>}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
+                <Button variant="outline" size="sm" onClick={exportPdf}>
+                  <Download className="mr-1 h-4 w-4" /> Exportar PDF
+                </Button>
                 <Button variant="outline" size="sm" onClick={startEdit}>Editar</Button>
                 <Button
                   variant="outline"
@@ -416,6 +501,29 @@ function RecipeDetail() {
                 <div>
                   <Label>Preço de venda atual (R$)</Label>
                   <Input type="number" step="0.01" min="0" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)} />
+                </div>
+              </div>
+            )}
+            {isOnMenu === "yes" && (
+              <div>
+                <Label>Foto do produto (opcional)</Label>
+                <div className="mt-2 flex items-start gap-4">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img src={imagePreview} alt="Prévia" className="h-24 w-24 rounded-lg border object-cover" />
+                      <Button type="button" variant="ghost" size="icon" onClick={removeImage} className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-background border">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
+                      <ImageIcon className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+                    <p className="mt-1 text-xs text-muted-foreground">{uploadingImage ? "Enviando..." : "JPG ou PNG, até 5MB."}</p>
+                  </div>
                 </div>
               </div>
             )}
