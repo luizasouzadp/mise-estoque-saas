@@ -466,8 +466,8 @@ function TheoreticalCompareDialog({
     queryKey: ["cmv-period-movs", report?.period_start, report?.period_end],
     enabled: open && !!report,
     queryFn: async () => {
-      const startISO = new Date(`${report!.period_start}T00:00:00`).toISOString();
-      const endISO = new Date(`${report!.period_end}T23:59:59.999`).toISOString();
+      const startISO = parseLocal(report!.period_start).toISOString();
+      const endISO = parseLocal(report!.period_end, true).toISOString();
       const { data, error } = await supabase
         .from("stock_movements")
         .select("ingredient_id, quantity, type, notes, occurred_at")
