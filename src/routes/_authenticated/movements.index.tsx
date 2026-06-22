@@ -327,7 +327,7 @@ function MovementsPage() {
       unit_cost: m.unit_cost != null ? String(m.unit_cost) : "",
       reason: m.reason ?? "",
       notes: m.notes ?? "",
-      occurred_at: new Date(m.occurred_at).toISOString().slice(0, 16),
+      occurred_at: toLocalDatetimeInput(new Date(m.occurred_at)),
     });
     setOpen(true);
   }
