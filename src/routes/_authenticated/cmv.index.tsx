@@ -464,7 +464,7 @@ function TheoreticalCompareDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ingredients")
-        .select("id, name, unit, avg_cost, last_cost, composes_cmv");
+        .select("id, name, unit, avg_cost, last_cost, composes_cmv, source_recipe_id");
       if (error) throw error;
       return data ?? [];
     },
@@ -503,6 +503,19 @@ function TheoreticalCompareDialog({
     if (!recipesExpand || !menuItemsData || !ingredientsList) return [];
     const recipeMap = new Map<string, any>((recipesExpand as any[]).map((r) => [r.id, r]));
     const menuMap = new Map<string, any>(menuItemsData.map((m) => [m.id, m]));
+
+    // Map of recipe_id → ingredient_id (for stocked preparations)
+    const stockedRecipeToIng = new Map<string, string>();
+    const prepIngSet = new Set<string>();
+    const cmvIngSet = new Set<string>();
+    for (const i of ingredientsList as any[]) {
+      if (i.composes_cmv) cmvIngSet.add(i.id);
+      if (i.source_recipe_id) {
+        prepIngSet.add(i.id);
+        stockedRecipeToIng.set(i.source_recipe_id, i.id);
+      }
+    }
+
     const theoretical = new Map<string, number>();
 
     function addRecipe(recipeId: string, mult: number, depth = 0) {
@@ -518,9 +531,18 @@ function TheoreticalCompareDialog({
             (theoretical.get(it.ingredient_id) ?? 0) + mult * iq,
           );
         } else if (it.item_type === "recipe" && it.sub_recipe_id) {
-          const sub = recipeMap.get(it.sub_recipe_id);
-          const y = Number(sub?.yield_qty ?? 1) || 1;
-          addRecipe(it.sub_recipe_id, (mult * iq) / y, depth + 1);
+          // If sub-recipe is stocked as an ingredient, count at preparation level
+          const stockedIng = stockedRecipeToIng.get(it.sub_recipe_id);
+          if (stockedIng) {
+            theoretical.set(
+              stockedIng,
+              (theoretical.get(stockedIng) ?? 0) + mult * iq,
+            );
+          } else {
+            const sub = recipeMap.get(it.sub_recipe_id);
+            const y = Number(sub?.yield_qty ?? 1) || 1;
+            addRecipe(it.sub_recipe_id, (mult * iq) / y, depth + 1);
+          }
         }
       }
     }
@@ -537,22 +559,35 @@ function TheoreticalCompareDialog({
           if (it.ref_type === "ingredient") {
             theoretical.set(it.ref_id, (theoretical.get(it.ref_id) ?? 0) + q * iq);
           } else if (it.ref_type === "recipe") {
-            const sub = recipeMap.get(it.ref_id);
-            const y = Number(sub?.yield_qty ?? 1) || 1;
-            addRecipe(it.ref_id, (q * iq) / y);
+            const stockedIng = stockedRecipeToIng.get(it.ref_id);
+            if (stockedIng) {
+              theoretical.set(stockedIng, (theoretical.get(stockedIng) ?? 0) + q * iq);
+            } else {
+              const sub = recipeMap.get(it.ref_id);
+              const y = Number(sub?.yield_qty ?? 1) || 1;
+              addRecipe(it.ref_id, (q * iq) / y);
+            }
           }
         }
       } else if (pid.startsWith("rec:")) {
         const rid = pid.slice(4);
-        const sub = recipeMap.get(rid);
-        const y = Number(sub?.yield_qty ?? 1) || 1;
-        addRecipe(rid, q / y);
+        const stockedIng = stockedRecipeToIng.get(rid);
+        if (stockedIng) {
+          theoretical.set(stockedIng, (theoretical.get(stockedIng) ?? 0) + q);
+        } else {
+          const sub = recipeMap.get(rid);
+          const y = Number(sub?.yield_qty ?? 1) || 1;
+          addRecipe(rid, q / y);
+        }
       }
     }
 
     const real = new Map<string, number>();
     for (const m of (periodMovements ?? []) as any[]) {
-      if ((m.notes ?? "").startsWith("production:")) continue;
+      const isProd = (m.notes ?? "").startsWith("production:");
+      // Skip production outs of raw ingredients (they re-stock a preparation).
+      // Keep production outs of stocked preparations (real consumption tied to a sale).
+      if (isProd && !prepIngSet.has(m.ingredient_id)) continue;
       real.set(m.ingredient_id, (real.get(m.ingredient_id) ?? 0) + Number(m.quantity ?? 0));
     }
 
@@ -571,6 +606,8 @@ function TheoreticalCompareDialog({
     for (const id of ids) {
       const ing = ingMap.get(id);
       if (!ing) continue;
+      // Exclude non-CMV items (e.g. printer paper, cleaning supplies)
+      if (!cmvIngSet.has(id)) continue;
       const t = theoretical.get(id) ?? 0;
       const r = real.get(id) ?? 0;
       const d = r - t;
