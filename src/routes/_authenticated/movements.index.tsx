@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/movements/")({
   component: MovementsPage,
 });
 
-type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number };
+type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number; current_stock: number };
 type StockMovement = {
   id: string;
   ingredient_id: string;
@@ -118,7 +118,7 @@ function MovementsPage() {
   async function load() {
     setLoading(true);
     const [ing, mv, pur, inv, pi] = await Promise.all([
-      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost").order("name"),
+      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost, current_stock").order("name"),
       supabase.from("stock_movements").select("*").order("occurred_at", { ascending: false }).limit(1000),
       supabase.from("purchases").select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at").order("purchased_at", { ascending: false }).limit(1000),
       supabase
@@ -281,19 +281,20 @@ function MovementsPage() {
       arr.push(m);
       byIng.set(m.ingredient_id, arr);
     }
-    for (const [, arr] of byIng) {
-      const sorted = arr.slice().sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : 1));
-      let balance = 0;
+    for (const [ingId, arr] of byIng) {
+      // newest -> oldest
+      const sorted = arr.slice().sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
+      const ing = ingMap.get(ingId);
+      let curr = Number(ing?.current_stock ?? 0);
       for (const m of sorted) {
         const sign = m.type === "in" ? 1 : -1;
-        const prev = balance;
-        const curr = balance + sign * Number(m.quantity);
+        const prev = curr - sign * Number(m.quantity);
         map.set(m.key, { prevQty: prev, currQty: curr });
-        balance = curr;
+        curr = prev;
       }
     }
     return map;
-  }, [unified]);
+  }, [unified, ingMap]);
 
 
   function applyFilters() {
