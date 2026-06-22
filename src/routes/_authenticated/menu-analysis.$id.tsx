@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { generateSalesInsights } from "@/lib/sales-reports.functions";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/menu-analysis/$id")({
   component: MenuAnalysisDetail,
@@ -144,6 +146,187 @@ function MenuAnalysisDetail() {
 
   const cmvGlobal = report.total_revenue > 0 ? (report.total_cost / report.total_revenue) * 100 : 0;
 
+  function exportPdf() {
+    if (!report) return;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const M = 15; // margem 15mm
+    const usableW = pageW - M * 2;
+    let y = M;
+
+    const ensure = (h: number) => {
+      if (y + h > pageH - M) {
+        doc.addPage();
+        y = M;
+      }
+    };
+
+    // Cabeçalho
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(`Análise de ${formatMonth(report.reference_month)}`, M, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(110);
+    if (report.file_name) {
+      doc.text(report.file_name, M, y);
+      y += 5;
+    }
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, M, y);
+    y += 8;
+    doc.setTextColor(0);
+
+    // KPIs
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M, right: M },
+      tableWidth: usableW,
+      head: [["Faturamento", "Custo total", "Margem", "CMV global"]],
+      body: [[
+        BRL.format(report.total_revenue),
+        BRL.format(report.total_cost),
+        BRL.format(report.total_margin),
+        `${cmvGlobal.toFixed(1)}%`,
+      ]],
+      styles: { fontSize: 10, halign: "center" },
+      headStyles: { fillColor: [30, 30, 30] },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Por categoria
+    if (byCategory.length > 0) {
+      ensure(20);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Desempenho por categoria", M, y);
+      y += 5;
+      autoTable(doc, {
+        startY: y,
+        margin: { left: M, right: M },
+        tableWidth: usableW,
+        head: [["Categoria", "Qtd", "Faturamento", "Custo", "CMV %"]],
+        body: byCategory.map((c) => [
+          c.name,
+          c.quantity.toLocaleString("pt-BR"),
+          BRL.format(c.revenue),
+          BRL.format(c.cost),
+          `${c.cmv_pct.toFixed(1)}%`,
+        ]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [30, 30, 30] },
+        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Top 20 itens por faturamento
+    const topItems = [...(items ?? [])].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 20);
+    if (topItems.length > 0) {
+      ensure(20);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Top 20 itens por faturamento", M, y);
+      y += 5;
+      autoTable(doc, {
+        startY: y,
+        margin: { left: M, right: M },
+        tableWidth: usableW,
+        head: [["Item", "Categoria", "Qtd", "Faturamento", "Margem %"]],
+        body: topItems.map((i) => {
+          const m = Number(i.revenue) > 0 ? (Number(i.margin) / Number(i.revenue)) * 100 : 0;
+          return [
+            i.item_name,
+            i.category ?? "—",
+            Number(i.quantity).toLocaleString("pt-BR"),
+            BRL.format(Number(i.revenue)),
+            `${m.toFixed(1)}%`,
+          ];
+        }),
+        styles: { fontSize: 9, overflow: "linebreak" },
+        headStyles: { fillColor: [30, 30, 30] },
+        columnStyles: { 0: { cellWidth: 60 }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Matriz BCG
+    ensure(30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Engenharia de menu", M, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(110);
+    doc.text(
+      `Médias: quantidade ${matrix.avgQty.toFixed(0)} | margem ${matrix.avgMargin.toFixed(1)}%`,
+      M,
+      y,
+    );
+    y += 5;
+    doc.setTextColor(0);
+
+    const quads: Array<[string, string, any[]]> = [
+      ["Campeões", "vende muito + alta margem", matrix.quadrants.champ],
+      ["Tesouros escondidos", "vende pouco + alta margem", matrix.quadrants.hidden],
+      ["Queridinhos", "vende muito + baixa margem", matrix.quadrants.dog],
+      ["Problemas", "vende pouco + baixa margem", matrix.quadrants.problem],
+    ];
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M, right: M },
+      tableWidth: usableW,
+      head: [["Quadrante", "Descrição", "Itens"]],
+      body: quads.map(([t, d, arr]) => [
+        `${t} (${arr.length})`,
+        d,
+        arr.map((p) => p.item_name).join(", ") || "—",
+      ]),
+      styles: { fontSize: 9, overflow: "linebreak", valign: "top" },
+      headStyles: { fillColor: [30, 30, 30] },
+      columnStyles: { 0: { cellWidth: 40, fontStyle: "bold" }, 1: { cellWidth: 45 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Parecer IA
+    if (report.ai_insights) {
+      ensure(20);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Parecer da IA", M, y);
+      y += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      // remove markdown leve
+      const clean = report.ai_insights
+        .replace(/^#{1,6}\s+/gm, "")
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1");
+      const lines = doc.splitTextToSize(clean, usableW);
+      const lh = 5;
+      for (const ln of lines) {
+        ensure(lh);
+        doc.text(ln, M, y);
+        y += lh;
+      }
+    }
+
+    // Paginação
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(140);
+      doc.text(`${p} / ${totalPages}`, pageW - M, pageH - 8, { align: "right" });
+    }
+
+    doc.save(`analise-${report.reference_month}.pdf`);
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -154,6 +337,9 @@ function MenuAnalysisDetail() {
           <h1 className="font-display text-3xl mt-1">Análise de {formatMonth(report.reference_month)}</h1>
           <p className="text-sm text-muted-foreground">{report.file_name}</p>
         </div>
+        <Button variant="outline" onClick={exportPdf}>
+          <Download className="mr-1 h-4 w-4" /> Exportar PDF
+        </Button>
       </div>
 
       {/* KPIs */}
