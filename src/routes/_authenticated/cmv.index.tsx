@@ -45,6 +45,35 @@ function parseLocal(s: string, endOfDay = false) {
   return d;
 }
 
+// A stocked preparation is "intermediate" when its ingredient is consumed
+// by the recipe of ANOTHER stocked preparation (e.g. carne picada → carne cozida).
+// These should NOT be counted as real consumption; only the leaf stocked prep
+// that is actually used in the final product recipe counts.
+function computeIntermediatePrepSet(
+  ings: Array<{ id: string; source_recipe_id?: string | null }>,
+  items: Array<{ recipe_id: string; item_type: string; ingredient_id: string | null; sub_recipe_id: string | null }>,
+) {
+  const prepIngBySourceRecipe = new Map<string, string>();
+  const prepIngIds = new Set<string>();
+  for (const i of ings as any[]) {
+    if (i.source_recipe_id) {
+      prepIngBySourceRecipe.set(i.source_recipe_id, i.id);
+      prepIngIds.add(i.id);
+    }
+  }
+  const intermediate = new Set<string>();
+  for (const it of items) {
+    if (!prepIngBySourceRecipe.has(it.recipe_id)) continue;
+    if (it.item_type === "ingredient" && it.ingredient_id && prepIngIds.has(it.ingredient_id)) {
+      intermediate.add(it.ingredient_id);
+    } else if (it.item_type === "recipe" && it.sub_recipe_id) {
+      const subIng = prepIngBySourceRecipe.get(it.sub_recipe_id);
+      if (subIng) intermediate.add(subIng);
+    }
+  }
+  return intermediate;
+}
+
 type CmvReport = {
   id: string;
   period_start: string;
@@ -120,11 +149,27 @@ function CmvPage() {
     },
   });
 
+  const { data: recipeItemsAll } = useQuery({
+    queryKey: ["cmv-recipe-items-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipe_items")
+        .select("recipe_id, item_type, ingredient_id, sub_recipe_id");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+
   const totalCost = useMemo(() => {
     if (!movements || !ingredients) return 0;
     const composeSet = new Set(ingredients.filter((i) => i.composes_cmv).map((i) => i.id));
     const prepSet = new Set(
       ingredients.filter((i: any) => i.source_recipe_id).map((i) => i.id),
+    );
+    const intermediateSet = computeIntermediatePrepSet(
+      ingredients as any,
+      (recipeItemsAll ?? []) as any,
     );
     const costMap = new Map(
       (ingCosts ?? []).map((i) => [i.id, Number(i.avg_cost ?? 0) || Number(i.last_cost ?? 0) || 0]),
@@ -134,13 +179,15 @@ function CmvPage() {
       if (!composeSet.has(m.ingredient_id)) continue;
       const isProd = (m.notes ?? "").startsWith("production:");
       // Skip production outs of raw ingredients (they re-stock a preparation, avoiding double count).
-      // Keep production outs of stocked preparations (real consumption tied to a final sale).
       if (isProd && !prepSet.has(m.ingredient_id)) continue;
+      // Skip intermediate stocked preps (consumed only to produce another stocked prep).
+      if (intermediateSet.has(m.ingredient_id)) continue;
       const unitCost = Number(m.unit_cost ?? 0) || (costMap.get(m.ingredient_id) ?? 0);
       total += Number(m.quantity ?? 0) * unitCost;
     }
     return total;
-  }, [movements, ingredients, ingCosts]);
+  }, [movements, ingredients, ingCosts, recipeItemsAll]);
+
 
   const revenueNum = Number(revenue) || 0;
   const cmvPct = revenueNum > 0 ? (totalCost / revenueNum) * 100 : 0;
@@ -583,13 +630,27 @@ function TheoreticalCompareDialog({
     }
 
     const real = new Map<string, number>();
+    const intermediateSet = computeIntermediatePrepSet(
+      ingredientsList as any,
+      (recipesExpand as any[] ?? []).flatMap((r: any) =>
+        (r.recipe_items ?? []).map((it: any) => ({
+          recipe_id: r.id,
+          item_type: it.item_type,
+          ingredient_id: it.ingredient_id ?? null,
+          sub_recipe_id: it.sub_recipe_id ?? null,
+        })),
+      ),
+    );
     for (const m of (periodMovements ?? []) as any[]) {
       const isProd = (m.notes ?? "").startsWith("production:");
       // Skip production outs of raw ingredients (they re-stock a preparation).
       // Keep production outs of stocked preparations (real consumption tied to a sale).
       if (isProd && !prepIngSet.has(m.ingredient_id)) continue;
+      // Skip intermediate stocked preps (used only to produce another stocked prep).
+      if (intermediateSet.has(m.ingredient_id)) continue;
       real.set(m.ingredient_id, (real.get(m.ingredient_id) ?? 0) + Number(m.quantity ?? 0));
     }
+
 
     const ingMap = new Map<string, any>((ingredientsList as any[]).map((i) => [i.id, i]));
     const ids = new Set<string>([...theoretical.keys(), ...real.keys()]);
