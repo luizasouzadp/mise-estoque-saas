@@ -406,21 +406,6 @@ function ProductionsPage() {
                 <DialogTitle>{editingId ? "Editar produção" : "Registrar produções"}</DialogTitle>
               </DialogHeader>
             <div className="grid gap-3">
-              {queue.length > 0 && (
-                <div className="rounded-md border bg-muted/30 p-2 space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Na lista ({queue.length}):</p>
-                  {queue.map((q) => (
-                    <div key={q.key} className="flex items-center justify-between gap-2 rounded bg-background border px-2 py-1 text-sm">
-                      <span className="truncate">
-                        <strong>{q.recipeName}</strong> · {q.produced} {q.yieldUnit} · {q.items.length} insumo{q.items.length !== 1 ? "s" : ""}
-                      </span>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFromQueue(q.key)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Ficha técnica</Label>
@@ -454,12 +439,9 @@ function ProductionsPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Insumos consumidos</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addDraft}>
-                    <Plus className="h-3 w-3" /> Adicionar
-                  </Button>
+                  <Label className="text-sm font-medium">Insumos consumidos</Label>
                 </div>
                 {draftItems.length === 0 && (
                   <p className="text-xs text-muted-foreground">Selecione uma ficha e a quantidade para listar os insumos.</p>
@@ -468,7 +450,7 @@ function ProductionsPage() {
                   {draftItems.map((it, idx) => {
                     const units = it.baseUnit ? compatibleUnits(it.baseUnit) : [];
                     return (
-                      <div key={idx} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2">
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-end rounded-md border bg-background p-2">
                         <div className="col-span-12 md:col-span-5">
                           <Label className="text-xs">Insumo</Label>
                           <Select
@@ -493,7 +475,18 @@ function ProductionsPage() {
                         </div>
                         <div className="col-span-6 md:col-span-3">
                           <Label className="text-xs">Quantidade</Label>
-                          <Input type="number" step="0.001" value={it.quantity} onChange={(e) => updateDraft(idx, { quantity: e.target.value })} />
+                          <Input
+                            type="number"
+                            step="0.001"
+                            value={it.quantity}
+                            onChange={(e) => updateDraft(idx, { quantity: e.target.value })}
+                            onBlur={(e) => {
+                              const n = Number(e.target.value);
+                              if (Number.isFinite(n) && e.target.value !== "") {
+                                updateDraft(idx, { quantity: n.toFixed(3) });
+                              }
+                            }}
+                          />
                         </div>
                         <div className="col-span-4 md:col-span-3">
                           <Label className="text-xs">Unidade</Label>
@@ -515,7 +508,26 @@ function ProductionsPage() {
                     );
                   })}
                 </div>
+                <Button type="button" variant="outline" size="sm" className="w-full" onClick={addDraft}>
+                  <Plus className="h-3 w-3" /> Adicionar insumo
+                </Button>
               </div>
+
+              {queue.length > 0 && (
+                <div className="rounded-md border bg-muted/30 p-2 space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Na lista ({queue.length}):</p>
+                  {queue.map((q) => (
+                    <div key={q.key} className="flex items-center justify-between gap-2 rounded bg-background border px-2 py-1 text-sm">
+                      <span className="truncate">
+                        <strong>{q.recipeName}</strong> · {q.produced} {q.yieldUnit} · {q.items.length} insumo{q.items.length !== 1 ? "s" : ""}
+                      </span>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFromQueue(q.key)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
