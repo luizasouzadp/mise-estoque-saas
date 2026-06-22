@@ -267,6 +267,30 @@ function MovementsPage() {
     return { in: inValue, out: outValue };
   }, [filtered]);
 
+  const balanceByKey = useMemo(() => {
+    const map = new Map<string, { prevQty: number; currQty: number }>();
+    const byIng = new Map<string, UnifiedMovement[]>();
+    for (const m of unified) {
+      if (m.type === "info") continue;
+      const arr = byIng.get(m.ingredient_id) ?? [];
+      arr.push(m);
+      byIng.set(m.ingredient_id, arr);
+    }
+    for (const [, arr] of byIng) {
+      const sorted = arr.slice().sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : 1));
+      let balance = 0;
+      for (const m of sorted) {
+        const sign = m.type === "in" ? 1 : -1;
+        const prev = balance;
+        const curr = balance + sign * Number(m.quantity);
+        map.set(m.key, { prevQty: prev, currQty: curr });
+        balance = curr;
+      }
+    }
+    return map;
+  }, [unified]);
+
+
   function applyFilters() {
     setApplied(draft);
   }
