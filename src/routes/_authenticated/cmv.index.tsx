@@ -45,6 +45,35 @@ function parseLocal(s: string, endOfDay = false) {
   return d;
 }
 
+// A stocked preparation is "intermediate" when its ingredient is consumed
+// by the recipe of ANOTHER stocked preparation (e.g. carne picada → carne cozida).
+// These should NOT be counted as real consumption; only the leaf stocked prep
+// that is actually used in the final product recipe counts.
+function computeIntermediatePrepSet(
+  ings: Array<{ id: string; source_recipe_id?: string | null }>,
+  items: Array<{ recipe_id: string; item_type: string; ingredient_id: string | null; sub_recipe_id: string | null }>,
+) {
+  const prepIngBySourceRecipe = new Map<string, string>();
+  const prepIngIds = new Set<string>();
+  for (const i of ings as any[]) {
+    if (i.source_recipe_id) {
+      prepIngBySourceRecipe.set(i.source_recipe_id, i.id);
+      prepIngIds.add(i.id);
+    }
+  }
+  const intermediate = new Set<string>();
+  for (const it of items) {
+    if (!prepIngBySourceRecipe.has(it.recipe_id)) continue;
+    if (it.item_type === "ingredient" && it.ingredient_id && prepIngIds.has(it.ingredient_id)) {
+      intermediate.add(it.ingredient_id);
+    } else if (it.item_type === "recipe" && it.sub_recipe_id) {
+      const subIng = prepIngBySourceRecipe.get(it.sub_recipe_id);
+      if (subIng) intermediate.add(subIng);
+    }
+  }
+  return intermediate;
+}
+
 type CmvReport = {
   id: string;
   period_start: string;
