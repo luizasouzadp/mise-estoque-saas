@@ -118,7 +118,7 @@ function MovementsPage() {
   async function load() {
     setLoading(true);
     const [ing, mv, pur, inv, pi] = await Promise.all([
-      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost").order("name"),
+      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost, current_stock").order("name"),
       supabase.from("stock_movements").select("*").order("occurred_at", { ascending: false }).limit(1000),
       supabase.from("purchases").select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at").order("purchased_at", { ascending: false }).limit(1000),
       supabase
