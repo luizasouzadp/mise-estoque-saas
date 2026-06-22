@@ -257,6 +257,16 @@ function MovementsPage() {
     [applied],
   );
 
+  const totals = useMemo(() => {
+    let inValue = 0;
+    let outValue = 0;
+    for (const m of filtered) {
+      if (m.type === "in") inValue += Number(m.value ?? 0);
+      if (m.type === "out") outValue += Number(m.value ?? 0);
+    }
+    return { in: inValue, out: outValue };
+  }, [filtered]);
+
   function applyFilters() {
     setApplied(draft);
   }
@@ -570,6 +580,25 @@ function MovementsPage() {
           </Button>
         </div>
       </div>
+
+      {hasActiveFilters && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border bg-card p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <ArrowDownCircle className="h-4 w-4 text-green-600" />
+              Total de entradas
+            </div>
+            <span className="font-semibold tabular-nums">{formatBRL(totals.in)}</span>
+          </div>
+          <div className="rounded-lg border bg-card p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <ArrowUpCircle className="h-4 w-4 text-red-600" />
+              Total de saídas
+            </div>
+            <span className="font-semibold tabular-nums">{formatBRL(totals.out)}</span>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border bg-card overflow-x-auto">
         <Table>
