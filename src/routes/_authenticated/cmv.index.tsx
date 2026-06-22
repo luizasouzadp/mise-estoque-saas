@@ -88,7 +88,9 @@ function CmvPage() {
   const { data: ingredients } = useQuery({
     queryKey: ["cmv-ingredients"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ingredients").select("id, composes_cmv");
+      const { data, error } = await supabase
+        .from("ingredients")
+        .select("id, composes_cmv, source_recipe_id");
       if (error) throw error;
       return data ?? [];
     },
@@ -121,13 +123,19 @@ function CmvPage() {
   const totalCost = useMemo(() => {
     if (!movements || !ingredients) return 0;
     const composeSet = new Set(ingredients.filter((i) => i.composes_cmv).map((i) => i.id));
+    const prepSet = new Set(
+      ingredients.filter((i: any) => i.source_recipe_id).map((i) => i.id),
+    );
     const costMap = new Map(
       (ingCosts ?? []).map((i) => [i.id, Number(i.avg_cost ?? 0) || Number(i.last_cost ?? 0) || 0]),
     );
     let total = 0;
     for (const m of movements) {
-      if ((m.notes ?? "").startsWith("production:")) continue;
       if (!composeSet.has(m.ingredient_id)) continue;
+      const isProd = (m.notes ?? "").startsWith("production:");
+      // Skip production outs of raw ingredients (they re-stock a preparation, avoiding double count).
+      // Keep production outs of stocked preparations (real consumption tied to a final sale).
+      if (isProd && !prepSet.has(m.ingredient_id)) continue;
       const unitCost = Number(m.unit_cost ?? 0) || (costMap.get(m.ingredient_id) ?? 0);
       total += Number(m.quantity ?? 0) * unitCost;
     }
