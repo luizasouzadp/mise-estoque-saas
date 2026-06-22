@@ -364,14 +364,20 @@ function ProductionsPage() {
   }
 
   const filtered = useMemo(() => {
+    const parseLocal = (s: string, end = false) => {
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      const d = new Date(+m[1], +m[2] - 1, +m[3]);
+      if (end) d.setHours(23, 59, 59, 999);
+      return d;
+    };
     return productions.filter((p) => {
       if (filterRecipe !== "all" && p.recipe_id !== filterRecipe) return false;
-      if (filterFrom && p.produced_at < new Date(filterFrom).toISOString()) return false;
-      if (filterTo) {
-        const to = new Date(filterTo);
-        to.setHours(23, 59, 59, 999);
-        if (p.produced_at > to.toISOString()) return false;
-      }
+      const occ = new Date(p.produced_at);
+      const from = filterFrom ? parseLocal(filterFrom) : null;
+      const to = filterTo ? parseLocal(filterTo, true) : null;
+      if (from && occ < from) return false;
+      if (to && occ > to) return false;
       return true;
     });
   }, [productions, filterRecipe, filterFrom, filterTo]);
