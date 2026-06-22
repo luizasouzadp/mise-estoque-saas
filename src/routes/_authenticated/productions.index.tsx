@@ -149,7 +149,7 @@ function ProductionsPage() {
           ingredient_id: it.ingredient_id,
           ingredient_name: ing.name,
           baseUnit: ing.unit,
-          quantity: String(Number(it.quantity) * factor),
+          quantity: (Number(it.quantity) * factor).toFixed(3),
           unit: ing.unit,
         });
       }
