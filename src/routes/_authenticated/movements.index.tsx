@@ -267,6 +267,30 @@ function MovementsPage() {
     return { in: inValue, out: outValue };
   }, [filtered]);
 
+  const balanceByKey = useMemo(() => {
+    const map = new Map<string, { prevQty: number; currQty: number }>();
+    const byIng = new Map<string, UnifiedMovement[]>();
+    for (const m of unified) {
+      if (m.type === "info") continue;
+      const arr = byIng.get(m.ingredient_id) ?? [];
+      arr.push(m);
+      byIng.set(m.ingredient_id, arr);
+    }
+    for (const [, arr] of byIng) {
+      const sorted = arr.slice().sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : 1));
+      let balance = 0;
+      for (const m of sorted) {
+        const sign = m.type === "in" ? 1 : -1;
+        const prev = balance;
+        const curr = balance + sign * Number(m.quantity);
+        map.set(m.key, { prevQty: prev, currQty: curr });
+        balance = curr;
+      }
+    }
+    return map;
+  }, [unified]);
+
+
   function applyFilters() {
     setApplied(draft);
   }
@@ -608,22 +632,25 @@ function MovementsPage() {
               <TableHead>Origem</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Insumo</TableHead>
-              <TableHead className="text-right">Qtd</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
+              <TableHead className="text-right">Movimentação</TableHead>
               <TableHead>Motivo</TableHead>
               <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             )}
             {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sem movimentações</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sem movimentações</TableCell></TableRow>
             )}
+
             {filtered.map((m) => {
               const ing = ingMap.get(m.ingredient_id);
               const editable = isEditable(m);
+              const bal = balanceByKey.get(m.key);
+              const prevValue = bal && ing ? bal.prevQty * Number(ing.avg_cost ?? 0) : null;
+              const currValue = bal && ing ? bal.currQty * Number(ing.avg_cost ?? 0) : null;
               return (
                 <TableRow
                   key={m.key}
@@ -647,11 +674,16 @@ function MovementsPage() {
                     <div className="font-medium">{ing?.name ?? "—"}</div>
                     {ing?.category && <div className="text-xs text-muted-foreground">{ing.category}</div>}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {m.type === "info" ? "—" : `${Number(m.quantity).toLocaleString("pt-BR")} ${ing?.unit ?? ""}`}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-xs">
-                    {m.type === "info" ? "—" : formatBRL(m.value)}
+                  <TableCell className="text-right">
+                    {m.type === "info" || !bal ? "—" : (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-muted-foreground">{formatBRL(prevValue)}</span>
+                        <span className="font-semibold tabular-nums">
+                          {m.type === "in" ? "+" : "−"}{Number(m.quantity).toLocaleString("pt-BR")} {ing?.unit ?? ""}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{formatBRL(currValue)}</span>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{m.reason}</TableCell>
                   <TableCell>
