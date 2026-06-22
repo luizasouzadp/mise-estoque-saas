@@ -313,7 +313,7 @@ function MovementsPage() {
       unit_cost: "",
       reason: "",
       notes: "",
-      occurred_at: new Date().toISOString().slice(0, 16),
+      occurred_at: toLocalDatetimeInput(new Date()),
     });
     setOpen(true);
   }
