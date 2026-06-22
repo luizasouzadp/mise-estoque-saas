@@ -24,12 +24,25 @@ export const Route = createFileRoute("/_authenticated/cmv/")({
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
+function toLocalISO(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalISO(new Date());
 }
 function firstOfMonthISO() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return toLocalISO(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+function parseLocal(s: string, endOfDay = false) {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return new Date(s);
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (endOfDay) d.setHours(23, 59, 59, 999);
+  return d;
 }
 
 type CmvReport = {
@@ -84,8 +97,8 @@ function CmvPage() {
   const { data: movements } = useQuery({
     queryKey: ["cmv-movements", from, to],
     queryFn: async () => {
-      const startISO = new Date(`${from}T00:00:00`).toISOString();
-      const endISO = new Date(`${to}T23:59:59.999`).toISOString();
+      const startISO = parseLocal(from).toISOString();
+      const endISO = parseLocal(to, true).toISOString();
       const { data, error } = await supabase
         .from("stock_movements")
         .select("ingredient_id, quantity, unit_cost, type, notes, occurred_at")
