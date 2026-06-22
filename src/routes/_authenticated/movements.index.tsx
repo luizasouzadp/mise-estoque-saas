@@ -81,6 +81,11 @@ const emptyFilters = {
   to: "",
 };
 
+function toLocalDatetimeInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function MovementsPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [stockMv, setStockMv] = useState<StockMovement[]>([]);
@@ -101,7 +106,7 @@ function MovementsPage() {
     unit_cost: "",
     reason: "",
     notes: "",
-    occurred_at: new Date().toISOString().slice(0, 16),
+    occurred_at: toLocalDatetimeInput(new Date()),
   });
 
   const [quick, setQuick] = useState<UnifiedMovement | null>(null);
@@ -308,7 +313,7 @@ function MovementsPage() {
       unit_cost: "",
       reason: "",
       notes: "",
-      occurred_at: new Date().toISOString().slice(0, 16),
+      occurred_at: toLocalDatetimeInput(new Date()),
     });
     setOpen(true);
   }
@@ -322,7 +327,7 @@ function MovementsPage() {
       unit_cost: m.unit_cost != null ? String(m.unit_cost) : "",
       reason: m.reason ?? "",
       notes: m.notes ?? "",
-      occurred_at: new Date(m.occurred_at).toISOString().slice(0, 16),
+      occurred_at: toLocalDatetimeInput(new Date(m.occurred_at)),
     });
     setOpen(true);
   }
