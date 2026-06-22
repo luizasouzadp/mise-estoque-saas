@@ -423,9 +423,8 @@ function InventoryDetail() {
                     {editingItemId === it.id ? (
                       <div className="flex items-center gap-2">
                         <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
+                          type="text"
+                          inputMode="decimal"
                           className="w-28 text-right"
                           value={editingQty}
                           onChange={(e) => setEditingQty(e.target.value)}
