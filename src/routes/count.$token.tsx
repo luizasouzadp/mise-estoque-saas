@@ -46,6 +46,7 @@ function CountPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload = Object.entries(counts)
+      .map(([itemId, v]) => [itemId, v.trim().replace(",", ".")] as const)
       .filter(([, v]) => v !== "" && !isNaN(Number(v)))
       .map(([itemId, v]) => ({ itemId, countedQty: Number(v) }));
     if (payload.length === 0) return toast.error("Preencha pelo menos um item");
@@ -92,27 +93,49 @@ function CountPage() {
           {grouped.map(([groupName, items]) => (
             <section key={groupName} className="space-y-2">
               <h2 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">{groupName}</h2>
-              {items.map((it) => (
-                <div key={it.id} className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+              {items.map((it) => {
+                const raw = counts[it.id] ?? "";
+                const parsed = raw.trim().replace(",", ".");
+                const filled = parsed !== "" && !isNaN(Number(parsed));
+                return (
+                <div
+                  key={it.id}
+                  className={`rounded-xl border p-4 shadow-[var(--shadow-soft)] transition-colors ${
+                    filled
+                      ? "bg-card"
+                      : "border-[color:var(--color-warning)]/40 bg-[color:var(--color-warning)]/5"
+                  }`}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="font-semibold">{it.ingredient_name}</div>
+                      <div className="font-semibold flex items-center gap-2">
+                        {it.ingredient_name}
+                        {!filled && (
+                          <span className="rounded-full bg-[color:var(--color-warning)]/15 px-2 py-0.5 text-[10px] font-medium text-[color:var(--color-warning)]">
+                            pendente
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         Sistema: {Number(it.expected_qty).toFixed(2)} {it.unit}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Input
-                        type="number" step="0.01" min="0" inputMode="decimal"
+                        type="text" inputMode="decimal"
                         className="w-28 text-right" placeholder="0,00"
                         value={counts[it.id] ?? ""}
-                        onChange={(e) => setCounts((c) => ({ ...c, [it.id]: e.target.value }))}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9.,]/g, "");
+                          setCounts((c) => ({ ...c, [it.id]: v }));
+                        }}
                       />
                       <span className="text-xs text-muted-foreground w-8">{it.unit}</span>
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </section>
           ))}
           <div className="fixed inset-x-0 bottom-0 border-t bg-card p-4">
