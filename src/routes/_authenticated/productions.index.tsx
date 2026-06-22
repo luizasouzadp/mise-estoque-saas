@@ -182,7 +182,7 @@ function ProductionsPage() {
         ingredient_id: ing?.id ?? "",
         ingredient_name: it.ingredient_name,
         baseUnit: ing?.unit ?? it.unit,
-        quantity: String(Number(it.quantity)),
+        quantity: Number(it.quantity).toFixed(3),
         unit: it.unit,
       };
     });
