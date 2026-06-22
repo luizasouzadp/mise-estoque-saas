@@ -281,19 +281,20 @@ function MovementsPage() {
       arr.push(m);
       byIng.set(m.ingredient_id, arr);
     }
-    for (const [, arr] of byIng) {
-      const sorted = arr.slice().sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : 1));
-      let balance = 0;
+    for (const [ingId, arr] of byIng) {
+      // newest -> oldest
+      const sorted = arr.slice().sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
+      const ing = ingMap.get(ingId);
+      let curr = Number(ing?.current_stock ?? 0);
       for (const m of sorted) {
         const sign = m.type === "in" ? 1 : -1;
-        const prev = balance;
-        const curr = balance + sign * Number(m.quantity);
+        const prev = curr - sign * Number(m.quantity);
         map.set(m.key, { prevQty: prev, currQty: curr });
-        balance = curr;
+        curr = prev;
       }
     }
     return map;
-  }, [unified]);
+  }, [unified, ingMap]);
 
 
   function applyFilters() {
