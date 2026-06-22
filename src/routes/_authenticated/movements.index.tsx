@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/movements/")({
   component: MovementsPage,
 });
 
-type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number };
+type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number; current_stock: number };
 type StockMovement = {
   id: string;
   ingredient_id: string;
