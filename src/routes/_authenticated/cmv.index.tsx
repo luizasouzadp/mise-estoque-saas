@@ -630,13 +630,27 @@ function TheoreticalCompareDialog({
     }
 
     const real = new Map<string, number>();
+    const intermediateSet = computeIntermediatePrepSet(
+      ingredientsList as any,
+      (recipesExpand as any[] ?? []).flatMap((r: any) =>
+        (r.recipe_items ?? []).map((it: any) => ({
+          recipe_id: r.id,
+          item_type: it.item_type,
+          ingredient_id: it.ingredient_id ?? null,
+          sub_recipe_id: it.sub_recipe_id ?? null,
+        })),
+      ),
+    );
     for (const m of (periodMovements ?? []) as any[]) {
       const isProd = (m.notes ?? "").startsWith("production:");
       // Skip production outs of raw ingredients (they re-stock a preparation).
       // Keep production outs of stocked preparations (real consumption tied to a sale).
       if (isProd && !prepIngSet.has(m.ingredient_id)) continue;
+      // Skip intermediate stocked preps (used only to produce another stocked prep).
+      if (intermediateSet.has(m.ingredient_id)) continue;
       real.set(m.ingredient_id, (real.get(m.ingredient_id) ?? 0) + Number(m.quantity ?? 0));
     }
+
 
     const ingMap = new Map<string, any>((ingredientsList as any[]).map((i) => [i.id, i]));
     const ids = new Set<string>([...theoretical.keys(), ...real.keys()]);
