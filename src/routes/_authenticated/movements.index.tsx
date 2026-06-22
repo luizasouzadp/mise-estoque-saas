@@ -227,7 +227,17 @@ function MovementsPage() {
   }, [ingredients, purchases, stockMv, invItems, ingMap, productionCost]);
 
   const filtered = useMemo(() => {
+    const parseLocal = (s: string, end = false) => {
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      const d = new Date(+m[1], +m[2] - 1, +m[3]);
+      if (end) d.setHours(23, 59, 59, 999);
+      return d;
+    };
+    const from = applied.from ? parseLocal(applied.from) : null;
+    const to = applied.to ? parseLocal(applied.to, true) : null;
     return unified.filter((m) => {
+
       if (applied.ingredient !== "all" && m.ingredient_id !== applied.ingredient) return false;
       if (applied.type !== "all" && m.type !== applied.type) return false;
       if (applied.source !== "all" && m.source !== applied.source) return false;
