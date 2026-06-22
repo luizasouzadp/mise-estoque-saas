@@ -257,6 +257,16 @@ function MovementsPage() {
     [applied],
   );
 
+  const totals = useMemo(() => {
+    let inValue = 0;
+    let outValue = 0;
+    for (const m of filtered) {
+      if (m.type === "in") inValue += Number(m.value ?? 0);
+      if (m.type === "out") outValue += Number(m.value ?? 0);
+    }
+    return { in: inValue, out: outValue };
+  }, [filtered]);
+
   function applyFilters() {
     setApplied(draft);
   }
