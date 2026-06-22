@@ -252,7 +252,7 @@ ${JSON.stringify(payload, null, 2)}
 
     const gateway = createLovableAiGatewayProvider(key);
     const { text } = await generateText({
-      model: gateway("google/gemini-3-flash-preview"),
+      model: gateway("google/gemini-2.5-flash"),
       prompt,
     });
 
