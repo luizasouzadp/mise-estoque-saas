@@ -46,6 +46,7 @@ function CountPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload = Object.entries(counts)
+      .map(([itemId, v]) => [itemId, v.trim().replace(",", ".")] as const)
       .filter(([, v]) => v !== "" && !isNaN(Number(v)))
       .map(([itemId, v]) => ({ itemId, countedQty: Number(v) }));
     if (payload.length === 0) return toast.error("Preencha pelo menos um item");
