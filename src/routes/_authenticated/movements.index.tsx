@@ -648,6 +648,9 @@ function MovementsPage() {
             {filtered.map((m) => {
               const ing = ingMap.get(m.ingredient_id);
               const editable = isEditable(m);
+              const bal = balanceByKey.get(m.key);
+              const prevValue = bal && ing ? bal.prevQty * Number(ing.avg_cost ?? 0) : null;
+              const currValue = bal && ing ? bal.currQty * Number(ing.avg_cost ?? 0) : null;
               return (
                 <TableRow
                   key={m.key}
@@ -671,11 +674,16 @@ function MovementsPage() {
                     <div className="font-medium">{ing?.name ?? "—"}</div>
                     {ing?.category && <div className="text-xs text-muted-foreground">{ing.category}</div>}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {m.type === "info" ? "—" : `${Number(m.quantity).toLocaleString("pt-BR")} ${ing?.unit ?? ""}`}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-xs">
-                    {m.type === "info" ? "—" : formatBRL(m.value)}
+                  <TableCell className="text-right">
+                    {m.type === "info" || !bal ? "—" : (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-muted-foreground">{formatBRL(prevValue)}</span>
+                        <span className="font-semibold tabular-nums">
+                          {m.type === "in" ? "+" : "−"}{Number(m.quantity).toLocaleString("pt-BR")} {ing?.unit ?? ""}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{formatBRL(currValue)}</span>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{m.reason}</TableCell>
                   <TableCell>
