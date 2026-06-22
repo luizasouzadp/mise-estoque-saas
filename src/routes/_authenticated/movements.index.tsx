@@ -654,8 +654,6 @@ function MovementsPage() {
               const ing = ingMap.get(m.ingredient_id);
               const editable = isEditable(m);
               const bal = balanceByKey.get(m.key);
-              const prevValue = bal && ing ? bal.prevQty * Number(ing.avg_cost ?? 0) : null;
-              const currValue = bal && ing ? bal.currQty * Number(ing.avg_cost ?? 0) : null;
               return (
                 <TableRow
                   key={m.key}
@@ -682,11 +680,15 @@ function MovementsPage() {
                   <TableCell className="text-right">
                     {m.type === "info" || !bal ? "—" : (
                       <div className="flex flex-col items-end gap-0.5">
-                        <span className="text-xs text-muted-foreground">{formatBRL(prevValue)}</span>
-                        <span className="font-semibold tabular-nums">
+                        <span className="text-xs text-muted-foreground">
+                          {Number(bal.prevQty).toLocaleString("pt-BR")} {ing?.unit ?? ""}
+                        </span>
+                        <span className={`font-semibold tabular-nums ${m.type === "in" ? "text-green-600" : "text-red-600"}`}>
                           {m.type === "in" ? "+" : "−"}{Number(m.quantity).toLocaleString("pt-BR")} {ing?.unit ?? ""}
                         </span>
-                        <span className="text-xs text-muted-foreground">{formatBRL(currValue)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {Number(bal.currQty).toLocaleString("pt-BR")} {ing?.unit ?? ""}
+                        </span>
                       </div>
                     )}
                   </TableCell>
