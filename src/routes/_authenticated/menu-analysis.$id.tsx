@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { generateSalesInsights } from "@/lib/sales-reports.functions";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/menu-analysis/$id")({
   component: MenuAnalysisDetail,
