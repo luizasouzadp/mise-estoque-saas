@@ -404,6 +404,34 @@ function MovementsPage() {
 
   async function quickSave() {
     if (!quick) return;
+
+    if (quick.manual && quick.source === "manual") {
+      const newStock = Number(quickStock);
+      if (!Number.isFinite(newStock)) return toast.error("Estoque inválido");
+      const delta = newStock - quickPrevQty;
+      if (delta === 0) return toast.error("Estoque inalterado");
+      const newType: "in" | "out" = delta > 0 ? "in" : "out";
+      const newQty = Math.abs(delta);
+      const patch: { quantity: number; type: "in" | "out"; unit_cost?: number | null } = {
+        quantity: newQty,
+        type: newType,
+      };
+      if (newType === "in") {
+        patch.unit_cost = quickCost === "" ? null : Number(quickCost);
+      } else {
+        patch.unit_cost = null;
+      }
+      const { error } = await supabase
+        .from("stock_movements")
+        .update(patch)
+        .eq("id", quick.manual.id);
+      if (error) return toast.error(error.message);
+      toast.success("Movimentação atualizada");
+      setQuick(null);
+      load();
+      return;
+    }
+
     const qty = Number(quickQty);
     if (!Number.isFinite(qty) || qty <= 0) return toast.error("Quantidade inválida");
 
@@ -419,6 +447,7 @@ function MovementsPage() {
       if (error) return toast.error(error.message);
     } else if (quick.purchase) {
       const unit = quickCost === "" ? Number(quick.purchase.unit_cost) || 0 : Number(quickCost);
+
       const { error } = await supabase
         .from("purchases")
         .update({ quantity: qty, unit_cost: unit, total_cost: qty * unit, supplier: quickSupplier || null })
