@@ -1,10 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Receipt, Pencil, Trash2 } from "lucide-react";
+import { Plus, Receipt, Pencil, Trash2, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/purchases/")({
@@ -21,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/purchases/")({
 
 type PurchaseRow = {
   id: string;
+  ingredient_id: string;
   quantity: number;
   unit_cost: number;
   total_cost: number;
@@ -36,12 +44,67 @@ function PurchasesList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchases")
-        .select("id, quantity, unit_cost, total_cost, supplier, purchased_at, ingredient:ingredients(name, unit)")
+        .select("id, ingredient_id, quantity, unit_cost, total_cost, supplier, purchased_at, ingredient:ingredients(name, unit)")
         .order("purchased_at", { ascending: false });
       if (error) throw error;
       return data as unknown as PurchaseRow[];
     },
   });
+
+  const [ingredientFilter, setIngredientFilter] = useState<string>("all");
+  const [supplierFilter, setSupplierFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const ingredients = useMemo(() => {
+    const map = new Map<string, string>();
+    data?.forEach((p) => {
+      if (p.ingredient_id && p.ingredient?.name && !map.has(p.ingredient_id)) {
+        map.set(p.ingredient_id, p.ingredient.name);
+      }
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [data]);
+
+  const suppliers = useMemo(() => {
+    const set = new Set<string>();
+    data?.forEach((p) => {
+      if (p.supplier) set.add(p.supplier);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    return data.filter((p) => {
+      if (ingredientFilter !== "all" && p.ingredient_id !== ingredientFilter) return false;
+      if (supplierFilter && !(p.supplier ?? "").toLowerCase().includes(supplierFilter.toLowerCase())) return false;
+      const date = new Date(p.purchased_at);
+      if (dateFrom) {
+        const from = new Date(dateFrom + "T00:00:00");
+        if (date < from) return false;
+      }
+      if (dateTo) {
+        const to = new Date(dateTo + "T23:59:59.999");
+        if (date > to) return false;
+      }
+      return true;
+    });
+  }, [data, ingredientFilter, supplierFilter, dateFrom, dateTo]);
+
+  const totalFiltered = useMemo(
+    () => filtered.reduce((sum, p) => sum + Number(p.total_cost || 0), 0),
+    [filtered]
+  );
+
+  function clearFilters() {
+    setIngredientFilter("all");
+    setSupplierFilter("");
+    setDateFrom("");
+    setDateTo("");
+  }
+
+  const hasFilter = ingredientFilter !== "all" || supplierFilter || dateFrom || dateTo;
 
   const [edit, setEdit] = useState<PurchaseRow | null>(null);
   const [qty, setQty] = useState("");
