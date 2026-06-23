@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/movements/")({
   component: MovementsPage,
 });
 
-type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number; current_stock: number };
+type Ingredient = { id: string; name: string; unit: string; category: string | null; created_at: string; avg_cost: number; current_stock: number; composes_cmv: boolean | null };
 type StockMovement = {
   id: string;
   ingredient_id: string;
@@ -77,6 +77,7 @@ const emptyFilters = {
   category: "all",
   type: "all",
   source: "all",
+  cmv: "all",
   from: "",
   to: "",
 };
@@ -121,7 +122,7 @@ function MovementsPage() {
   async function load() {
     setLoading(true);
     const [ing, mv, pur, inv, pi] = await Promise.all([
-      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost, current_stock").order("name"),
+      supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost, current_stock, composes_cmv").order("name"),
       supabase.from("stock_movements").select("*").order("occurred_at", { ascending: false }).limit(1000),
       supabase.from("purchases").select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at").order("purchased_at", { ascending: false }).limit(1000),
       supabase
@@ -252,6 +253,12 @@ function MovementsPage() {
       if (applied.category !== "all") {
         const ing = ingMap.get(m.ingredient_id);
         if (ing?.category !== applied.category) return false;
+      }
+      if (applied.cmv !== "all") {
+        const ing = ingMap.get(m.ingredient_id);
+        const composes = ing?.composes_cmv ?? false;
+        if (applied.cmv === "yes" && !composes) return false;
+        if (applied.cmv === "no" && composes) return false;
       }
       const occ = new Date(m.occurred_at);
       if (from && occ < from) return false;
@@ -579,7 +586,7 @@ function MovementsPage() {
 
       {/* Filtros */}
       <div className="rounded-lg border bg-card p-3 space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
           <div>
             <Label className="text-xs">Insumo</Label>
             <Select value={draft.ingredient} onValueChange={(v) => setDraft({ ...draft, ingredient: v })}>
@@ -623,6 +630,17 @@ function MovementsPage() {
                 <SelectItem value="in">Entrada</SelectItem>
                 <SelectItem value="out">Saída</SelectItem>
                 <SelectItem value="info">Informativo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">CMV</Label>
+            <Select value={draft.cmv} onValueChange={(v) => setDraft({ ...draft, cmv: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="yes">Compõe CMV</SelectItem>
+                <SelectItem value="no">Não compõe</SelectItem>
               </SelectContent>
             </Select>
           </div>
