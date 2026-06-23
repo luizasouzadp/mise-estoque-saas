@@ -167,14 +167,69 @@ function PurchasesList() {
         </Button>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-4">
+        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end">
+            <div className="grid gap-2 md:w-56">
+              <Label htmlFor="ingredient-filter">Insumo</Label>
+              <Select value={ingredientFilter} onValueChange={setIngredientFilter}>
+                <SelectTrigger id="ingredient-filter">
+                  <SelectValue placeholder="Todos os insumos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os insumos</SelectItem>
+                  {ingredients.map(([id, name]) => (
+                    <SelectItem key={id} value={id}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2 md:w-56">
+              <Label htmlFor="supplier-filter">Fornecedor</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="supplier-filter"
+                  list="supplier-options"
+                  placeholder="Buscar fornecedor"
+                  value={supplierFilter}
+                  onChange={(e) => setSupplierFilter(e.target.value)}
+                  className="pl-9"
+                />
+                <datalist id="supplier-options">
+                  {suppliers.map((s) => <option key={s} value={s} />)}
+                </datalist>
+              </div>
+            </div>
+            <div className="grid gap-2 md:w-44">
+              <Label htmlFor="date-from">De</Label>
+              <Input id="date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            </div>
+            <div className="grid gap-2 md:w-44">
+              <Label htmlFor="date-to">Até</Label>
+              <Input id="date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            </div>
+            {hasFilter && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="md:mb-0.5">
+                <X className="mr-1 h-4 w-4" /> Limpar
+              </Button>
+            )}
+          </div>
+          {hasFilter && (
+            <div className="mt-4 flex items-center justify-between border-t pt-3 text-sm">
+              <span className="text-muted-foreground">{filtered.length} compra(s) encontrada(s)</span>
+              <span className="font-semibold">Total filtrado: R$ {totalFiltered.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
-        ) : !data || data.length === 0 ? (
+        ) : !filtered || filtered.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed bg-card/50 p-12 text-center">
             <Receipt className="mx-auto h-10 w-10 text-muted-foreground" />
-            <h3 className="mt-4 font-semibold">Nenhuma compra registrada</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Registre sua primeira entrada para abastecer o estoque.</p>
+            <h3 className="mt-4 font-semibold">Nenhuma compra encontrada</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Ajuste os filtros ou registre uma nova entrada.</p>
             <Button asChild className="mt-4"><Link to="/purchases/new"><Plus className="mr-2 h-4 w-4" /> Nova compra</Link></Button>
           </div>
         ) : (
@@ -192,7 +247,7 @@ function PurchasesList() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {data.map((p) => (
+                {filtered.map((p) => (
                   <tr key={p.id}>
                     <td className="p-3 text-muted-foreground">{new Date(p.purchased_at).toLocaleDateString("pt-BR")}</td>
                     <td className="p-3 font-medium">{p.ingredient?.name ?? "—"}</td>
@@ -213,6 +268,15 @@ function PurchasesList() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-muted/50 text-sm font-semibold">
+                <tr>
+                  <td className="p-3 hidden sm:table-cell" colSpan={4}>Total</td>
+                  <td className="p-3 sm:hidden" colSpan={4}>Total</td>
+                  <td className="p-3">R$ {totalFiltered.toFixed(2)}</td>
+                  <td className="p-3 hidden md:table-cell"></td>
+                  <td className="p-3"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
