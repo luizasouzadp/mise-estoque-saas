@@ -92,6 +92,10 @@ function NewPurchase() {
       setSaving(false);
       return toast.error("Sessão inválida.");
     }
+    const now = new Date();
+    const time = now.toTimeString().slice(0, 8);
+    const datePart = purchasedAt || now.toISOString().slice(0, 10);
+    const purchasedAtWithTime = new Date(`${datePart}T${time}`).toISOString();
     const rows = valid.map((it) => {
       const q = Number(it.quantity);
       const uc = Number(it.unitCost);
@@ -102,7 +106,7 @@ function NewPurchase() {
         unit_cost: uc,
         total_cost: q * uc,
         supplier: supplier || null,
-        purchased_at: new Date(`${purchasedAt}T12:00:00`).toISOString(),
+        purchased_at: purchasedAtWithTime,
         created_by: u.user!.id,
       };
     });
