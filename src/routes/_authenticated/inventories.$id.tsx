@@ -116,8 +116,10 @@ function InventoryDetail() {
   const st = statusInfo(data.inv.frequency, data.inv.last_completed_at);
   const link = typeof window !== "undefined" ? `${window.location.origin}/count/${data.inv.public_token}` : "";
   const message = `Olá! Hora da contagem: ${data.inv.name ?? "Inventário"}. Link: ${link}`;
-  const cleanPhone = phone.replace(/\D/g, "");
-  const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  const rawPhone = phone.replace(/\D/g, "");
+  // Auto-prefix Brazil country code (55) when the user types only DDD + number (10 or 11 digits)
+  const cleanPhone = rawPhone.length === 10 || rawPhone.length === 11 ? `55${rawPhone}` : rawPhone;
+  const waLink = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}` : "#";
   const timeLabel = ((data.inv.time_of_day as string) ?? "").slice(0, 5);
 
   async function copyLink() {
