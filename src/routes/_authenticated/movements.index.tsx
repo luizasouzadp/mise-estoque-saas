@@ -387,6 +387,9 @@ function MovementsPage() {
     if (!isEditable(m)) return;
     setQuick(m);
     setQuickQty(String(m.quantity));
+    const bal = balanceByKey.get(m.key);
+    setQuickPrevQty(bal?.prevQty ?? 0);
+    setQuickStock(bal ? String(bal.currQty) : "");
     if (m.purchase) {
       setQuickCost(String(m.purchase.unit_cost ?? ""));
       setQuickSupplier(m.purchase.supplier ?? "");
@@ -398,6 +401,7 @@ function MovementsPage() {
       setQuickSupplier("");
     }
   }
+
   async function quickSave() {
     if (!quick) return;
     const qty = Number(quickQty);
