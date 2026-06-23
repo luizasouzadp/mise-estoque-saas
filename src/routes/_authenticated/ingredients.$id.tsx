@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2, TrendingDown, Pencil } from "lucide-react";
-import { ComposedChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Bar, Cell, ReferenceDot } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceDot } from "recharts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -328,7 +328,7 @@ function IngredientDetail() {
           </div>
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={days} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
+              <LineChart data={days} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={xInterval} />
                 <YAxis yAxisId="stock" tick={{ fontSize: 10 }} />
@@ -337,20 +337,13 @@ function IngredientDetail() {
                   contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                   formatter={(v: number, n: string) => {
                     if (n === "stock") return [`${v} ${data.unit}`, "Estoque"];
-                    if (n === "absDelta") return [`${v} ${data.unit}`, "Variação"];
+                    if (n === "delta") return [`${v} ${data.unit}`, "Variação"];
                     return [v, n];
                   }}
                   labelFormatter={(l) => l}
                 />
-                <Bar yAxisId="delta" dataKey="absDelta" radius={[2, 2, 0, 0]} barSize={period > 60 ? 3 : 6}>
-                  {days.map((d) => (
-                    <Cell
-                      key={d.date}
-                      fill={topVariationKeys.has(d.date) ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground) / 0.3)"}
-                    />
-                  ))}
-                </Bar>
                 <Line yAxisId="stock" type="monotone" dataKey="stock" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                <Line yAxisId="delta" type="monotone" dataKey="delta" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
                 {days.filter((d) => topVariationKeys.has(d.date)).map((d) => (
                   <ReferenceDot
                     key={d.date}
@@ -363,7 +356,7 @@ function IngredientDetail() {
                     strokeWidth={2}
                   />
                 ))}
-              </ComposedChart>
+              </LineChart>
             </ResponsiveContainer>
           </div>
           {maxAbsDelta > 0 && (
