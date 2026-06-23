@@ -146,7 +146,9 @@ function ProductionsPage() {
     if (!recipeId || !produced) return;
     const rec = recipes.find((r) => r.id === recipeId);
     if (!rec) return;
-    const factor = Number(produced) / (Number(rec.yield_qty) || 1);
+    const eff = effectiveProduced(produced, producedUnit || rec.yield_unit, rec);
+    if (eff === null) return;
+    const factor = eff / (Number(rec.yield_qty) || 1);
     if (!Number.isFinite(factor) || factor <= 0) return;
     (async () => {
       const { data } = await supabase
@@ -169,7 +171,17 @@ function ProductionsPage() {
       }
       setDraftItems(drafts);
     })();
-  }, [recipeId, produced, recipes, ingredients, editingId]);
+  }, [recipeId, produced, producedUnit, recipes, ingredients, editingId]);
+
+  // Default produced unit when recipe changes
+  useEffect(() => {
+    if (!currentRecipe) { setProducedUnit(""); return; }
+    setProducedUnit((u) => {
+      if (u === "receita") return u;
+      const opts = ["receita", ...compatibleUnits(currentRecipe.yield_unit)];
+      return opts.includes(u) ? u : currentRecipe.yield_unit;
+    });
+  }, [recipeId, currentRecipe]);
 
   function openNew() {
     setEditingId(null);
