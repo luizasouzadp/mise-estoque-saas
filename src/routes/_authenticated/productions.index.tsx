@@ -187,6 +187,7 @@ function ProductionsPage() {
     setEditingId(null);
     setRecipeId("");
     setProduced("");
+    setProducedUnit("");
     setProducedAt(new Date().toISOString().slice(0, 16));
     setNotes("");
     setDraftItems([]);
@@ -199,6 +200,7 @@ function ProductionsPage() {
     setQueue([]);
     setRecipeId(p.recipe_id);
     setProduced(String(p.quantity_produced));
+    setProducedUnit(p.recipes?.yield_unit ?? "");
     setProducedAt(new Date(p.produced_at).toISOString().slice(0, 16));
     setNotes(p.notes ?? "");
     const list = itemsByProduction.get(p.id) ?? [];
@@ -229,8 +231,8 @@ function ProductionsPage() {
   function validateCurrent(): QueuedProduction | null {
     const rec = recipes.find((r) => r.id === recipeId);
     if (!rec) { toast.error("Selecione uma ficha técnica"); return null; }
-    const qty = Number(produced);
-    if (!qty || qty <= 0) { toast.error("Quantidade produzida inválida"); return null; }
+    const eff = effectiveProduced(produced, producedUnit || rec.yield_unit, rec);
+    if (eff === null || eff <= 0) { toast.error("Quantidade produzida inválida"); return null; }
     for (const it of draftItems) {
       if (!it.ingredient_id) { toast.error("Selecione o insumo de todas as linhas"); return null; }
       const q = Number(it.quantity);
@@ -243,7 +245,7 @@ function ProductionsPage() {
       recipeId: rec.id,
       recipeName: rec.name,
       yieldUnit: rec.yield_unit,
-      produced,
+      produced: String(eff),
       producedAt,
       notes,
       items: draftItems,
