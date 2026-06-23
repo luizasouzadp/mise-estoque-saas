@@ -113,6 +113,9 @@ function MovementsPage() {
   const [quickQty, setQuickQty] = useState("");
   const [quickCost, setQuickCost] = useState("");
   const [quickSupplier, setQuickSupplier] = useState("");
+  const [quickStock, setQuickStock] = useState("");
+  const [quickPrevQty, setQuickPrevQty] = useState<number>(0);
+
 
 
   async function load() {
