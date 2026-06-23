@@ -99,11 +99,25 @@ function ProductionsPage() {
   const [open, setOpen] = useState(false);
   const [recipeId, setRecipeId] = useState("");
   const [produced, setProduced] = useState("");
+  const [producedUnit, setProducedUnit] = useState("");
   const [producedAt, setProducedAt] = useState(new Date().toISOString().slice(0, 16));
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [queue, setQueue] = useState<QueuedProduction[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const currentRecipe = recipes.find((r) => r.id === recipeId);
+  const producedUnitOptions = currentRecipe
+    ? ["receita", ...compatibleUnits(currentRecipe.yield_unit)]
+    : [];
+  function effectiveProduced(value: string, unit: string, rec: Recipe | undefined): number | null {
+    if (!rec) return null;
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    if (unit === "receita") return n * (Number(rec.yield_qty) || 1);
+    const c = convert(n, unit, rec.yield_unit);
+    return c;
+  }
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
@@ -132,7 +146,9 @@ function ProductionsPage() {
     if (!recipeId || !produced) return;
     const rec = recipes.find((r) => r.id === recipeId);
     if (!rec) return;
-    const factor = Number(produced) / (Number(rec.yield_qty) || 1);
+    const eff = effectiveProduced(produced, producedUnit || rec.yield_unit, rec);
+    if (eff === null) return;
+    const factor = eff / (Number(rec.yield_qty) || 1);
     if (!Number.isFinite(factor) || factor <= 0) return;
     (async () => {
       const { data } = await supabase
@@ -155,12 +171,23 @@ function ProductionsPage() {
       }
       setDraftItems(drafts);
     })();
-  }, [recipeId, produced, recipes, ingredients, editingId]);
+  }, [recipeId, produced, producedUnit, recipes, ingredients, editingId]);
+
+  // Default produced unit when recipe changes
+  useEffect(() => {
+    if (!currentRecipe) { setProducedUnit(""); return; }
+    setProducedUnit((u) => {
+      if (u === "receita") return u;
+      const opts = ["receita", ...compatibleUnits(currentRecipe.yield_unit)];
+      return opts.includes(u) ? u : currentRecipe.yield_unit;
+    });
+  }, [recipeId, currentRecipe]);
 
   function openNew() {
     setEditingId(null);
     setRecipeId("");
     setProduced("");
+    setProducedUnit("");
     setProducedAt(new Date().toISOString().slice(0, 16));
     setNotes("");
     setDraftItems([]);
@@ -173,6 +200,7 @@ function ProductionsPage() {
     setQueue([]);
     setRecipeId(p.recipe_id);
     setProduced(String(p.quantity_produced));
+    setProducedUnit(p.recipes?.yield_unit ?? "");
     setProducedAt(new Date(p.produced_at).toISOString().slice(0, 16));
     setNotes(p.notes ?? "");
     const list = itemsByProduction.get(p.id) ?? [];
@@ -203,8 +231,8 @@ function ProductionsPage() {
   function validateCurrent(): QueuedProduction | null {
     const rec = recipes.find((r) => r.id === recipeId);
     if (!rec) { toast.error("Selecione uma ficha técnica"); return null; }
-    const qty = Number(produced);
-    if (!qty || qty <= 0) { toast.error("Quantidade produzida inválida"); return null; }
+    const eff = effectiveProduced(produced, producedUnit || rec.yield_unit, rec);
+    if (eff === null || eff <= 0) { toast.error("Quantidade produzida inválida"); return null; }
     for (const it of draftItems) {
       if (!it.ingredient_id) { toast.error("Selecione o insumo de todas as linhas"); return null; }
       const q = Number(it.quantity);
@@ -217,7 +245,7 @@ function ProductionsPage() {
       recipeId: rec.id,
       recipeName: rec.name,
       yieldUnit: rec.yield_unit,
-      produced,
+      produced: String(eff),
       producedAt,
       notes,
       items: draftItems,
@@ -231,6 +259,7 @@ function ProductionsPage() {
     // reset form for next entry, keep date
     setRecipeId("");
     setProduced("");
+    setProducedUnit("");
     setNotes("");
     setDraftItems([]);
     toast.success("Produção adicionada à lista");
@@ -430,8 +459,43 @@ function ProductionsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Quantidade produzida {recipeId && `(${recipes.find((r)=>r.id===recipeId)?.yield_unit})`}</Label>
-                  <Input type="number" step="0.001" value={produced} onChange={(e) => setProduced(e.target.value)} />
+                  <Label>Quantidade produzida</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      step="0.001"
+                      value={produced}
+                      onChange={(e) => setProduced(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Select
+                      value={producedUnit}
+                      onValueChange={setProducedUnit}
+                      disabled={!currentRecipe}
+                    >
+                      <SelectTrigger className="w-32"><SelectValue placeholder="un" /></SelectTrigger>
+                      <SelectContent>
+                        {producedUnitOptions.map((u) => (
+                          <SelectItem key={u} value={u}>
+                            {u === "receita" ? "receita(s)" : u}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {currentRecipe && producedUnit === "receita" && produced && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      = {(Number(produced) * Number(currentRecipe.yield_qty || 1)).toFixed(3)} {currentRecipe.yield_unit}
+                    </p>
+                  )}
+                  {currentRecipe && producedUnit && producedUnit !== "receita" && producedUnit !== currentRecipe.yield_unit && produced && (() => {
+                    const eff = effectiveProduced(produced, producedUnit, currentRecipe);
+                    return eff !== null ? (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        = {eff.toFixed(3)} {currentRecipe.yield_unit}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
