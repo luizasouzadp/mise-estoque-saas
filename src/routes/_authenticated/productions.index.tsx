@@ -459,8 +459,43 @@ function ProductionsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Quantidade produzida {recipeId && `(${recipes.find((r)=>r.id===recipeId)?.yield_unit})`}</Label>
-                  <Input type="number" step="0.001" value={produced} onChange={(e) => setProduced(e.target.value)} />
+                  <Label>Quantidade produzida</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      step="0.001"
+                      value={produced}
+                      onChange={(e) => setProduced(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Select
+                      value={producedUnit}
+                      onValueChange={setProducedUnit}
+                      disabled={!currentRecipe}
+                    >
+                      <SelectTrigger className="w-32"><SelectValue placeholder="un" /></SelectTrigger>
+                      <SelectContent>
+                        {producedUnitOptions.map((u) => (
+                          <SelectItem key={u} value={u}>
+                            {u === "receita" ? "receita(s)" : u}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {currentRecipe && producedUnit === "receita" && produced && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      = {(Number(produced) * Number(currentRecipe.yield_qty || 1)).toFixed(3)} {currentRecipe.yield_unit}
+                    </p>
+                  )}
+                  {currentRecipe && producedUnit && producedUnit !== "receita" && producedUnit !== currentRecipe.yield_unit && produced && (() => {
+                    const eff = effectiveProduced(produced, producedUnit, currentRecipe);
+                    return eff !== null ? (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        = {eff.toFixed(3)} {currentRecipe.yield_unit}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
