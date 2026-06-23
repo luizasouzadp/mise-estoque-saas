@@ -586,7 +586,7 @@ function MovementsPage() {
 
       {/* Filtros */}
       <div className="rounded-lg border bg-card p-3 space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
           <div>
             <Label className="text-xs">Insumo</Label>
             <Select value={draft.ingredient} onValueChange={(v) => setDraft({ ...draft, ingredient: v })}>
@@ -630,6 +630,17 @@ function MovementsPage() {
                 <SelectItem value="in">Entrada</SelectItem>
                 <SelectItem value="out">Saída</SelectItem>
                 <SelectItem value="info">Informativo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">CMV</Label>
+            <Select value={draft.cmv} onValueChange={(v) => setDraft({ ...draft, cmv: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="yes">Compõe CMV</SelectItem>
+                <SelectItem value="no">Não compõe</SelectItem>
               </SelectContent>
             </Select>
           </div>
