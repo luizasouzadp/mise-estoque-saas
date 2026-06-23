@@ -754,26 +754,62 @@ function MovementsPage() {
               <div className="text-sm text-muted-foreground">
                 {sourceBadge(quick.source)} <span className="ml-2">{ingMap.get(quick.ingredient_id)?.name}</span>
               </div>
-              <div>
-                <Label>Quantidade ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={quickQty}
-                  onChange={(e) => setQuickQty(e.target.value)}
-                />
-              </div>
-              {(quick.purchase || (quick.manual && quick.type === "in")) && (
-                <div>
-                  <Label>Custo unitário {quick.manual ? "(opcional)" : ""}</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={quickCost}
-                    onChange={(e) => setQuickCost(e.target.value)}
-                  />
-                </div>
+              {quick.source === "manual" ? (
+                <>
+                  <div>
+                    <Label>Estoque resultante ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      value={quickStock}
+                      onChange={(e) => setQuickStock(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Estoque anterior: {quickPrevQty.toLocaleString("pt-BR")} {ingMap.get(quick.ingredient_id)?.unit ?? ""}
+                      {quickStock !== "" && Number.isFinite(Number(quickStock)) && (() => {
+                        const d = Number(quickStock) - quickPrevQty;
+                        if (d === 0) return " · sem alteração";
+                        return ` · ${d > 0 ? "entrada" : "saída"} de ${Math.abs(d).toLocaleString("pt-BR")}`;
+                      })()}
+                    </p>
+                  </div>
+                  {(Number(quickStock) - quickPrevQty) > 0 && (
+                    <div>
+                      <Label>Custo unitário (opcional)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={quickCost}
+                        onChange={(e) => setQuickCost(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div>
+                    <Label>Quantidade ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      value={quickQty}
+                      onChange={(e) => setQuickQty(e.target.value)}
+                    />
+                  </div>
+                  {(quick.purchase || (quick.manual && quick.type === "in")) && (
+                    <div>
+                      <Label>Custo unitário {quick.manual ? "(opcional)" : ""}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={quickCost}
+                        onChange={(e) => setQuickCost(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </>
               )}
+
               {quick.purchase && (
                 <div>
                   <Label>Fornecedor</Label>
