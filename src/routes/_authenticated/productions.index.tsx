@@ -24,7 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { ChefHat, Filter, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { compatibleUnits, convert } from "@/lib/units";
-import { createChef } from "@/lib/chefs.functions";
+import { createChef, listChefs, deleteChef, resetChefPassword } from "@/lib/chefs.functions";
 import { useUserRoles } from "@/hooks/use-roles";
 
 export const Route = createFileRoute("/_authenticated/productions/")({
