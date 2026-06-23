@@ -102,7 +102,7 @@ function NewPurchase() {
         unit_cost: uc,
         total_cost: q * uc,
         supplier: supplier || null,
-        purchased_at: new Date(purchasedAt).toISOString(),
+        purchased_at: new Date(`${purchasedAt}T12:00:00`).toISOString(),
         created_by: u.user!.id,
       };
     });
