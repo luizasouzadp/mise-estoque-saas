@@ -259,6 +259,7 @@ function ProductionsPage() {
     // reset form for next entry, keep date
     setRecipeId("");
     setProduced("");
+    setProducedUnit("");
     setNotes("");
     setDraftItems([]);
     toast.success("Produção adicionada à lista");
