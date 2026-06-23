@@ -99,11 +99,25 @@ function ProductionsPage() {
   const [open, setOpen] = useState(false);
   const [recipeId, setRecipeId] = useState("");
   const [produced, setProduced] = useState("");
+  const [producedUnit, setProducedUnit] = useState("");
   const [producedAt, setProducedAt] = useState(new Date().toISOString().slice(0, 16));
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [queue, setQueue] = useState<QueuedProduction[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const currentRecipe = recipes.find((r) => r.id === recipeId);
+  const producedUnitOptions = currentRecipe
+    ? ["receita", ...compatibleUnits(currentRecipe.yield_unit)]
+    : [];
+  function effectiveProduced(value: string, unit: string, rec: Recipe | undefined): number | null {
+    if (!rec) return null;
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    if (unit === "receita") return n * (Number(rec.yield_qty) || 1);
+    const c = convert(n, unit, rec.yield_unit);
+    return c;
+  }
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
