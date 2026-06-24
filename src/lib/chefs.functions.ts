@@ -54,8 +54,10 @@ export const listChefs = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const restaurantId = await ensureManager(supabase, userId);
 
-    // Find chef user_ids
-    const { data: chefRoles, error: rErr } = await supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Find chef user_ids (admin bypasses RLS)
+    const { data: chefRoles, error: rErr } = await supabaseAdmin
       .from("user_roles")
       .select("user_id")
       .eq("role", "chef");
@@ -64,14 +66,13 @@ export const listChefs = createServerFn({ method: "GET" })
     if (chefIds.length === 0) return [] as { id: string; username: string; email: string }[];
 
     // Filter to those in the same restaurant
-    const { data: profs, error: pErr } = await supabase
+    const { data: profs, error: pErr } = await supabaseAdmin
       .from("profiles")
       .select("id, full_name, restaurant_id")
       .in("id", chefIds)
       .eq("restaurant_id", restaurantId);
     if (pErr) throw new Error(pErr.message);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const out: { id: string; username: string; email: string }[] = [];
     for (const p of profs ?? []) {
       const { data: u } = await supabaseAdmin.auth.admin.getUserById(p.id);
