@@ -100,7 +100,11 @@ function ProductionsPage() {
   const [recipeId, setRecipeId] = useState("");
   const [produced, setProduced] = useState("");
   const [producedUnit, setProducedUnit] = useState("");
-  const [producedAt, setProducedAt] = useState(new Date().toISOString().slice(0, 16));
+  const [producedAt, setProducedAt] = useState(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  });
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [queue, setQueue] = useState<QueuedProduction[]>([]);
