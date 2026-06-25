@@ -85,6 +85,18 @@ type QueuedProduction = {
   items: DraftItem[];
 };
 
+function toLocalDatetimeInput(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function localDatetimeInputToIso(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return new Date(value).toISOString();
+  const [, year, month, day, hour, minute] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)).toISOString();
+}
+
 function ProductionsPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -100,11 +112,7 @@ function ProductionsPage() {
   const [recipeId, setRecipeId] = useState("");
   const [produced, setProduced] = useState("");
   const [producedUnit, setProducedUnit] = useState("");
-  const [producedAt, setProducedAt] = useState(() => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 16);
-  });
+  const [producedAt, setProducedAt] = useState(() => toLocalDatetimeInput(new Date()));
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [queue, setQueue] = useState<QueuedProduction[]>([]);
@@ -192,7 +200,7 @@ function ProductionsPage() {
     setRecipeId("");
     setProduced("");
     setProducedUnit("");
-    setProducedAt(new Date().toISOString().slice(0, 16));
+    setProducedAt(toLocalDatetimeInput(new Date()));
     setNotes("");
     setDraftItems([]);
     setQueue([]);
@@ -205,11 +213,7 @@ function ProductionsPage() {
     setRecipeId(p.recipe_id);
     setProduced(String(p.quantity_produced));
     setProducedUnit(p.recipes?.yield_unit ?? "");
-    {
-      const d = new Date(p.produced_at);
-      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-      setProducedAt(d.toISOString().slice(0, 16));
-    }
+    setProducedAt(toLocalDatetimeInput(new Date(p.produced_at)));
     setNotes(p.notes ?? "");
     const list = itemsByProduction.get(p.id) ?? [];
     const drafts: DraftItem[] = list.map((it) => {
@@ -297,7 +301,7 @@ function ProductionsPage() {
         restaurant_id: restaurantId,
         recipe_id: q.recipeId,
         quantity_produced: Number(q.produced),
-        produced_at: new Date(q.producedAt).toISOString(),
+        produced_at: localDatetimeInputToIso(q.producedAt),
         notes: q.notes || null,
       })
       .select("id")
@@ -318,7 +322,7 @@ function ProductionsPage() {
     }
 
     const tag = `production:${prod.id}`;
-    const occurredAt = new Date(q.producedAt).toISOString();
+    const occurredAt = localDatetimeInputToIso(q.producedAt);
     const mvRows: Array<{ restaurant_id: string; ingredient_id: string; type: "in" | "out"; quantity: number; reason: string; notes: string; occurred_at: string }> = outMoves.map((m) => ({
       restaurant_id: restaurantId,
       ingredient_id: m.ingredient_id,
