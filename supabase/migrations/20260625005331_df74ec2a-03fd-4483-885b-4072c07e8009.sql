@@ -1,0 +1,3 @@
+CREATE POLICY "chef insert stock_movements" ON public.stock_movements FOR INSERT TO authenticated WITH CHECK (restaurant_id = current_restaurant_id() AND has_role(auth.uid(), 'chef'));
+CREATE POLICY "chef delete stock_movements" ON public.stock_movements FOR DELETE TO authenticated USING (restaurant_id = current_restaurant_id() AND has_role(auth.uid(), 'chef'));
+CREATE POLICY "chef update stock_movements" ON public.stock_movements FOR UPDATE TO authenticated USING (restaurant_id = current_restaurant_id() AND has_role(auth.uid(), 'chef')) WITH CHECK (restaurant_id = current_restaurant_id() AND has_role(auth.uid(), 'chef'));
