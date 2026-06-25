@@ -205,7 +205,11 @@ function ProductionsPage() {
     setRecipeId(p.recipe_id);
     setProduced(String(p.quantity_produced));
     setProducedUnit(p.recipes?.yield_unit ?? "");
-    setProducedAt(new Date(p.produced_at).toISOString().slice(0, 16));
+    {
+      const d = new Date(p.produced_at);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      setProducedAt(d.toISOString().slice(0, 16));
+    }
     setNotes(p.notes ?? "");
     const list = itemsByProduction.get(p.id) ?? [];
     const drafts: DraftItem[] = list.map((it) => {
