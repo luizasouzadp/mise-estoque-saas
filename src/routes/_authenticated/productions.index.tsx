@@ -100,7 +100,11 @@ function ProductionsPage() {
   const [recipeId, setRecipeId] = useState("");
   const [produced, setProduced] = useState("");
   const [producedUnit, setProducedUnit] = useState("");
-  const [producedAt, setProducedAt] = useState(new Date().toISOString().slice(0, 16));
+  const [producedAt, setProducedAt] = useState(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  });
   const [notes, setNotes] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [queue, setQueue] = useState<QueuedProduction[]>([]);
@@ -201,7 +205,11 @@ function ProductionsPage() {
     setRecipeId(p.recipe_id);
     setProduced(String(p.quantity_produced));
     setProducedUnit(p.recipes?.yield_unit ?? "");
-    setProducedAt(new Date(p.produced_at).toISOString().slice(0, 16));
+    {
+      const d = new Date(p.produced_at);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      setProducedAt(d.toISOString().slice(0, 16));
+    }
     setNotes(p.notes ?? "");
     const list = itemsByProduction.get(p.id) ?? [];
     const drafts: DraftItem[] = list.map((it) => {
