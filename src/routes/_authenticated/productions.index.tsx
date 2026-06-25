@@ -282,11 +282,15 @@ function ProductionsPage() {
   }
 
   async function persistOne(q: QueuedProduction, restaurantId: string): Promise<string | null> {
-    const { data: mirror } = await supabase
+    const { data: mirror, error: mirrorErr } = await supabase
       .from("ingredients")
       .select("id")
       .eq("source_recipe_id", q.recipeId)
       .maybeSingle();
+    if (mirrorErr) {
+      console.error("[productions] mirror lookup error", mirrorErr);
+      return `Erro buscando insumo da ficha: ${mirrorErr.message}`;
+    }
     if (!mirror) return `Ficha "${q.recipeName}" não tem insumo de estoque vinculado.`;
 
     const outMoves: { ingredient_id: string; quantity: number; unit: string; name: string }[] = [];
@@ -306,7 +310,10 @@ function ProductionsPage() {
       })
       .select("id")
       .single();
-    if (pErr || !prod) return pErr?.message ?? "Erro ao salvar produção";
+    if (pErr || !prod) {
+      console.error("[productions] insert production error", pErr);
+      return pErr?.message ?? "Erro ao salvar produção";
+    }
 
     if (outMoves.length > 0) {
       const { error: piErr } = await supabase.from("production_items").insert(
@@ -318,7 +325,10 @@ function ProductionsPage() {
           unit: m.unit,
         })),
       );
-      if (piErr) return piErr.message;
+      if (piErr) {
+        console.error("[productions] insert production_items error", piErr);
+        return `Itens: ${piErr.message}`;
+      }
     }
 
     const tag = `production:${prod.id}`;
@@ -342,7 +352,10 @@ function ProductionsPage() {
       occurred_at: occurredAt,
     });
     const { error: mErr } = await supabase.from("stock_movements").insert(mvRows);
-    if (mErr) return mErr.message;
+    if (mErr) {
+      console.error("[productions] insert stock_movements error", mErr);
+      return `Movimentações: ${mErr.message}`;
+    }
     return null;
   }
 
