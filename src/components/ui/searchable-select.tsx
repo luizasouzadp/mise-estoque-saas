@@ -52,17 +52,18 @@ export function Select<T extends string = string>({
   children,
   searchPlaceholder,
   emptyMessage,
-}) => {
-  const [internalValue, setInternalValue] = React.useState<string | undefined>(defaultValue);
+}: SelectProps<T>) {
+  const [internalValue, setInternalValue] = React.useState<T | undefined>(defaultValue);
   const [internalOpen, setInternalOpen] = React.useState(false);
   const isControlled = value !== undefined;
   const currentValue = isControlled ? value : internalValue;
   const open = openProp ?? internalOpen;
 
   const setValue = (v: string) => {
-    if (!isControlled) setInternalValue(v);
-    onValueChange?.(v);
+    if (!isControlled) setInternalValue(v as T);
+    onValueChange?.(v as T);
   };
+
   const setOpen = (o: boolean) => {
     if (openProp === undefined) setInternalOpen(o);
     onOpenChange?.(o);
