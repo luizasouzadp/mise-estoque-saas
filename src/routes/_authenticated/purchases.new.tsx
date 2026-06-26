@@ -174,12 +174,7 @@ function NewPurchase() {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Itens</Label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setItems((p) => [...p, newItem()])}>
-                <Plus className="mr-1 h-4 w-4" /> Adicionar item
-              </Button>
-            </div>
+            <Label>Itens</Label>
             {items.map((it, idx) => {
               const selected = ingredients.find((i) => i.id === it.ingredientId);
               const sub = (Number(it.quantity) || 0) * (Number(it.unitCost) || 0);
@@ -215,7 +210,11 @@ function NewPurchase() {
                 </div>
               );
             })}
+            <Button type="button" variant="outline" size="sm" onClick={() => setItems((p) => [...p, newItem()])}>
+              <Plus className="mr-1 h-4 w-4" /> Adicionar item
+            </Button>
           </div>
+
 
           <div className="flex items-center justify-between rounded-lg bg-secondary p-4">
             <span className="text-sm text-secondary-foreground">Total da compra</span>
