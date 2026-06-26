@@ -212,10 +212,12 @@ export const SelectItem: React.FC<SelectItemProps> = ({ value, children, disable
   const label = children;
   const searchText = keywords ?? nodeText(children);
 
+  const { registerItem, unregisterItem } = ctx;
   React.useEffect(() => {
-    ctx.registerItem(value, label);
-    return () => ctx.unregisterItem(value);
-  }, [value, label, ctx]);
+    registerItem(value, label);
+    return () => unregisterItem(value);
+  }, [value, label, registerItem, unregisterItem]);
+
 
   const selected = ctx.value === value;
 
