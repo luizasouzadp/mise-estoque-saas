@@ -29,10 +29,10 @@ const useSelectCtx = () => {
   return ctx;
 };
 
-export interface SelectProps {
-  value?: string;
-  defaultValue?: string;
-  onValueChange?: (value: string) => void;
+export interface SelectProps<T extends string = string> {
+  value?: T;
+  defaultValue?: T;
+  onValueChange?: (value: T) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   disabled?: boolean;
@@ -41,7 +41,8 @@ export interface SelectProps {
   emptyMessage?: string;
 }
 
-export const Select: React.FC<SelectProps> = ({
+export function Select<T extends string = string>({
+
   value,
   defaultValue,
   onValueChange,
