@@ -197,11 +197,11 @@ function NewPurchase() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <Label className="text-xs">Quantidade {selected ? `(${selected.unit})` : ""}</Label>
-                      <Input type="number" step="0.01" min="0" value={it.quantity} onChange={(e) => updateItem(it.id, { quantity: e.target.value })} />
+                      <Input type="number" step="0.001" min="0" value={it.quantity} onChange={(e) => updateItem(it.id, { quantity: e.target.value })} />
                     </div>
                     <div>
                       <Label className="text-xs">Preço unitário (R$)</Label>
-                      <Input type="number" step="0.01" min="0" value={it.unitCost} onChange={(e) => updateItem(it.id, { unitCost: e.target.value })} />
+                      <Input type="number" step="0.001" min="0" value={it.unitCost} onChange={(e) => updateItem(it.id, { unitCost: e.target.value })} />
                     </div>
                   </div>
                   <div className="text-right text-sm text-muted-foreground">
