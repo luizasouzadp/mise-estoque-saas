@@ -173,8 +173,12 @@ export const SelectContent: React.FC<SelectContentProps> = ({
   const empty = emptyMessage ?? ctx.emptyMessage ?? "Nenhum resultado.";
   return (
     <PopoverContent
+      forceMount
       align={align}
-      className={cn("p-0 w-[var(--radix-popover-trigger-width)] min-w-[12rem]", className)}
+      className={cn(
+        "p-0 w-[var(--radix-popover-trigger-width)] min-w-[12rem] data-[state=closed]:hidden",
+        className,
+      )}
     >
       <Command
         filter={(value, search) => {
