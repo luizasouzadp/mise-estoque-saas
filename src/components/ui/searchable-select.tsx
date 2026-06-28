@@ -42,7 +42,6 @@ export interface SelectProps<T extends string = string> {
 }
 
 export function Select<T extends string = string>({
-
   value,
   defaultValue,
   onValueChange,
@@ -59,6 +58,8 @@ export function Select<T extends string = string>({
   const currentValue = isControlled ? value : internalValue;
   const open = openProp ?? internalOpen;
 
+  const staticLabels = React.useMemo(() => collectItemLabels(children), [children]);
+
   const setValue = (v: string) => {
     if (!isControlled) setInternalValue(v as T);
     onValueChange?.(v as T);
@@ -70,6 +71,11 @@ export function Select<T extends string = string>({
   };
 
   const [labels, setLabels] = React.useState<Map<string, React.ReactNode>>(new Map());
+  const mergedLabels = React.useMemo(() => {
+    const next = new Map(staticLabels);
+    labels.forEach((label, key) => next.set(key, label));
+    return next;
+  }, [staticLabels, labels]);
   const registerItem = React.useCallback((v: string, label: React.ReactNode) => {
     setLabels((prev) => {
       if (prev.get(v) === label) return prev;
@@ -96,7 +102,7 @@ export function Select<T extends string = string>({
         setOpen,
         registerItem,
         unregisterItem,
-        labels,
+        labels: mergedLabels,
         disabled,
         searchPlaceholder,
         emptyMessage,
@@ -140,11 +146,12 @@ SelectTrigger.displayName = "SelectTrigger";
 export interface SelectValueProps {
   placeholder?: React.ReactNode;
   className?: string;
+  children?: React.ReactNode;
 }
 
-export const SelectValue: React.FC<SelectValueProps> = ({ placeholder, className }) => {
+export const SelectValue: React.FC<SelectValueProps> = ({ placeholder, className, children }) => {
   const ctx = useSelectCtx();
-  const label = ctx.value !== undefined ? ctx.labels.get(ctx.value) : undefined;
+  const label = children ?? (ctx.value !== undefined ? ctx.labels.get(ctx.value) : undefined);
   const hasValue = label !== undefined && label !== null && label !== "";
   return (
     <span className={cn("flex-1 truncate", !hasValue && "text-muted-foreground", className)}>
@@ -211,6 +218,18 @@ function nodeText(node: React.ReactNode): string {
   if (Array.isArray(node)) return node.map(nodeText).join(" ");
   if (React.isValidElement(node)) return nodeText((node.props as { children?: React.ReactNode }).children);
   return "";
+}
+
+function collectItemLabels(node: React.ReactNode, acc = new Map<string, React.ReactNode>()) {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return;
+    const props = child.props as { value?: unknown; children?: React.ReactNode };
+    if (typeof props.value === "string" && props.children !== undefined) {
+      acc.set(props.value, props.children);
+    }
+    if (props.children !== undefined) collectItemLabels(props.children, acc);
+  });
+  return acc;
 }
 
 export const SelectItem: React.FC<SelectItemProps> = ({ value, children, disabled, className, keywords }) => {
