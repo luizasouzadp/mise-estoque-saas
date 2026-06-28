@@ -470,7 +470,9 @@ function ProductionsPage() {
                 <div>
                   <Label>Ficha técnica</Label>
                   <Select value={recipeId} onValueChange={setRecipeId}>
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione...">{currentRecipe?.name}</SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
                       {recipes.length === 0 && (
                         <div className="px-2 py-1.5 text-xs text-muted-foreground">
@@ -560,7 +562,11 @@ function ProductionsPage() {
                               });
                             }}
                           >
-                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione...">
+                                {it.ingredient_name || ingredients.find((x) => x.id === it.ingredient_id)?.name}
+                              </SelectValue>
+                            </SelectTrigger>
                             <SelectContent>
                               {ingredients.map((i) => (
                                 <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
