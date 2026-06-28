@@ -370,7 +370,11 @@ function MenuAnalysisDetail() {
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} />
               <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
-              <Bar dataKey="cmv_pct" name="CMV" fill="hsl(var(--primary))" />
+              <Bar dataKey="cmv_pct" name="CMV">
+                {byCategory.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>
