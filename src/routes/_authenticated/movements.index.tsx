@@ -741,6 +741,11 @@ function MovementsPage() {
                         <span className={`font-semibold tabular-nums ${m.type === "in" ? "text-green-600" : "text-red-600"}`}>
                           {m.type === "in" ? "+" : "−"}{Number(m.quantity).toLocaleString("pt-BR")} {ing?.unit ?? ""}
                         </span>
+                        {m.value != null && (
+                          <span className={`text-xs tabular-nums ${m.type === "in" ? "text-green-600" : "text-red-600"}`}>
+                            {m.type === "in" ? "+" : "−"}{formatBRL(Number(m.value))}
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {Number(bal.currQty).toLocaleString("pt-BR")} {ing?.unit ?? ""}
                         </span>
