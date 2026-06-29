@@ -83,6 +83,13 @@ function IngredientDetail() {
   const [adjustValue, setAdjustValue] = useState("");
   const [adjustNotes, setAdjustNotes] = useState("");
   const [adjusting, setAdjusting] = useState(false);
+  const [unitConvOpen, setUnitConvOpen] = useState(false);
+  const [unitConvFactor, setUnitConvFactor] = useState("");
+  const [pendingNewUnit, setPendingNewUnit] = useState<string | null>(null);
+  const [convertingUnit, setConvertingUnit] = useState(false);
+  const convertUnitFn = useServerFn(convertIngredientUnit);
+
+
 
   useEffect(() => {
     if (data) {
