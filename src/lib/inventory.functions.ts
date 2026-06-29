@@ -19,12 +19,24 @@ export const getInventoryByToken = createServerFn({ method: "GET" })
       supabaseAdmin.from("restaurants").select("name").eq("id", inv.restaurant_id).maybeSingle(),
       supabaseAdmin
         .from("inventory_items")
-        .select("id, ingredient_name, unit, expected_qty, counted_qty, group_id")
+        .select("id, ingredient_id, ingredient_name, unit, expected_qty, counted_qty, group_id")
         .eq("inventory_id", inv.id)
         .order("ingredient_name"),
       supabaseAdmin.from("ingredient_groups").select("id, name"),
     ]);
     const gmap = new Map((groupRows ?? []).map((g) => [g.id, g.name]));
+
+    // Use current stock (live) instead of the snapshot saved at inventory creation,
+    // so the "Sistema" value matches reality at the moment of counting.
+    const ingIds = Array.from(new Set((items ?? []).map((i) => i.ingredient_id).filter(Boolean)));
+    const stockMap = new Map<string, number>();
+    if (ingIds.length > 0) {
+      const { data: stocks } = await supabaseAdmin
+        .from("ingredients")
+        .select("id, current_stock")
+        .in("id", ingIds);
+      for (const s of stocks ?? []) stockMap.set(s.id, Number(s.current_stock ?? 0));
+    }
 
     return {
       inventoryId: inv.id,
@@ -33,6 +45,7 @@ export const getInventoryByToken = createServerFn({ method: "GET" })
       restaurantName: rest?.name ?? "Restaurante",
       items: (items ?? []).map((i) => ({
         ...i,
+        expected_qty: stockMap.get(i.ingredient_id) ?? Number(i.expected_qty ?? 0),
         groupName: i.group_id ? (gmap.get(i.group_id) ?? "Sem grupo") : "Sem grupo",
       })),
     };
