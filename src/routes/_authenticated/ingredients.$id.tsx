@@ -113,10 +113,17 @@ function IngredientDetail() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    // If unit changed, require explicit conversion via dialog first.
+    if (data && unit !== data.unit) {
+      setPendingNewUnit(unit);
+      setUnitConvFactor("");
+      setUnitConvOpen(true);
+      return;
+    }
     setSaving(true);
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
-      name: normalizeName(name), unit, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
+      name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
     }).eq("id", id);
     if (error) {
       setSaving(false);
