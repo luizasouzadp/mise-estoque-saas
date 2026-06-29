@@ -477,6 +477,43 @@ function IngredientDetail() {
           <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
         </div>
       </form>
+
+      <Dialog open={unitConvOpen} onOpenChange={(o) => { if (!o) cancelUnitConversion(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Converter unidade</DialogTitle>
+            <DialogDescription>
+              Informe o fator de conversão para que estoque, compras, movimentações,
+              fichas técnicas e inventários sejam atualizados automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border bg-muted/40 p-3 text-sm">
+              <div>1 <strong>{data?.unit}</strong> equivale a quantos <strong>{pendingNewUnit}</strong>?</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Ex.: trocando de <em>cx</em> para <em>un</em>, se 1 cx = 12 un, digite 12.
+                Quantidades serão multiplicadas e custos unitários divididos pelo fator.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="conv-factor">Fator (1 {data?.unit} = ? {pendingNewUnit})</Label>
+              <Input
+                id="conv-factor"
+                inputMode="decimal"
+                value={unitConvFactor}
+                onChange={(e) => setUnitConvFactor(e.target.value)}
+                placeholder="Ex: 12 ou 0,5"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={cancelUnitConversion} disabled={convertingUnit}>Cancelar</Button>
+            <Button onClick={confirmUnitConversion} disabled={convertingUnit}>
+              {convertingUnit ? "Convertendo..." : "Converter"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
