@@ -119,7 +119,7 @@ function InventoryDetail() {
   const rawPhone = phone.replace(/\D/g, "");
   // Auto-prefix Brazil country code (55) when the user types only DDD + number (10 or 11 digits)
   const cleanPhone = rawPhone.length === 10 || rawPhone.length === 11 ? `55${rawPhone}` : rawPhone;
-  const waLink = cleanPhone ? `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}` : "#";
+  const waLink = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}` : "#";
   const timeLabel = ((data.inv.time_of_day as string) ?? "").slice(0, 5);
 
   async function copyLink() {
