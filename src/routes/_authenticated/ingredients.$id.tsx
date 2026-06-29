@@ -148,6 +148,32 @@ function IngredientDetail() {
     qc.invalidateQueries({ queryKey: ["ingredient", id] });
   }
 
+  async function confirmUnitConversion() {
+    if (!data || !pendingNewUnit) return;
+    const factor = Number(String(unitConvFactor).replace(",", "."));
+    if (!isFinite(factor) || factor <= 0) return toast.error("Informe um fator válido (>0)");
+    setConvertingUnit(true);
+    try {
+      await convertUnitFn({ data: { ingredientId: id, newUnit: pendingNewUnit, factor } });
+      toast.success("Unidade convertida");
+      setUnitConvOpen(false);
+      setPendingNewUnit(null);
+      qc.invalidateQueries({ queryKey: ["ingredient", id] });
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
+      qc.invalidateQueries({ queryKey: ["ingredient_movements", id] });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro na conversão");
+    } finally {
+      setConvertingUnit(false);
+    }
+  }
+
+  function cancelUnitConversion() {
+    if (data) setUnit(data.unit);
+    setUnitConvOpen(false);
+    setPendingNewUnit(null);
+  }
+
   async function remove() {
     const { error } = await supabase.from("ingredients").delete().eq("id", id);
     if (error) return toast.error(error.message);
