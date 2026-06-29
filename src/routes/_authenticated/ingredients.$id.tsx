@@ -25,6 +25,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { normalizeName } from "@/lib/utils";
+import { useServerFn } from "@tanstack/react-start";
+import { convertIngredientUnit } from "@/lib/ingredient-unit.functions";
 
 export const Route = createFileRoute("/_authenticated/ingredients/$id")({
   component: IngredientDetail,
@@ -81,6 +83,13 @@ function IngredientDetail() {
   const [adjustValue, setAdjustValue] = useState("");
   const [adjustNotes, setAdjustNotes] = useState("");
   const [adjusting, setAdjusting] = useState(false);
+  const [unitConvOpen, setUnitConvOpen] = useState(false);
+  const [unitConvFactor, setUnitConvFactor] = useState("");
+  const [pendingNewUnit, setPendingNewUnit] = useState<string | null>(null);
+  const [convertingUnit, setConvertingUnit] = useState(false);
+  const convertUnitFn = useServerFn(convertIngredientUnit);
+
+
 
   useEffect(() => {
     if (data) {
@@ -104,10 +113,17 @@ function IngredientDetail() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    // If unit changed, require explicit conversion via dialog first.
+    if (data && unit !== data.unit) {
+      setPendingNewUnit(unit);
+      setUnitConvFactor("");
+      setUnitConvOpen(true);
+      return;
+    }
     setSaving(true);
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
-      name: normalizeName(name), unit, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
+      name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
     }).eq("id", id);
     if (error) {
       setSaving(false);
@@ -130,6 +146,32 @@ function IngredientDetail() {
     toast.success("Atualizado");
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     qc.invalidateQueries({ queryKey: ["ingredient", id] });
+  }
+
+  async function confirmUnitConversion() {
+    if (!data || !pendingNewUnit) return;
+    const factor = Number(String(unitConvFactor).replace(",", "."));
+    if (!isFinite(factor) || factor <= 0) return toast.error("Informe um fator válido (>0)");
+    setConvertingUnit(true);
+    try {
+      await convertUnitFn({ data: { ingredientId: id, newUnit: pendingNewUnit, factor } });
+      toast.success("Unidade convertida");
+      setUnitConvOpen(false);
+      setPendingNewUnit(null);
+      qc.invalidateQueries({ queryKey: ["ingredient", id] });
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
+      qc.invalidateQueries({ queryKey: ["ingredient_movements", id] });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro na conversão");
+    } finally {
+      setConvertingUnit(false);
+    }
+  }
+
+  function cancelUnitConversion() {
+    if (data) setUnit(data.unit);
+    setUnitConvOpen(false);
+    setPendingNewUnit(null);
   }
 
   async function remove() {
@@ -435,6 +477,43 @@ function IngredientDetail() {
           <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
         </div>
       </form>
+
+      <Dialog open={unitConvOpen} onOpenChange={(o) => { if (!o) cancelUnitConversion(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Converter unidade</DialogTitle>
+            <DialogDescription>
+              Informe o fator de conversão para que estoque, compras, movimentações,
+              fichas técnicas e inventários sejam atualizados automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border bg-muted/40 p-3 text-sm">
+              <div>1 <strong>{data?.unit}</strong> equivale a quantos <strong>{pendingNewUnit}</strong>?</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Ex.: trocando de <em>cx</em> para <em>un</em>, se 1 cx = 12 un, digite 12.
+                Quantidades serão multiplicadas e custos unitários divididos pelo fator.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="conv-factor">Fator (1 {data?.unit} = ? {pendingNewUnit})</Label>
+              <Input
+                id="conv-factor"
+                inputMode="decimal"
+                value={unitConvFactor}
+                onChange={(e) => setUnitConvFactor(e.target.value)}
+                placeholder="Ex: 12 ou 0,5"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={cancelUnitConversion} disabled={convertingUnit}>Cancelar</Button>
+            <Button onClick={confirmUnitConversion} disabled={convertingUnit}>
+              {convertingUnit ? "Convertendo..." : "Converter"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
