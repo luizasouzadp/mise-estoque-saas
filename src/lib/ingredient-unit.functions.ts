@@ -89,14 +89,10 @@ export const convertIngredientUnit = createServerFn({ method: "POST" })
       .select("id, expected_qty, counted_qty")
       .eq("ingredient_id", ingredientId);
     for (const it of invs ?? []) {
-      await supabaseAdmin
-        .from("inventory_items")
-        .update({
-          expected_qty: it.expected_qty == null ? null : Number(it.expected_qty) * factor,
-          counted_qty: it.counted_qty == null ? null : Number(it.counted_qty) * factor,
-          unit: newUnit,
-        })
-        .eq("id", it.id);
+      const upd: Record<string, unknown> = { unit: newUnit };
+      if (it.expected_qty != null) upd.expected_qty = Number(it.expected_qty) * factor;
+      if (it.counted_qty != null) upd.counted_qty = Number(it.counted_qty) * factor;
+      await supabaseAdmin.from("inventory_items").update(upd).eq("id", it.id);
     }
 
     // 5) ingredient itself: min_stock scaled, costs divided, unit updated.
