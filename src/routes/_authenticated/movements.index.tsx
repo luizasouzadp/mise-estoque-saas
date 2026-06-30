@@ -789,8 +789,29 @@ function MovementsPage() {
                     </div>
                   )}
                 </>
-
+              ) : (
+                <>
+                  <div>
+                    <Label>Quantidade ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={quickQty}
+                      onChange={(e) => setQuickQty(e.target.value)}
+                    />
+                  </div>
+                  {(quick.purchase || (quick.manual && quick.type === "in")) && (
+                    <div>
+                      <Label>Custo unitário {quick.manual ? "(opcional)" : ""}</Label>
+                      <Input
+                        inputMode="decimal"
+                        value={quickCost}
+                        onChange={(e) => setQuickCost(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </>
               )}
+
 
               {quick.purchase && (
                 <div>
