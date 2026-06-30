@@ -412,40 +412,13 @@ function MovementsPage() {
   async function quickSave() {
     if (!quick) return;
 
-    if (quick.manual && quick.source === "manual") {
-      const newStock = Number(quickStock);
-      if (!Number.isFinite(newStock)) return toast.error("Estoque inválido");
-      const delta = newStock - quickPrevQty;
-      if (delta === 0) return toast.error("Estoque inalterado");
-      const newType: "in" | "out" = delta > 0 ? "in" : "out";
-      const newQty = Math.abs(delta);
-      const patch: { quantity: number; type: "in" | "out"; unit_cost?: number | null } = {
-        quantity: newQty,
-        type: newType,
-      };
-      if (newType === "in") {
-        patch.unit_cost = quickCost === "" ? null : Number(quickCost);
-      } else {
-        patch.unit_cost = null;
-      }
-      const { error } = await supabase
-        .from("stock_movements")
-        .update(patch)
-        .eq("id", quick.manual.id);
-      if (error) return toast.error(error.message);
-      toast.success("Movimentação atualizada");
-      setQuick(null);
-      load();
-      return;
-    }
-
-    const qty = Number(quickQty);
+    const qty = Number(String(quickQty).replace(",", "."));
     if (!Number.isFinite(qty) || qty <= 0) return toast.error("Quantidade inválida");
 
     if (quick.manual) {
       const patch: { quantity: number; unit_cost?: number | null } = { quantity: qty };
       if (quick.type === "in") {
-        patch.unit_cost = quickCost === "" ? null : Number(quickCost);
+        patch.unit_cost = quickCost === "" ? null : Number(String(quickCost).replace(",", "."));
       }
       const { error } = await supabase
         .from("stock_movements")
@@ -453,7 +426,7 @@ function MovementsPage() {
         .eq("id", quick.manual.id);
       if (error) return toast.error(error.message);
     } else if (quick.purchase) {
-      const unit = quickCost === "" ? Number(quick.purchase.unit_cost) || 0 : Number(quickCost);
+      const unit = quickCost === "" ? Number(quick.purchase.unit_cost) || 0 : Number(String(quickCost).replace(",", "."));
 
       const { error } = await supabase
         .from("purchases")
@@ -474,6 +447,7 @@ function MovementsPage() {
     setQuick(null);
     load();
   }
+
 
   async function quickDelete() {
     if (!quick) return;
@@ -785,28 +759,30 @@ function MovementsPage() {
               {quick.source === "manual" ? (
                 <>
                   <div>
-                    <Label>Estoque resultante ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
+                    <Label>Quantidade ({ingMap.get(quick.ingredient_id)?.unit ?? ""}) — {quick.type === "in" ? "entrada" : "saída"}</Label>
                     <Input
-                      type="number"
-                      step="0.001"
-                      value={quickStock}
-                      onChange={(e) => setQuickStock(e.target.value)}
+                      inputMode="decimal"
+                      value={quickQty}
+                      onChange={(e) => setQuickQty(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       Estoque anterior: {quickPrevQty.toLocaleString("pt-BR")} {ingMap.get(quick.ingredient_id)?.unit ?? ""}
-                      {quickStock !== "" && Number.isFinite(Number(quickStock)) && (() => {
-                        const d = Number(quickStock) - quickPrevQty;
-                        if (d === 0) return " · sem alteração";
-                        return ` · ${d > 0 ? "entrada" : "saída"} de ${Math.abs(d).toLocaleString("pt-BR")}`;
+                      {quickQty !== "" && Number.isFinite(Number(String(quickQty).replace(",", "."))) && (() => {
+                        const q = Number(String(quickQty).replace(",", "."));
+                        const sign = quick.type === "in" ? 1 : -1;
+                        const resulting = quickPrevQty + sign * q;
+                        return ` · resultante: ${resulting.toLocaleString("pt-BR")}`;
                       })()}
                     </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      O estoque atual será ajustado automaticamente conforme a diferença.
+                    </p>
                   </div>
-                  {(Number(quickStock) - quickPrevQty) > 0 && (
+                  {quick.type === "in" && (
                     <div>
                       <Label>Custo unitário (opcional)</Label>
                       <Input
-                        type="number"
-                        step="0.01"
+                        inputMode="decimal"
                         value={quickCost}
                         onChange={(e) => setQuickCost(e.target.value)}
                       />
@@ -818,8 +794,7 @@ function MovementsPage() {
                   <div>
                     <Label>Quantidade ({ingMap.get(quick.ingredient_id)?.unit ?? ""})</Label>
                     <Input
-                      type="number"
-                      step="0.001"
+                      inputMode="decimal"
                       value={quickQty}
                       onChange={(e) => setQuickQty(e.target.value)}
                     />
@@ -828,8 +803,7 @@ function MovementsPage() {
                     <div>
                       <Label>Custo unitário {quick.manual ? "(opcional)" : ""}</Label>
                       <Input
-                        type="number"
-                        step="0.01"
+                        inputMode="decimal"
                         value={quickCost}
                         onChange={(e) => setQuickCost(e.target.value)}
                       />
@@ -837,6 +811,7 @@ function MovementsPage() {
                   )}
                 </>
               )}
+
 
               {quick.purchase && (
                 <div>
