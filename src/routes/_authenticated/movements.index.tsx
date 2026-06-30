@@ -469,6 +469,24 @@ function MovementsPage() {
         .update({ counted_qty: newCounted })
         .eq("id", quick.invItem.id);
       if (error) return toast.error(error.message);
+      // Also adjust the corresponding stock_movement so current_stock (and
+      // therefore every subsequent "stock after" value) reflects the edit.
+      const invName = quick.invItem.inventories?.name ?? "";
+      const reasonBase = `Inventário${invName ? ` · ${invName}` : ""}`;
+      const { data: mvRows } = await supabase
+        .from("stock_movements")
+        .select("id")
+        .eq("ingredient_id", quick.ingredient_id)
+        .eq("reason", reasonBase)
+        .order("occurred_at", { ascending: false })
+        .limit(1);
+      const mvId = mvRows?.[0]?.id;
+      if (mvId) {
+        await supabase
+          .from("stock_movements")
+          .update({ quantity: qty, type: quick.type })
+          .eq("id", mvId);
+      }
     }
     toast.success("Movimentação atualizada");
     setQuick(null);
