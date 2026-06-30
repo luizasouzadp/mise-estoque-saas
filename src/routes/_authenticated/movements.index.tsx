@@ -412,40 +412,13 @@ function MovementsPage() {
   async function quickSave() {
     if (!quick) return;
 
-    if (quick.manual && quick.source === "manual") {
-      const newStock = Number(quickStock);
-      if (!Number.isFinite(newStock)) return toast.error("Estoque inválido");
-      const delta = newStock - quickPrevQty;
-      if (delta === 0) return toast.error("Estoque inalterado");
-      const newType: "in" | "out" = delta > 0 ? "in" : "out";
-      const newQty = Math.abs(delta);
-      const patch: { quantity: number; type: "in" | "out"; unit_cost?: number | null } = {
-        quantity: newQty,
-        type: newType,
-      };
-      if (newType === "in") {
-        patch.unit_cost = quickCost === "" ? null : Number(quickCost);
-      } else {
-        patch.unit_cost = null;
-      }
-      const { error } = await supabase
-        .from("stock_movements")
-        .update(patch)
-        .eq("id", quick.manual.id);
-      if (error) return toast.error(error.message);
-      toast.success("Movimentação atualizada");
-      setQuick(null);
-      load();
-      return;
-    }
-
-    const qty = Number(quickQty);
+    const qty = Number(String(quickQty).replace(",", "."));
     if (!Number.isFinite(qty) || qty <= 0) return toast.error("Quantidade inválida");
 
     if (quick.manual) {
       const patch: { quantity: number; unit_cost?: number | null } = { quantity: qty };
       if (quick.type === "in") {
-        patch.unit_cost = quickCost === "" ? null : Number(quickCost);
+        patch.unit_cost = quickCost === "" ? null : Number(String(quickCost).replace(",", "."));
       }
       const { error } = await supabase
         .from("stock_movements")
@@ -453,7 +426,7 @@ function MovementsPage() {
         .eq("id", quick.manual.id);
       if (error) return toast.error(error.message);
     } else if (quick.purchase) {
-      const unit = quickCost === "" ? Number(quick.purchase.unit_cost) || 0 : Number(quickCost);
+      const unit = quickCost === "" ? Number(quick.purchase.unit_cost) || 0 : Number(String(quickCost).replace(",", "."));
 
       const { error } = await supabase
         .from("purchases")
@@ -474,6 +447,7 @@ function MovementsPage() {
     setQuick(null);
     load();
   }
+
 
   async function quickDelete() {
     if (!quick) return;
