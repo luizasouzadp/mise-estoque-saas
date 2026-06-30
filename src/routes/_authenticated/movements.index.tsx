@@ -510,6 +510,20 @@ function MovementsPage() {
         .update({ counted_qty: Number(quick.invItem.expected_qty) })
         .eq("id", quick.invItem.id);
       if (error) return toast.error(error.message);
+      // Remove o stock_movement correspondente para reverter o efeito no estoque
+      const invName = quick.invItem.inventories?.name ?? "";
+      const reasonBase = `Inventário${invName ? ` · ${invName}` : ""}`;
+      const { data: mvRows } = await supabase
+        .from("stock_movements")
+        .select("id")
+        .eq("ingredient_id", quick.ingredient_id)
+        .eq("reason", reasonBase)
+        .order("occurred_at", { ascending: false })
+        .limit(1);
+      const mvId = mvRows?.[0]?.id;
+      if (mvId) {
+        await supabase.from("stock_movements").delete().eq("id", mvId);
+      }
     }
     toast.success("Movimentação excluída");
     setQuick(null);
