@@ -337,6 +337,14 @@ function MenuAnalysisDetail() {
     y += 5;
     doc.setTextColor(0);
 
+    if (matrixImg) {
+      const h = (usableW * matrixImg.h) / matrixImg.w;
+      ensure(h + 4);
+      doc.addImage(matrixImg.data, "PNG", M, y, usableW, h);
+      y += h + 6;
+    }
+
+
     const quads: Array<[string, string, any[]]> = [
       ["Campeões", "vende muito + alta margem", matrix.quadrants.champ],
       ["Tesouros escondidos", "vende pouco + alta margem", matrix.quadrants.hidden],
