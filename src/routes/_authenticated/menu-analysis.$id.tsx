@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/menu-analysis/$id")({
 });
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
+const COLORS = ["#059669", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
 
 type Report = {
   id: string;
