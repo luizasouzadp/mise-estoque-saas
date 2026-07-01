@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { useEffect } from "react";
 import { ArrowLeft, Sparkles, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { generateSalesInsights } from "@/lib/sales-reports.functions";
@@ -343,11 +345,12 @@ function MenuAnalysisDetail() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Kpi label="Faturamento" value={BRL.format(report.total_revenue)} />
         <Kpi label="Custo total" value={BRL.format(report.total_cost)} />
         <Kpi label="Margem" value={BRL.format(report.total_margin)} />
-        <Kpi label="CMV global" value={`${cmvGlobal.toFixed(1)}%`} />
+        <Kpi label="CMV teórico" value={`${cmvGlobal.toFixed(1)}%`} />
+        <CmvRealKpi reportId={id} theoretical={cmvGlobal} />
       </div>
 
       {/* Charts row */}
@@ -507,6 +510,42 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="font-display text-2xl mt-1">{value}</div>
+    </div>
+  );
+}
+
+function CmvRealKpi({ reportId, theoretical }: { reportId: string; theoretical: number }) {
+  const key = `cmv-real:${reportId}`;
+  const [val, setVal] = useState<string>("");
+  useEffect(() => {
+    try { setVal(localStorage.getItem(key) ?? ""); } catch {}
+  }, [key]);
+  const num = Number(val.replace(",", "."));
+  const valid = val !== "" && Number.isFinite(num);
+  const diff = valid ? num - theoretical : 0;
+  const diffColor = !valid ? "" : diff > 0 ? "text-red-600" : diff < 0 ? "text-green-600" : "text-muted-foreground";
+  return (
+    <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+      <div className="text-xs text-muted-foreground">CMV real (%)</div>
+      <div className="mt-1 flex items-center gap-2">
+        <Input
+          type="text"
+          inputMode="decimal"
+          placeholder="0,0"
+          value={val}
+          onChange={(e) => {
+            setVal(e.target.value);
+            try { localStorage.setItem(key, e.target.value); } catch {}
+          }}
+          className="h-9 font-display text-2xl px-2"
+        />
+        <span className="text-muted-foreground text-sm">%</span>
+      </div>
+      {valid && (
+        <div className={`mt-1 text-xs ${diffColor}`}>
+          {diff > 0 ? "+" : ""}{diff.toFixed(1)} p.p. vs teórico
+        </div>
+      )}
     </div>
   );
 }
