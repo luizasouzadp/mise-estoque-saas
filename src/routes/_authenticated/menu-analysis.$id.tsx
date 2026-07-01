@@ -183,6 +183,19 @@ function MenuAnalysisDetail() {
 
   async function exportPdf() {
     if (!report) return;
+    // Capture charts BEFORE building PDF (needs DOM present)
+    let revenueImg: Awaited<ReturnType<typeof captureSvg>> = null;
+    let cmvImg: Awaited<ReturnType<typeof captureSvg>> = null;
+    let matrixImg: Awaited<ReturnType<typeof captureSvg>> = null;
+    try {
+      [revenueImg, cmvImg, matrixImg] = await Promise.all([
+        captureSvg(revenueChartRef.current),
+        captureSvg(cmvChartRef.current),
+        captureSvg(matrixChartRef.current),
+      ]);
+    } catch (e) {
+      console.warn("Falha ao capturar gráficos", e);
+    }
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
