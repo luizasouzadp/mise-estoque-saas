@@ -151,7 +151,37 @@ function MenuAnalysisDetail() {
 
   const cmvGlobal = report.total_revenue > 0 ? (report.total_cost / report.total_revenue) * 100 : 0;
 
-  function exportPdf() {
+  async function captureSvg(container: HTMLElement | null): Promise<{ data: string; w: number; h: number } | null> {
+    if (!container) return null;
+    const svg = container.querySelector("svg");
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width));
+    const h = Math.max(1, Math.round(rect.height));
+    const clone = svg.cloneNode(true) as SVGElement;
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    clone.setAttribute("width", String(w));
+    clone.setAttribute("height", String(h));
+    // Inline computed text color to avoid CSS var loss when serializing
+    const style = document.createElement("style");
+    style.textContent = "text{font-family:Arial,Helvetica,sans-serif;fill:#333}";
+    clone.insertBefore(style, clone.firstChild);
+    const xml = new XMLSerializer().serializeToString(clone);
+    const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+    const img = new Image();
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("img load")); img.src = src; });
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return { data: canvas.toDataURL("image/png"), w, h };
+  }
+
+  async function exportPdf() {
     if (!report) return;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
