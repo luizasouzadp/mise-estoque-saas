@@ -513,32 +513,34 @@ function MenuAnalysisDetail() {
         <p className="text-xs text-muted-foreground mb-3">
           Linhas divisórias: média de quantidade ({matrix.avgQty.toFixed(0)}) e média de margem ({matrix.avgMargin.toFixed(1)}%).
         </p>
-        <ResponsiveContainer width="100%" height={320}>
-          <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-            <XAxis type="number" dataKey="quantity" name="Quantidade" />
-            <YAxis type="number" dataKey="marginPct" name="Margem %" tickFormatter={(v) => `${v.toFixed(0)}%`} />
-            <ReferenceLine x={matrix.avgQty} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-            <ReferenceLine y={matrix.avgMargin} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-            <Tooltip cursor={{ strokeDasharray: "3 3" }} content={({ active, payload }) => {
-              if (!active || !payload?.length) return null;
-              const d: any = payload[0].payload;
-              return (
-                <div className="rounded-md border bg-card px-3 py-2 text-xs shadow">
-                  <div className="font-medium">{d.item_name}</div>
-                  <div>Qtd: {d.quantity}</div>
-                  <div>Margem: {d.marginPct.toFixed(1)}%</div>
-                  <div>Faturamento: {BRL.format(d.revenue)}</div>
-                </div>
-              );
-            }} />
-            <Scatter name="Campeões" data={matrix.quadrants.champ} fill="#10b981" />
-            <Scatter name="Tesouros escondidos" data={matrix.quadrants.hidden} fill="#3b82f6" />
-            <Scatter name="Queridinhos" data={matrix.quadrants.dog} fill="#f59e0b" />
-            <Scatter name="Problemas" data={matrix.quadrants.problem} fill="#ef4444" />
-            <Legend />
-          </ScatterChart>
-        </ResponsiveContainer>
+        <div ref={matrixChartRef}>
+          <ResponsiveContainer width="100%" height={320}>
+            <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis type="number" dataKey="quantity" name="Quantidade" />
+              <YAxis type="number" dataKey="marginPct" name="Margem %" tickFormatter={(v) => `${v.toFixed(0)}%`} />
+              <ReferenceLine x={matrix.avgQty} stroke="#94a3b8" strokeDasharray="3 3" />
+              <ReferenceLine y={matrix.avgMargin} stroke="#94a3b8" strokeDasharray="3 3" />
+              <Tooltip cursor={{ strokeDasharray: "3 3" }} content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d: any = payload[0].payload;
+                return (
+                  <div className="rounded-md border bg-card px-3 py-2 text-xs shadow">
+                    <div className="font-medium">{d.item_name}</div>
+                    <div>Qtd: {d.quantity}</div>
+                    <div>Margem: {d.marginPct.toFixed(1)}%</div>
+                    <div>Faturamento: {BRL.format(d.revenue)}</div>
+                  </div>
+                );
+              }} />
+              <Scatter name="Campeões" data={matrix.quadrants.champ} fill="#10b981" />
+              <Scatter name="Tesouros escondidos" data={matrix.quadrants.hidden} fill="#3b82f6" />
+              <Scatter name="Queridinhos" data={matrix.quadrants.dog} fill="#f59e0b" />
+              <Scatter name="Problemas" data={matrix.quadrants.problem} fill="#ef4444" />
+              <Legend />
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
           <QuadrantList title="Campeões" desc="Vende muito + alta margem" color="bg-green-500/15 text-green-700 dark:text-green-400" items={matrix.quadrants.champ} />
