@@ -269,6 +269,27 @@ function MenuAnalysisDetail() {
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
+    // Gráficos: faturamento e CMV por categoria (lado a lado)
+    if (revenueImg || cmvImg) {
+      const gap = 5;
+      const colW = (usableW - gap) / 2;
+      const imgs = [revenueImg, cmvImg].filter(Boolean) as { data: string; w: number; h: number }[];
+      const heights = imgs.map((im) => (colW * im.h) / im.w);
+      const rowH = Math.max(...heights);
+      ensure(rowH + 10);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Faturamento e CMV por categoria", M, y);
+      y += 5;
+      let x = M;
+      for (const im of imgs) {
+        const h = (colW * im.h) / im.w;
+        doc.addImage(im.data, "PNG", x, y, colW, h);
+        x += colW + gap;
+      }
+      y += rowH + 6;
+    }
+
     // Top 20 itens por faturamento
     const topItems = [...(items ?? [])].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 20);
     if (topItems.length > 0) {
