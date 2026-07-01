@@ -431,30 +431,34 @@ function MenuAnalysisDetail() {
       {/* Charts row */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Faturamento por categoria">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={byCategory} dataKey="revenue" nameKey="name" outerRadius={100} label={(e: any) => e.name}>
-                {byCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v: any) => BRL.format(Number(v))} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div ref={revenueChartRef}>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={byCategory} dataKey="revenue" nameKey="name" outerRadius={100} label={(e: any) => e.name}>
+                  {byCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: any) => BRL.format(Number(v))} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
 
         <Card title="CMV % por categoria">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={byCategory}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} />
-              <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
-              <Bar dataKey="cmv_pct" name="CMV">
-                {byCategory.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div ref={cmvChartRef}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={byCategory}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
+                <Bar dataKey="cmv_pct" name="CMV">
+                  {byCategory.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
       </div>
 
