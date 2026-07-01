@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { useEffect } from "react";
 import { ArrowLeft, Sparkles, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { generateSalesInsights } from "@/lib/sales-reports.functions";
