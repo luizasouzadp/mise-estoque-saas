@@ -343,11 +343,12 @@ function MenuAnalysisDetail() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Kpi label="Faturamento" value={BRL.format(report.total_revenue)} />
         <Kpi label="Custo total" value={BRL.format(report.total_cost)} />
         <Kpi label="Margem" value={BRL.format(report.total_margin)} />
-        <Kpi label="CMV global" value={`${cmvGlobal.toFixed(1)}%`} />
+        <Kpi label="CMV teórico" value={`${cmvGlobal.toFixed(1)}%`} />
+        <CmvRealKpi reportId={id} theoretical={cmvGlobal} />
       </div>
 
       {/* Charts row */}
