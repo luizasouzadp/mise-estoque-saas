@@ -514,6 +514,42 @@ function Kpi({ label, value }: { label: string; value: string }) {
   );
 }
 
+function CmvRealKpi({ reportId, theoretical }: { reportId: string; theoretical: number }) {
+  const key = `cmv-real:${reportId}`;
+  const [val, setVal] = useState<string>("");
+  useEffect(() => {
+    try { setVal(localStorage.getItem(key) ?? ""); } catch {}
+  }, [key]);
+  const num = Number(val.replace(",", "."));
+  const valid = val !== "" && Number.isFinite(num);
+  const diff = valid ? num - theoretical : 0;
+  const diffColor = !valid ? "" : diff > 0 ? "text-red-600" : diff < 0 ? "text-green-600" : "text-muted-foreground";
+  return (
+    <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+      <div className="text-xs text-muted-foreground">CMV real (%)</div>
+      <div className="mt-1 flex items-center gap-2">
+        <Input
+          type="text"
+          inputMode="decimal"
+          placeholder="0,0"
+          value={val}
+          onChange={(e) => {
+            setVal(e.target.value);
+            try { localStorage.setItem(key, e.target.value); } catch {}
+          }}
+          className="h-9 font-display text-2xl px-2"
+        />
+        <span className="text-muted-foreground text-sm">%</span>
+      </div>
+      {valid && (
+        <div className={`mt-1 text-xs ${diffColor}`}>
+          {diff > 0 ? "+" : ""}{diff.toFixed(1)} p.p. vs teórico
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Card({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border bg-card p-4 md:p-6 shadow-[var(--shadow-soft)]">
