@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, ReferenceLine, BarChart, Bar, Legend } from "recharts";
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/menu-analysis/$id")({
 });
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
+const COLORS = ["#059669", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
 
 type Report = {
   id: string;
@@ -55,6 +55,9 @@ function MenuAnalysisDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const [regenerating, setRegenerating] = useState(false);
+  const revenueChartRef = useRef<HTMLDivElement>(null);
+  const cmvChartRef = useRef<HTMLDivElement>(null);
+  const matrixChartRef = useRef<HTMLDivElement>(null);
 
   const { data: report } = useQuery<Report | null>({
     queryKey: ["sales-report", id],
@@ -148,8 +151,51 @@ function MenuAnalysisDetail() {
 
   const cmvGlobal = report.total_revenue > 0 ? (report.total_cost / report.total_revenue) * 100 : 0;
 
-  function exportPdf() {
+  async function captureSvg(container: HTMLElement | null): Promise<{ data: string; w: number; h: number } | null> {
+    if (!container) return null;
+    const svg = container.querySelector("svg");
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width));
+    const h = Math.max(1, Math.round(rect.height));
+    const clone = svg.cloneNode(true) as SVGElement;
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    clone.setAttribute("width", String(w));
+    clone.setAttribute("height", String(h));
+    // Inline computed text color to avoid CSS var loss when serializing
+    const style = document.createElement("style");
+    style.textContent = "text{font-family:Arial,Helvetica,sans-serif;fill:#333}";
+    clone.insertBefore(style, clone.firstChild);
+    const xml = new XMLSerializer().serializeToString(clone);
+    const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+    const img = new Image();
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("img load")); img.src = src; });
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return { data: canvas.toDataURL("image/png"), w, h };
+  }
+
+  async function exportPdf() {
     if (!report) return;
+    // Capture charts BEFORE building PDF (needs DOM present)
+    let revenueImg: Awaited<ReturnType<typeof captureSvg>> = null;
+    let cmvImg: Awaited<ReturnType<typeof captureSvg>> = null;
+    let matrixImg: Awaited<ReturnType<typeof captureSvg>> = null;
+    try {
+      [revenueImg, cmvImg, matrixImg] = await Promise.all([
+        captureSvg(revenueChartRef.current),
+        captureSvg(cmvChartRef.current),
+        captureSvg(matrixChartRef.current),
+      ]);
+    } catch (e) {
+      console.warn("Falha ao capturar gráficos", e);
+    }
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -223,6 +269,27 @@ function MenuAnalysisDetail() {
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
+    // Gráficos: faturamento e CMV por categoria (lado a lado)
+    if (revenueImg || cmvImg) {
+      const gap = 5;
+      const colW = (usableW - gap) / 2;
+      const imgs = [revenueImg, cmvImg].filter(Boolean) as { data: string; w: number; h: number }[];
+      const heights = imgs.map((im) => (colW * im.h) / im.w);
+      const rowH = Math.max(...heights);
+      ensure(rowH + 10);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Faturamento e CMV por categoria", M, y);
+      y += 5;
+      let x = M;
+      for (const im of imgs) {
+        const h = (colW * im.h) / im.w;
+        doc.addImage(im.data, "PNG", x, y, colW, h);
+        x += colW + gap;
+      }
+      y += rowH + 6;
+    }
+
     // Top 20 itens por faturamento
     const topItems = [...(items ?? [])].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 20);
     if (topItems.length > 0) {
@@ -269,6 +336,14 @@ function MenuAnalysisDetail() {
     );
     y += 5;
     doc.setTextColor(0);
+
+    if (matrixImg) {
+      const h = (usableW * matrixImg.h) / matrixImg.w;
+      ensure(h + 4);
+      doc.addImage(matrixImg.data, "PNG", M, y, usableW, h);
+      y += h + 6;
+    }
+
 
     const quads: Array<[string, string, any[]]> = [
       ["Campeões", "vende muito + alta margem", matrix.quadrants.champ],
@@ -356,30 +431,34 @@ function MenuAnalysisDetail() {
       {/* Charts row */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Faturamento por categoria">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={byCategory} dataKey="revenue" nameKey="name" outerRadius={100} label={(e: any) => e.name}>
-                {byCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v: any) => BRL.format(Number(v))} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div ref={revenueChartRef}>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={byCategory} dataKey="revenue" nameKey="name" outerRadius={100} label={(e: any) => e.name}>
+                  {byCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: any) => BRL.format(Number(v))} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
 
         <Card title="CMV % por categoria">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={byCategory}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} />
-              <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
-              <Bar dataKey="cmv_pct" name="CMV">
-                {byCategory.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div ref={cmvChartRef}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={byCategory}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
+                <Bar dataKey="cmv_pct" name="CMV">
+                  {byCategory.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
       </div>
 
@@ -434,32 +513,34 @@ function MenuAnalysisDetail() {
         <p className="text-xs text-muted-foreground mb-3">
           Linhas divisórias: média de quantidade ({matrix.avgQty.toFixed(0)}) e média de margem ({matrix.avgMargin.toFixed(1)}%).
         </p>
-        <ResponsiveContainer width="100%" height={320}>
-          <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-            <XAxis type="number" dataKey="quantity" name="Quantidade" />
-            <YAxis type="number" dataKey="marginPct" name="Margem %" tickFormatter={(v) => `${v.toFixed(0)}%`} />
-            <ReferenceLine x={matrix.avgQty} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-            <ReferenceLine y={matrix.avgMargin} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-            <Tooltip cursor={{ strokeDasharray: "3 3" }} content={({ active, payload }) => {
-              if (!active || !payload?.length) return null;
-              const d: any = payload[0].payload;
-              return (
-                <div className="rounded-md border bg-card px-3 py-2 text-xs shadow">
-                  <div className="font-medium">{d.item_name}</div>
-                  <div>Qtd: {d.quantity}</div>
-                  <div>Margem: {d.marginPct.toFixed(1)}%</div>
-                  <div>Faturamento: {BRL.format(d.revenue)}</div>
-                </div>
-              );
-            }} />
-            <Scatter name="Campeões" data={matrix.quadrants.champ} fill="#10b981" />
-            <Scatter name="Tesouros escondidos" data={matrix.quadrants.hidden} fill="#3b82f6" />
-            <Scatter name="Queridinhos" data={matrix.quadrants.dog} fill="#f59e0b" />
-            <Scatter name="Problemas" data={matrix.quadrants.problem} fill="#ef4444" />
-            <Legend />
-          </ScatterChart>
-        </ResponsiveContainer>
+        <div ref={matrixChartRef}>
+          <ResponsiveContainer width="100%" height={320}>
+            <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis type="number" dataKey="quantity" name="Quantidade" />
+              <YAxis type="number" dataKey="marginPct" name="Margem %" tickFormatter={(v) => `${v.toFixed(0)}%`} />
+              <ReferenceLine x={matrix.avgQty} stroke="#94a3b8" strokeDasharray="3 3" />
+              <ReferenceLine y={matrix.avgMargin} stroke="#94a3b8" strokeDasharray="3 3" />
+              <Tooltip cursor={{ strokeDasharray: "3 3" }} content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d: any = payload[0].payload;
+                return (
+                  <div className="rounded-md border bg-card px-3 py-2 text-xs shadow">
+                    <div className="font-medium">{d.item_name}</div>
+                    <div>Qtd: {d.quantity}</div>
+                    <div>Margem: {d.marginPct.toFixed(1)}%</div>
+                    <div>Faturamento: {BRL.format(d.revenue)}</div>
+                  </div>
+                );
+              }} />
+              <Scatter name="Campeões" data={matrix.quadrants.champ} fill="#10b981" />
+              <Scatter name="Tesouros escondidos" data={matrix.quadrants.hidden} fill="#3b82f6" />
+              <Scatter name="Queridinhos" data={matrix.quadrants.dog} fill="#f59e0b" />
+              <Scatter name="Problemas" data={matrix.quadrants.problem} fill="#ef4444" />
+              <Legend />
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
           <QuadrantList title="Campeões" desc="Vende muito + alta margem" color="bg-green-500/15 text-green-700 dark:text-green-400" items={matrix.quadrants.champ} />
