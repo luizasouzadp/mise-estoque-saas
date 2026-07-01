@@ -55,6 +55,9 @@ function MenuAnalysisDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const [regenerating, setRegenerating] = useState(false);
+  const revenueChartRef = useRef<HTMLDivElement>(null);
+  const cmvChartRef = useRef<HTMLDivElement>(null);
+  const matrixChartRef = useRef<HTMLDivElement>(null);
 
   const { data: report } = useQuery<Report | null>({
     queryKey: ["sales-report", id],
