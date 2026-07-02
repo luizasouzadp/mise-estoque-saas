@@ -201,32 +201,72 @@ function MenuAnalysisDetail() {
     const pageH = doc.internal.pageSize.getHeight();
     const M = 15; // margem 15mm
     const usableW = pageW - M * 2;
+
+    // Paleta (alinhada ao tema Emerald Prestige)
+    const EMERALD: [number, number, number] = [15, 76, 63];
+    const EMERALD_DARK: [number, number, number] = [10, 54, 46];
+    const GOLD: [number, number, number] = [201, 162, 39];
+    const INK: [number, number, number] = [28, 36, 42];
+    const MUTED: [number, number, number] = [110, 118, 125];
+    const SOFT: [number, number, number] = [244, 246, 244];
+
     let y = M;
 
     const ensure = (h: number) => {
-      if (y + h > pageH - M) {
+      if (y + h > pageH - M - 10) {
         doc.addPage();
         y = M;
       }
     };
 
-    // Cabeçalho
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(`Análise de ${formatMonth(report.reference_month)}`, M, y);
-    y += 7;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(110);
-    if (report.file_name) {
-      doc.text(report.file_name, M, y);
-      y += 5;
-    }
-    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, M, y);
-    y += 8;
-    doc.setTextColor(0);
+    const sectionTitle = (title: string, subtitle?: string) => {
+      ensure(subtitle ? 18 : 14);
+      doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
+      doc.rect(M, y, 3, 7, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(EMERALD_DARK[0], EMERALD_DARK[1], EMERALD_DARK[2]);
+      doc.text(title, M + 5, y + 5.5);
+      y += 8;
+      if (subtitle) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+        doc.text(subtitle, M + 5, y);
+        y += 5;
+      }
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+    };
 
-    // KPIs
+    // ===== Capa / cabeçalho =====
+    doc.setFillColor(EMERALD[0], EMERALD[1], EMERALD[2]);
+    doc.rect(0, 0, pageW, 42, "F");
+    doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
+    doc.rect(0, 42, pageW, 1.5, "F");
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(220, 220, 210);
+    doc.text("RELATÓRIO DE ANÁLISE DE VENDAS", M, 15);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.text(formatMonth(report.reference_month), M, 27);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(220, 220, 210);
+    const meta: string[] = [];
+    if (report.file_name) meta.push(report.file_name);
+    meta.push(`Gerado em ${new Date().toLocaleString("pt-BR")}`);
+    doc.text(meta.join("  •  "), M, 36);
+
+    doc.setTextColor(INK[0], INK[1], INK[2]);
+    y = 52;
+
+    // ===== KPIs =====
+    sectionTitle("Visão geral", "Indicadores principais do período");
     autoTable(doc, {
       startY: y,
       margin: { left: M, right: M },
@@ -238,18 +278,18 @@ function MenuAnalysisDetail() {
         BRL.format(report.total_margin),
         `${cmvGlobal.toFixed(1)}%`,
       ]],
-      styles: { fontSize: 10, halign: "center" },
-      headStyles: { fillColor: [30, 30, 30] },
+      styles: { fontSize: 11, halign: "center", cellPadding: 4, textColor: INK },
+      headStyles: { fillColor: EMERALD, textColor: [255, 255, 255], fontStyle: "bold" },
+      bodyStyles: { fillColor: SOFT, fontStyle: "bold" },
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Por categoria
+    // ===== Por categoria =====
     if (byCategory.length > 0) {
-      ensure(20);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Desempenho por categoria", M, y);
-      y += 5;
+      sectionTitle(
+        "Desempenho por categoria",
+        "Volume, faturamento e CMV agrupados por categoria de item",
+      );
       autoTable(doc, {
         startY: y,
         margin: { left: M, right: M },
@@ -262,42 +302,42 @@ function MenuAnalysisDetail() {
           BRL.format(c.cost),
           `${c.cmv_pct.toFixed(1)}%`,
         ]),
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [30, 30, 30] },
+        styles: { fontSize: 9, cellPadding: 2.6, textColor: INK },
+        headStyles: { fillColor: EMERALD, textColor: [255, 255, 255] },
+        alternateRowStyles: { fillColor: SOFT },
         columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // Gráficos: faturamento e CMV por categoria (lado a lado)
+    // ===== Gráficos =====
     if (revenueImg || cmvImg) {
       const gap = 5;
       const colW = (usableW - gap) / 2;
       const imgs = [revenueImg, cmvImg].filter(Boolean) as { data: string; w: number; h: number }[];
       const heights = imgs.map((im) => (colW * im.h) / im.w);
       const rowH = Math.max(...heights);
-      ensure(rowH + 10);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Faturamento e CMV por categoria", M, y);
-      y += 5;
+      ensure(rowH + 18);
+      sectionTitle(
+        "Faturamento e CMV por categoria",
+        "Visualização comparativa das categorias analisadas",
+      );
       let x = M;
       for (const im of imgs) {
         const h = (colW * im.h) / im.w;
         doc.addImage(im.data, "PNG", x, y, colW, h);
         x += colW + gap;
       }
-      y += rowH + 6;
+      y += rowH + 8;
     }
 
-    // Top 20 itens por faturamento
+    // ===== Top 20 =====
     const topItems = [...(items ?? [])].sort((a, b) => Number(b.revenue) - Number(a.revenue)).slice(0, 20);
     if (topItems.length > 0) {
-      ensure(20);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Top 20 itens por faturamento", M, y);
-      y += 5;
+      sectionTitle(
+        "Top 20 itens por faturamento",
+        "Itens com maior contribuição de receita no período",
+      );
       autoTable(doc, {
         startY: y,
         margin: { left: M, right: M },
@@ -313,37 +353,26 @@ function MenuAnalysisDetail() {
             `${m.toFixed(1)}%`,
           ];
         }),
-        styles: { fontSize: 9, overflow: "linebreak" },
-        headStyles: { fillColor: [30, 30, 30] },
+        styles: { fontSize: 9, overflow: "linebreak", cellPadding: 2.4, textColor: INK },
+        headStyles: { fillColor: EMERALD, textColor: [255, 255, 255] },
+        alternateRowStyles: { fillColor: SOFT },
         columnStyles: { 0: { cellWidth: 60 }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // Matriz BCG
-    ensure(30);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Engenharia de menu", M, y);
-    y += 5;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(110);
-    doc.text(
-      `Médias: quantidade ${matrix.avgQty.toFixed(0)} | margem ${matrix.avgMargin.toFixed(1)}%`,
-      M,
-      y,
+    // ===== Matriz BCG =====
+    sectionTitle(
+      "Engenharia de menu",
+      `Médias — quantidade ${matrix.avgQty.toFixed(0)} • margem ${matrix.avgMargin.toFixed(1)}%`,
     );
-    y += 5;
-    doc.setTextColor(0);
 
     if (matrixImg) {
       const h = (usableW * matrixImg.h) / matrixImg.w;
       ensure(h + 4);
       doc.addImage(matrixImg.data, "PNG", M, y, usableW, h);
-      y += h + 6;
+      y += h + 8;
     }
-
 
     const quads: Array<[string, string, any[]]> = [
       ["Campeões", "vende muito + alta margem", matrix.quadrants.champ],
@@ -361,44 +390,82 @@ function MenuAnalysisDetail() {
         d,
         arr.map((p) => p.item_name).join(", ") || "—",
       ]),
-      styles: { fontSize: 9, overflow: "linebreak", valign: "top" },
-      headStyles: { fillColor: [30, 30, 30] },
-      columnStyles: { 0: { cellWidth: 40, fontStyle: "bold" }, 1: { cellWidth: 45 } },
+      styles: { fontSize: 9, overflow: "linebreak", valign: "top", cellPadding: 2.6, textColor: INK },
+      headStyles: { fillColor: EMERALD, textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: SOFT },
+      columnStyles: {
+        0: { cellWidth: 42, fontStyle: "bold", textColor: EMERALD_DARK },
+        1: { cellWidth: 45, textColor: MUTED, fontStyle: "italic" },
+      },
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Parecer IA
+    // ===== Parecer IA =====
     if (report.ai_insights) {
-      ensure(20);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Parecer da IA", M, y);
-      y += 6;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      // remove markdown leve
-      const clean = report.ai_insights
-        .replace(/^#{1,6}\s+/gm, "")
-        .replace(/\*\*(.+?)\*\*/g, "$1")
-        .replace(/\*(.+?)\*/g, "$1")
-        .replace(/`([^`]+)`/g, "$1");
-      const lines = doc.splitTextToSize(clean, usableW);
-      const lh = 5;
-      for (const ln of lines) {
-        ensure(lh);
-        doc.text(ln, M, y);
-        y += lh;
+      sectionTitle("Parecer da IA", "Interpretação automática dos dados apresentados");
+
+      const clean = report.ai_insights.replace(/`([^`]+)`/g, "$1");
+      const paragraphs = clean.split(/\n{2,}/);
+
+      for (const raw of paragraphs) {
+        const block = raw.trim();
+        if (!block) continue;
+
+        const headingMatch = block.match(/^(#{1,6})\s+(.*)$/);
+        if (headingMatch) {
+          const level = headingMatch[1].length;
+          const text = headingMatch[2]
+            .replace(/\*\*(.+?)\*\*/g, "$1")
+            .replace(/\*(.+?)\*/g, "$1");
+          const size = level <= 2 ? 12 : 10.5;
+          ensure(8);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(size);
+          doc.setTextColor(EMERALD_DARK[0], EMERALD_DARK[1], EMERALD_DARK[2]);
+          const lines = doc.splitTextToSize(text, usableW);
+          for (const ln of lines) {
+            ensure(6);
+            doc.text(ln, M, y);
+            y += 5.5;
+          }
+          y += 1.5;
+          doc.setTextColor(INK[0], INK[1], INK[2]);
+          continue;
+        }
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        const isBullet = /^[-*•]\s+/.test(block);
+        const bodyText = block
+          .replace(/^[-*•]\s+/, "")
+          .replace(/\*\*(.+?)\*\*/g, "$1")
+          .replace(/\*(.+?)\*/g, "$1");
+        const prefix = isBullet ? "•  " : "";
+        const indent = isBullet ? 5 : 0;
+        const lines = doc.splitTextToSize(prefix + bodyText, usableW - indent);
+        const lh = 5;
+        for (let i = 0; i < lines.length; i++) {
+          ensure(lh);
+          doc.text(lines[i], M + (i === 0 ? 0 : indent), y);
+          y += lh;
+        }
+        y += 2;
       }
     }
 
-    // Paginação
+    // ===== Rodapé =====
     const totalPages = doc.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
+      doc.setDrawColor(GOLD[0], GOLD[1], GOLD[2]);
+      doc.setLineWidth(0.4);
+      doc.line(M, pageH - 12, pageW - M, pageH - 12);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.setTextColor(140);
-      doc.text(`${p} / ${totalPages}`, pageW - M, pageH - 8, { align: "right" });
+      doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      doc.text(`Análise de ${formatMonth(report.reference_month)}`, M, pageH - 7);
+      doc.text(`Página ${p} de ${totalPages}`, pageW - M, pageH - 7, { align: "right" });
     }
 
     doc.save(`analise-${report.reference_month}.pdf`);
