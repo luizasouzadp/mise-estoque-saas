@@ -220,21 +220,22 @@ function MenuAnalysisDetail() {
     };
 
     const sectionTitle = (title: string, subtitle?: string) => {
-      ensure(subtitle ? 18 : 14);
+      ensure(subtitle ? 22 : 14);
       doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
-      doc.rect(M, y, 3, 7, "F");
+      doc.rect(M, y + 1, 3, 7, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(13);
       doc.setTextColor(EMERALD_DARK[0], EMERALD_DARK[1], EMERALD_DARK[2]);
-      doc.text(title, M + 5, y + 5.5);
-      y += 8;
+      doc.text(title, M + 5, y + 6);
+      y += 10;
       if (subtitle) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9.5);
         doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-        doc.text(subtitle, M + 5, y);
-        y += 5;
+        doc.text(subtitle, M + 5, y + 3);
+        y += 7;
       }
+      y += 2;
       doc.setTextColor(INK[0], INK[1], INK[2]);
     };
 
