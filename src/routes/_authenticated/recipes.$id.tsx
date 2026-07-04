@@ -346,6 +346,21 @@ function RecipeDetail() {
     qc.invalidateQueries({ queryKey: ["ingredients"] });
   }
 
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editItemQty, setEditItemQty] = useState("");
+
+  async function saveItemQty(itemId: string) {
+    const n = Number(editItemQty);
+    if (!Number.isFinite(n) || n <= 0) return toast.error("Quantidade inválida");
+    const { error } = await supabase.from("recipe_items").update({ quantity: n }).eq("id", itemId);
+    if (error) return toast.error(error.message);
+    setEditingItemId(null);
+    await resyncStockCost();
+    qc.invalidateQueries({ queryKey: ["recipe-items", id] });
+    qc.invalidateQueries({ queryKey: ["recipes"] });
+    qc.invalidateQueries({ queryKey: ["ingredients"] });
+  }
+
   async function fetchImageDataUrl(url: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
     try {
       const res = await fetch(url);
