@@ -689,7 +689,9 @@ function RecipeDetail() {
           {(items ?? []).length === 0 ? (
             <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum item adicionado ainda.</p>
           ) : (
-            items!.map((it) => (
+            items!.map((it) => {
+              const isEditing = editingItemId === it.id;
+              return (
               <div key={it.id} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {it.item_type === "ingredient" ? <Package className="h-4 w-4 text-muted-foreground shrink-0" /> : <BookOpen className="h-4 w-4 text-primary shrink-0" />}
@@ -699,17 +701,39 @@ function RecipeDetail() {
                         <Link to="/recipes/$id" params={{ id: it.sub_recipe_id! }} className="hover:text-primary">{it.name}</Link>
                       ) : it.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">{Number(it.quantity)} {it.unit} · {BRL.format(it.unitCost)} / {it.baseUnit || it.unit}</p>
+                    {isEditing ? (
+                      <div className="mt-1 flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={editItemQty}
+                          onChange={(e) => setEditItemQty(e.target.value)}
+                          className="h-7 w-24"
+                          autoFocus
+                        />
+                        <span className="text-xs text-muted-foreground">{it.unit}</span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => saveItemQty(it.id)}><Check className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingItemId(null)}><X className="h-4 w-4" /></Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">{Number(it.quantity)} {it.unit} · {BRL.format(it.unitCost)} / {it.baseUnit || it.unit}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="text-sm font-semibold">{BRL.format(it.lineCost)}</p>
+                  {!isEditing && (
+                    <Button variant="ghost" size="icon" onClick={() => { setEditingItemId(it.id); setEditItemQty(String(Number(it.quantity))); }}><Pencil className="h-4 w-4" /></Button>
+                  )}
                   <Button variant="ghost" size="icon" onClick={() => removeItem(it.id)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
+
 
         {/* Add item form */}
         <form onSubmit={addItem} className="mt-5 grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-12">
