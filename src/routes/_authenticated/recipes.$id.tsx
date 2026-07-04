@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown, Download, ImageIcon } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, BookOpen, Package, Archive, Copy, Check, ChevronsUpDown, Download, ImageIcon, Pencil, X } from "lucide-react";
 import { cn, normalizeName } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
