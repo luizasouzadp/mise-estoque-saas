@@ -9,10 +9,14 @@ import { ChefHat } from "lucide-react";
 import { isChefUser } from "@/lib/roles";
 
 export const Route = createFileRoute("/login")({
-  beforeLoad: async () => {
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") ? s.next : "",
+  }),
+  beforeLoad: async ({ search }) => {
     if (typeof window === "undefined") return;
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
+    if (search.next) throw redirect({ href: search.next });
     const chef = await isChefUser();
     throw redirect({ to: chef ? "/productions" : "/dashboard" });
   },
@@ -21,6 +25,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const nav = useNavigate();
+  const { next } = Route.useSearch();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,7 +42,10 @@ function LoginPage() {
       return;
     }
     toast.success("Bem-vindo de volta!");
-    // Route to productions; chef users are restricted there. Owners go via dashboard.
+    if (next) {
+      window.location.href = next;
+      return;
+    }
     const isChefLogin = !id.includes("@");
     nav({ to: isChefLogin ? "/productions" : "/dashboard", replace: true });
   }
