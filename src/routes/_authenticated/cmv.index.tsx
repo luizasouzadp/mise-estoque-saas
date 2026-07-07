@@ -329,8 +329,8 @@ function CmvPage() {
                   return (
                     <TableRow key={r.id}>
                       <TableCell>
-                        {new Date(r.period_start).toLocaleDateString("pt-BR")} —{" "}
-                        {new Date(r.period_end).toLocaleDateString("pt-BR")}
+                        {formatBR(r.period_start)} —{" "}
+                        {formatBR(r.period_end)}
                       </TableCell>
                       <TableCell className="text-right">{BRL.format(Number(r.total_cost))}</TableCell>
                       <TableCell className="text-right">{BRL.format(Number(r.revenue))}</TableCell>
