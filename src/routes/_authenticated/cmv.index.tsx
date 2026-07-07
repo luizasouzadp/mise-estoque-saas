@@ -45,6 +45,10 @@ function parseLocal(s: string, endOfDay = false) {
   return d;
 }
 
+function formatBR(s: string) {
+  return parseLocal(s).toLocaleDateString("pt-BR");
+}
+
 // A stocked preparation is "intermediate" ONLY when every recipe that consumes
 // it é, por sua vez, um preparo estocado (ex.: carne picada usada apenas dentro
 // da carne cozida). Se o preparo também aparece em qualquer receita que NÃO é
@@ -325,8 +329,8 @@ function CmvPage() {
                   return (
                     <TableRow key={r.id}>
                       <TableCell>
-                        {new Date(r.period_start).toLocaleDateString("pt-BR")} —{" "}
-                        {new Date(r.period_end).toLocaleDateString("pt-BR")}
+                        {formatBR(r.period_start)} —{" "}
+                        {formatBR(r.period_end)}
                       </TableCell>
                       <TableCell className="text-right">{BRL.format(Number(r.total_cost))}</TableCell>
                       <TableCell className="text-right">{BRL.format(Number(r.revenue))}</TableCell>
@@ -793,8 +797,8 @@ function TheoreticalCompareDialog({
               <div className="text-sm text-muted-foreground">
                 Período:{" "}
                 <span className="font-medium text-foreground">
-                  {new Date(report.period_start).toLocaleDateString("pt-BR")} —{" "}
-                  {new Date(report.period_end).toLocaleDateString("pt-BR")}
+                  {formatBR(report.period_start)} —{" "}
+                  {formatBR(report.period_end)}
                 </span>
               </div>
               <div className="flex gap-2">
