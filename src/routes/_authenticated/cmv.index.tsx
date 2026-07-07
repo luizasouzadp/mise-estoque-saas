@@ -45,6 +45,10 @@ function parseLocal(s: string, endOfDay = false) {
   return d;
 }
 
+function formatBR(s: string) {
+  return parseLocal(s).toLocaleDateString("pt-BR");
+}
+
 // A stocked preparation is "intermediate" ONLY when every recipe that consumes
 // it é, por sua vez, um preparo estocado (ex.: carne picada usada apenas dentro
 // da carne cozida). Se o preparo também aparece em qualquer receita que NÃO é
