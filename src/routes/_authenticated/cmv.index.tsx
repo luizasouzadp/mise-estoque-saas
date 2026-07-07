@@ -45,31 +45,46 @@ function parseLocal(s: string, endOfDay = false) {
   return d;
 }
 
-// A stocked preparation is "intermediate" when its ingredient is consumed
-// by the recipe of ANOTHER stocked preparation (e.g. carne picada → carne cozida).
-// These should NOT be counted as real consumption; only the leaf stocked prep
-// that is actually used in the final product recipe counts.
+// A stocked preparation is "intermediate" ONLY when every recipe that consumes
+// it é, por sua vez, um preparo estocado (ex.: carne picada usada apenas dentro
+// da carne cozida). Se o preparo também aparece em qualquer receita que NÃO é
+// preparo estocado (ex.: uma pizza do cardápio), suas saídas continuam sendo
+// consumo real e não devem ser filtradas.
 function computeIntermediatePrepSet(
   ings: Array<{ id: string; source_recipe_id?: string | null }>,
   items: Array<{ recipe_id: string; item_type: string; ingredient_id: string | null; sub_recipe_id: string | null }>,
 ) {
   const prepIngBySourceRecipe = new Map<string, string>();
   const prepIngIds = new Set<string>();
+  const stockedRecipeIds = new Set<string>();
   for (const i of ings as any[]) {
     if (i.source_recipe_id) {
       prepIngBySourceRecipe.set(i.source_recipe_id, i.id);
       prepIngIds.add(i.id);
+      stockedRecipeIds.add(i.source_recipe_id);
     }
   }
-  const intermediate = new Set<string>();
+  const totalUses = new Map<string, number>();
+  const stockedUses = new Map<string, number>();
+  const bump = (map: Map<string, number>, key: string) =>
+    map.set(key, (map.get(key) ?? 0) + 1);
+
   for (const it of items) {
-    if (!prepIngBySourceRecipe.has(it.recipe_id)) continue;
+    let prepIngId: string | null = null;
     if (it.item_type === "ingredient" && it.ingredient_id && prepIngIds.has(it.ingredient_id)) {
-      intermediate.add(it.ingredient_id);
+      prepIngId = it.ingredient_id;
     } else if (it.item_type === "recipe" && it.sub_recipe_id) {
-      const subIng = prepIngBySourceRecipe.get(it.sub_recipe_id);
-      if (subIng) intermediate.add(subIng);
+      prepIngId = prepIngBySourceRecipe.get(it.sub_recipe_id) ?? null;
     }
+    if (!prepIngId) continue;
+    bump(totalUses, prepIngId);
+    if (stockedRecipeIds.has(it.recipe_id)) bump(stockedUses, prepIngId);
+  }
+
+  const intermediate = new Set<string>();
+  for (const [ingId, total] of totalUses) {
+    const stocked = stockedUses.get(ingId) ?? 0;
+    if (total > 0 && stocked === total) intermediate.add(ingId);
   }
   return intermediate;
 }
