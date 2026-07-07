@@ -797,8 +797,8 @@ function TheoreticalCompareDialog({
               <div className="text-sm text-muted-foreground">
                 Período:{" "}
                 <span className="font-medium text-foreground">
-                  {new Date(report.period_start).toLocaleDateString("pt-BR")} —{" "}
-                  {new Date(report.period_end).toLocaleDateString("pt-BR")}
+                  {formatBR(report.period_start)} —{" "}
+                  {formatBR(report.period_end)}
                 </span>
               </div>
               <div className="flex gap-2">
