@@ -15,6 +15,36 @@ export const getInventoryByToken = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!inv) throw new Error("Inventário não encontrado");
 
+    // Sync missing group members into inventory_items (handles ingredients
+    // adicionados ao grupo depois do inventário ser criado).
+    const { data: invGroupRows } = await supabaseAdmin
+      .from("inventory_groups").select("group_id").eq("inventory_id", inv.id);
+    const invGroupIds = (invGroupRows ?? []).map((g) => g.group_id);
+    if (invGroupIds.length) {
+      const [{ data: existingItems }, { data: members }] = await Promise.all([
+        supabaseAdmin.from("inventory_items")
+          .select("group_id, ingredient_id").eq("inventory_id", inv.id),
+        supabaseAdmin.from("ingredient_group_members")
+          .select("group_id, ingredient_id, ingredients!inner(id, name, unit)")
+          .in("group_id", invGroupIds),
+      ]);
+      const existing = new Set(
+        (existingItems ?? []).map((it) => `${it.group_id}:${it.ingredient_id}`),
+      );
+      type M = { group_id: string; ingredient_id: string; ingredients: { id: string; name: string; unit: string } };
+      const toInsert = ((members ?? []) as M[])
+        .filter((m) => !existing.has(`${m.group_id}:${m.ingredient_id}`))
+        .map((m) => ({
+          inventory_id: inv.id,
+          ingredient_id: m.ingredient_id,
+          ingredient_name: m.ingredients.name,
+          unit: m.ingredients.unit,
+          expected_qty: 0,
+          group_id: m.group_id,
+        }));
+      if (toInsert.length) await supabaseAdmin.from("inventory_items").insert(toInsert);
+    }
+
     const [{ data: rest }, { data: items }, { data: groupRows }] = await Promise.all([
       supabaseAdmin.from("restaurants").select("name").eq("id", inv.restaurant_id).maybeSingle(),
       supabaseAdmin

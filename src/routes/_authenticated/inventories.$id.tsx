@@ -70,7 +70,7 @@ function InventoryDetail() {
         .eq("id", id).single();
       if (error) throw error;
 
-      const { data: items } = await supabase
+      let { data: items } = await supabase
         .from("inventory_items")
         .select("id, ingredient_id, ingredient_name, unit, expected_qty, counted_qty, group_id")
         .eq("inventory_id", id)
@@ -83,8 +83,41 @@ function InventoryDetail() {
         ? await supabase.from("ingredient_groups").select("id, name").in("id", gIds)
         : { data: [] };
 
+      // Sync: se algum membro foi adicionado ao grupo depois do inventário
+      // ser criado, insere as linhas faltantes em inventory_items.
+      if (gIds.length) {
+        const { data: members } = await supabase
+          .from("ingredient_group_members")
+          .select("group_id, ingredient_id, ingredients!inner(id, name, unit)")
+          .in("group_id", gIds);
+        const existing = new Set(
+          (items ?? []).map((it) => `${it.group_id}:${it.ingredient_id}`),
+        );
+        type M = { group_id: string; ingredient_id: string; ingredients: { id: string; name: string; unit: string } };
+        const toInsert = ((members ?? []) as M[])
+          .filter((m) => !existing.has(`${m.group_id}:${m.ingredient_id}`))
+          .map((m) => ({
+            inventory_id: id,
+            ingredient_id: m.ingredient_id,
+            ingredient_name: m.ingredients.name,
+            unit: m.ingredients.unit,
+            expected_qty: 0,
+            group_id: m.group_id,
+          }));
+        if (toInsert.length) {
+          await supabase.from("inventory_items").insert(toInsert);
+          const { data: refetched } = await supabase
+            .from("inventory_items")
+            .select("id, ingredient_id, ingredient_name, unit, expected_qty, counted_qty, group_id")
+            .eq("inventory_id", id)
+            .order("ingredient_name");
+          items = refetched ?? items;
+        }
+      }
+
       const { data: allGroups } = await supabase
         .from("ingredient_groups").select("id, name").order("name");
+
 
       return { inv, items: items ?? [], groups: groups ?? [], allGroups: allGroups ?? [], groupIds: gIds };
     },
