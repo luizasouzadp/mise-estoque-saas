@@ -58,7 +58,9 @@ export default defineTool({
   handler: async ({ recipe_id, quantity, notes }, ctx) => {
     if (!ctx.isAuthenticated()) return notAuthed();
     const supabase = supabaseForUser(ctx);
-    const restaurantId = await getRestaurantId(supabase, ctx.getUserId());
+    const userId = ctx.getUserId();
+    if (!userId) return err("Usuário não identificado.");
+    const restaurantId = await getRestaurantId(supabase, userId);
     if (!restaurantId) return err("Restaurante não encontrado.");
     const expanded = await expandRecipe(supabase, recipe_id, quantity);
 
