@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "mise-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "title": "Mise — Estoque & Fichas"
     },
     "tools": [
@@ -150,6 +150,866 @@
             "ingredient_id",
             "type",
             "quantity"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_inventory_summary",
+        "title": "Resumo do estoque",
+        "description": "Retorna indicadores gerais do estoque: número de itens, valor total, itens abaixo do mínimo, zerados e sem movimentação recente.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "dead_stock_days": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 365,
+              "description": "Dias sem movimentação para considerar item sem giro (padrão 60)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_inventory_value",
+        "title": "Valor financeiro do estoque",
+        "description": "Calcula o valor financeiro total do estoque (estoque × custo médio). Opcionalmente agrupa por categoria.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "group_by_category": {
+              "type": "boolean",
+              "description": "Se true, quebra o valor por categoria."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_product_stock",
+        "title": "Consultar saldo de um insumo",
+        "description": "Retorna o saldo atual, estoque mínimo, unidade e custo de um ingrediente. Aceita id ou nome (busca parcial).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_low_stock",
+        "title": "Itens abaixo do mínimo",
+        "description": "Lista todos os ingredientes com estoque atual abaixo do estoque mínimo.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_out_of_stock",
+        "title": "Itens zerados",
+        "description": "Lista ingredientes com estoque atual igual ou menor que zero.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_products_near_minimum",
+        "title": "Itens próximos do mínimo",
+        "description": "Lista ingredientes cujo estoque está dentro de uma tolerância (padrão 20%) acima do estoque mínimo.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "tolerance_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 200,
+              "description": "% acima do mínimo considerado 'próximo' (padrão 20)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_stock_movements",
+        "title": "Histórico de movimentações",
+        "description": "Retorna as movimentações de estoque de um ingrediente, com filtros opcionais de tipo e período.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "in",
+                "out"
+              ]
+            },
+            "since": {
+              "type": "string",
+              "format": "date-time",
+              "description": "ISO datetime inicial."
+            },
+            "until": {
+              "type": "string",
+              "format": "date-time",
+              "description": "ISO datetime final."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_inventory_snapshot",
+        "title": "Snapshot do estoque em uma data",
+        "description": "Reconstrói o estoque de cada insumo em uma data específica, revertendo movimentações posteriores ao ponto de corte.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "at_date": {
+              "type": "string",
+              "format": "date-time",
+              "description": "ISO datetime do ponto de corte."
+            }
+          },
+          "required": [
+            "at_date"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_product_consumption",
+        "title": "Consumo de um insumo",
+        "description": "Calcula o consumo (saídas + produção) de um ingrediente nos últimos N dias e retorna totais diário, semanal e mensal médios.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 365,
+              "description": "Janela em dias (padrão 30)."
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_recipe_consumption",
+        "title": "Consumo por receita",
+        "description": "Para cada receita, retorna quanto foi produzido no período e o consumo agregado de ingredientes via production_items.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "since": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Início do período (ISO)."
+            },
+            "until": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Fim do período (ISO)."
+            },
+            "recipe_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_consumption_trends",
+        "title": "Tendência de consumo",
+        "description": "Compara o consumo dos últimos N dias vs. o período anterior de mesmo tamanho e retorna a variação percentual.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "window_days": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 180,
+              "description": "Padrão 30."
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "predict_stock_depletion",
+        "title": "Prever ruptura de estoque",
+        "description": "Estima quando o estoque de um insumo vai acabar, com base no histórico de saídas e produção. Retorna consumo médio diário, dias restantes, data prevista, intervalo de confiança (95%) e nível de risco.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "history_days": {
+              "type": "integer",
+              "minimum": 14,
+              "maximum": 180,
+              "description": "Janela histórica (padrão 60)."
+            },
+            "horizon_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 180,
+              "description": "Horizonte máximo em dias (informativo)."
+            },
+            "lead_time_days": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "predict_restock_date",
+        "title": "Melhor data para nova compra",
+        "description": "Sugere a data ideal para realizar uma nova compra antes da ruptura: data de ruptura menos lead time e estoque de segurança em dias.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "lead_time_days": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60
+            },
+            "safety_days": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "forecast_product_consumption",
+        "title": "Prever consumo futuro",
+        "description": "Projeta o consumo futuro (por dia, semana e mês) de um ingrediente com base em média histórica e sazonalidade por dia da semana.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "horizon_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 180,
+              "description": "Padrão 30."
+            },
+            "history_days": {
+              "type": "integer",
+              "minimum": 14,
+              "maximum": 180,
+              "description": "Padrão 60."
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "suggest_purchase_quantity",
+        "title": "Sugerir quantidade de compra",
+        "description": "Sugere quanto comprar de um insumo para cobrir um horizonte (padrão 15 dias) considerando consumo histórico, sazonalidade por dia da semana, estoque atual, mínimo e estoque de segurança.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "horizon_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "description": "Padrão 15."
+            },
+            "safety_days": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "detect_abnormal_consumption",
+        "title": "Detectar consumo anormal",
+        "description": "Detecta dias com consumo anormalmente alto (z-score > threshold, padrão 2) para um insumo, sinalizando possíveis desperdícios ou erros de lançamento.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "history_days": {
+              "type": "integer",
+              "minimum": 14,
+              "maximum": 180,
+              "description": "Padrão 60."
+            },
+            "z_threshold": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 5,
+              "description": "Padrão 2."
+            }
+          },
+          "required": [
+            "ingredient_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "detect_dead_stock",
+        "title": "Detectar estoque parado",
+        "description": "Lista ingredientes com estoque positivo e sem qualquer movimentação nos últimos N dias (padrão 60).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "days": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 365
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "analyze_inventory_health",
+        "title": "Análise geral de saúde do estoque",
+        "description": "Gera uma análise consolidada do estoque com score (0-100), lista de problemas priorizados e recomendações automáticas.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_suppliers",
+        "title": "Listar fornecedores",
+        "description": "Lista os fornecedores cadastrados no restaurante.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_supplier_products",
+        "title": "Produtos comprados de um fornecedor",
+        "description": "Retorna os insumos comprados de um fornecedor específico (por nome), com quantidade total, custo médio e última compra.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "supplier": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Nome do fornecedor (como registrado em purchases.supplier)."
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 365,
+              "description": "Janela em dias (padrão 180)."
+            }
+          },
+          "required": [
+            "supplier"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_purchase_suggestion",
+        "title": "Sugestão de lista de compras",
+        "description": "Gera automaticamente uma sugestão de lista de compras para todos os insumos em risco de ruptura no horizonte informado, agrupada pelo último fornecedor de cada item.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "horizon_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "description": "Padrão 15."
+            },
+            "only_critical": {
+              "type": "boolean",
+              "description": "Se true, apenas itens abaixo do mínimo ou com risco de ruptura no horizonte."
+            },
+            "safety_days": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_purchase_order",
+        "title": "Registrar compra",
+        "description": "Registra uma ou mais linhas de compra em purchases (entrada de estoque via trigger). Requer aprovação por alterar estoque.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "supplier": {
+              "type": "string"
+            },
+            "purchased_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "ISO datetime. Padrão: agora."
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ingredient_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "quantity": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "unit_cost": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "ingredient_id",
+                  "quantity",
+                  "unit_cost"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 200
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "simulate_recipe_production",
+        "title": "Simular produção de receita",
+        "description": "Simula a produção de uma quantidade de uma receita e retorna os ingredientes que seriam consumidos, sinalizando quais não têm estoque suficiente. NÃO altera o estoque.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "recipe_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "quantity": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "recipe_id",
+            "quantity"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "produce_recipe",
+        "title": "Produzir receita",
+        "description": "Registra a produção de uma receita e insere production_items para cada ingrediente consumido. O trigger apply_stock_movement desconta o estoque. Requer aprovação por alterar estoque.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "recipe_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "quantity": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "recipe_id",
+            "quantity"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "calculate_recipe_cost",
+        "title": "Custo atualizado da ficha técnica",
+        "description": "Retorna o custo total e unitário de uma ficha técnica, usando as funções recipe_total_cost/recipe_unit_cost do banco (que expandem sub-receitas e usam custo médio dos últimos 30 dias).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "recipe_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "recipe_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "calculate_food_cost",
+        "title": "Food Cost por produto/receita",
+        "description": "Calcula o Food Cost (custo/preço de venda × 100) para uma receita ou produto de cardápio. Se nenhum id for informado, retorna a lista de todas as receitas no cardápio.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "recipe_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "calculate_cmv",
+        "title": "CMV do período",
+        "description": "Retorna o CMV (Custo da Mercadoria Vendida) do período. Se houver cmv_report cadastrado, usa o existente; caso contrário calcula on-the-fly usando as saídas de estoque (excluindo ajustes de inventário) × custo médio.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "period_start": {
+              "type": "string",
+              "description": "YYYY-MM-DD"
+            },
+            "period_end": {
+              "type": "string",
+              "description": "YYYY-MM-DD"
+            },
+            "revenue": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Receita do período para calcular %CMV."
+            }
+          },
+          "required": [
+            "period_start",
+            "period_end"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_dashboard",
+        "title": "Dashboard executivo",
+        "description": "Resumo executivo do estoque: valor total, produtos críticos (abaixo do mínimo ou zerados), itens próximos da ruptura, estoque parado e consumo do período.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "period_days": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 90,
+              "description": "Período para consumo (padrão 30)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "generate_management_report",
+        "title": "Relatório gerencial",
+        "description": "Gera relatório consolidado para o período: valor do estoque, top compras, top consumos, CMV (se houver), alertas de estoque e recomendações.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "period_start": {
+              "type": "string",
+              "description": "YYYY-MM-DD"
+            },
+            "period_end": {
+              "type": "string",
+              "description": "YYYY-MM-DD"
+            }
+          },
+          "required": [
+            "period_start",
+            "period_end"
           ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
