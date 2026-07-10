@@ -48,7 +48,11 @@ function NewPurchase() {
   const [supplier, setSupplier] = useState("");
   const [newSupplierName, setNewSupplierName] = useState("");
   const [addingSupplier, setAddingSupplier] = useState(false);
-  const [purchasedAt, setPurchasedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [purchasedAt, setPurchasedAt] = useState(() => {
+    const d = new Date();
+    const tz = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+  });
   const [saving, setSaving] = useState(false);
 
   async function addSupplier() {
