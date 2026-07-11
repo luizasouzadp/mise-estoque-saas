@@ -59,7 +59,7 @@ Regras:
 - Se unidade não aparecer, use "un".
 - Números com vírgula na nota devem virar ponto no JSON.`,
               },
-              { type: "image_url", image_url: { url: data.imageDataUrl } },
+              { type: "image", image: data.imageDataUrl },
             ],
           },
         ],
