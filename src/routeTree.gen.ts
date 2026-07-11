@@ -31,6 +31,7 @@ import { Route as AuthenticatedCmvIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRecipesNewRouteImport } from './routes/_authenticated/recipes.new'
 import { Route as AuthenticatedRecipesIdRouteImport } from './routes/_authenticated/recipes.$id'
 import { Route as AuthenticatedPurchasesNewRouteImport } from './routes/_authenticated/purchases.new'
+import { Route as AuthenticatedPurchasesImportRouteImport } from './routes/_authenticated/purchases.import'
 import { Route as AuthenticatedMenuAnalysisIdRouteImport } from './routes/_authenticated/menu-analysis.$id'
 import { Route as AuthenticatedInventoriesNewRouteImport } from './routes/_authenticated/inventories.new'
 import { Route as AuthenticatedInventoriesIdRouteImport } from './routes/_authenticated/inventories.$id'
@@ -161,6 +162,12 @@ const AuthenticatedPurchasesNewRoute =
     path: '/purchases/new',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedPurchasesImportRoute =
+  AuthenticatedPurchasesImportRouteImport.update({
+    id: '/purchases/import',
+    path: '/purchases/import',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMenuAnalysisIdRoute =
   AuthenticatedMenuAnalysisIdRouteImport.update({
     id: '/menu-analysis/$id',
@@ -225,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/menu-analysis/$id': typeof AuthenticatedMenuAnalysisIdRoute
+  '/purchases/import': typeof AuthenticatedPurchasesImportRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
@@ -256,6 +264,7 @@ export interface FileRoutesByTo {
   '/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/menu-analysis/$id': typeof AuthenticatedMenuAnalysisIdRoute
+  '/purchases/import': typeof AuthenticatedPurchasesImportRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
@@ -289,6 +298,7 @@ export interface FileRoutesById {
   '/_authenticated/inventories/$id': typeof AuthenticatedInventoriesIdRoute
   '/_authenticated/inventories/new': typeof AuthenticatedInventoriesNewRoute
   '/_authenticated/menu-analysis/$id': typeof AuthenticatedMenuAnalysisIdRoute
+  '/_authenticated/purchases/import': typeof AuthenticatedPurchasesImportRoute
   '/_authenticated/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/_authenticated/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/_authenticated/recipes/new': typeof AuthenticatedRecipesNewRoute
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/inventories/$id'
     | '/inventories/new'
     | '/menu-analysis/$id'
+    | '/purchases/import'
     | '/purchases/new'
     | '/recipes/$id'
     | '/recipes/new'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/inventories/$id'
     | '/inventories/new'
     | '/menu-analysis/$id'
+    | '/purchases/import'
     | '/purchases/new'
     | '/recipes/$id'
     | '/recipes/new'
@@ -385,6 +397,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventories/$id'
     | '/_authenticated/inventories/new'
     | '/_authenticated/menu-analysis/$id'
+    | '/_authenticated/purchases/import'
     | '/_authenticated/purchases/new'
     | '/_authenticated/recipes/$id'
     | '/_authenticated/recipes/new'
@@ -569,6 +582,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPurchasesNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/purchases/import': {
+      id: '/_authenticated/purchases/import'
+      path: '/purchases/import'
+      fullPath: '/purchases/import'
+      preLoaderRoute: typeof AuthenticatedPurchasesImportRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/menu-analysis/$id': {
       id: '/_authenticated/menu-analysis/$id'
       path: '/menu-analysis/$id'
@@ -636,6 +656,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedInventoriesIdRoute: typeof AuthenticatedInventoriesIdRoute
   AuthenticatedInventoriesNewRoute: typeof AuthenticatedInventoriesNewRoute
   AuthenticatedMenuAnalysisIdRoute: typeof AuthenticatedMenuAnalysisIdRoute
+  AuthenticatedPurchasesImportRoute: typeof AuthenticatedPurchasesImportRoute
   AuthenticatedPurchasesNewRoute: typeof AuthenticatedPurchasesNewRoute
   AuthenticatedRecipesIdRoute: typeof AuthenticatedRecipesIdRoute
   AuthenticatedRecipesNewRoute: typeof AuthenticatedRecipesNewRoute
@@ -659,6 +680,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInventoriesIdRoute: AuthenticatedInventoriesIdRoute,
   AuthenticatedInventoriesNewRoute: AuthenticatedInventoriesNewRoute,
   AuthenticatedMenuAnalysisIdRoute: AuthenticatedMenuAnalysisIdRoute,
+  AuthenticatedPurchasesImportRoute: AuthenticatedPurchasesImportRoute,
   AuthenticatedPurchasesNewRoute: AuthenticatedPurchasesNewRoute,
   AuthenticatedRecipesIdRoute: AuthenticatedRecipesIdRoute,
   AuthenticatedRecipesNewRoute: AuthenticatedRecipesNewRoute,
