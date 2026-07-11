@@ -452,7 +452,7 @@ function ImportPurchase() {
             <Button onClick={submit} disabled={saving}>{saving ? "Salvando…" : "Registrar compra"}</Button>
           </div>
 
-          <Textarea readOnly value="" className="hidden" />
+          
         </div>
       )}
     </div>
