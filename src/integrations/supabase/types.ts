@@ -127,6 +127,54 @@ export type Database = {
           },
         ]
       }
+      ingredient_unit_aliases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          factor: number
+          from_unit: string
+          id: string
+          ingredient_id: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          factor: number
+          from_unit: string
+          id?: string
+          ingredient_id: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          factor?: number
+          from_unit?: string
+          id?: string
+          ingredient_id?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_unit_aliases_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_unit_aliases_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           avg_cost: number
@@ -616,15 +664,62 @@ export type Database = {
           },
         ]
       }
+      purchase_import_matches: {
+        Row: {
+          created_at: string
+          hits: number
+          id: string
+          ingredient_id: string
+          last_used_at: string
+          raw_text_normalized: string
+          restaurant_id: string
+        }
+        Insert: {
+          created_at?: string
+          hits?: number
+          id?: string
+          ingredient_id: string
+          last_used_at?: string
+          raw_text_normalized: string
+          restaurant_id: string
+        }
+        Update: {
+          created_at?: string
+          hits?: number
+          id?: string
+          ingredient_id?: string
+          last_used_at?: string
+          raw_text_normalized?: string
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_import_matches_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_import_matches_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchases: {
         Row: {
           created_at: string
           created_by: string | null
           id: string
           ingredient_id: string
+          invoice_image_path: string | null
           purchased_at: string
           quantity: number
           restaurant_id: string
+          source: string
           supplier: string | null
           total_cost: number
           unit_cost: number
@@ -634,9 +729,11 @@ export type Database = {
           created_by?: string | null
           id?: string
           ingredient_id: string
+          invoice_image_path?: string | null
           purchased_at?: string
           quantity: number
           restaurant_id: string
+          source?: string
           supplier?: string | null
           total_cost: number
           unit_cost: number
@@ -646,9 +743,11 @@ export type Database = {
           created_by?: string | null
           id?: string
           ingredient_id?: string
+          invoice_image_path?: string | null
           purchased_at?: string
           quantity?: number
           restaurant_id?: string
+          source?: string
           supplier?: string | null
           total_cost?: number
           unit_cost?: number
@@ -1009,6 +1108,7 @@ export type Database = {
           id: string
           name: string
           restaurant_id: string
+          tax_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1017,6 +1117,7 @@ export type Database = {
           id?: string
           name: string
           restaurant_id: string
+          tax_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1025,6 +1126,7 @@ export type Database = {
           id?: string
           name?: string
           restaurant_id?: string
+          tax_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1105,6 +1207,8 @@ export type Database = {
         Args: { _recipe_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "owner" | "manager" | "staff" | "chef"
