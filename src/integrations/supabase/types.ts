@@ -182,6 +182,7 @@ export type Database = {
           composes_cmv: boolean
           created_at: string
           current_stock: number
+          default_supplier_id: string | null
           group_id: string | null
           id: string
           last_cost: number
@@ -198,6 +199,7 @@ export type Database = {
           composes_cmv?: boolean
           created_at?: string
           current_stock?: number
+          default_supplier_id?: string | null
           group_id?: string | null
           id?: string
           last_cost?: number
@@ -214,6 +216,7 @@ export type Database = {
           composes_cmv?: boolean
           created_at?: string
           current_stock?: number
+          default_supplier_id?: string | null
           group_id?: string | null
           id?: string
           last_cost?: number
@@ -225,6 +228,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ingredients_default_supplier_id_fkey"
+            columns: ["default_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ingredients_group_id_fkey"
             columns: ["group_id"]
@@ -1105,8 +1115,13 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          delivery_days: number[]
           id: string
+          lead_time_days: number | null
+          min_order_value: number | null
           name: string
+          notes: string | null
+          order_days: number[]
           restaurant_id: string
           tax_id: string | null
           updated_at: string
@@ -1114,8 +1129,13 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          delivery_days?: number[]
           id?: string
+          lead_time_days?: number | null
+          min_order_value?: number | null
           name: string
+          notes?: string | null
+          order_days?: number[]
           restaurant_id: string
           tax_id?: string | null
           updated_at?: string
@@ -1123,8 +1143,13 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          delivery_days?: number[]
           id?: string
+          lead_time_days?: number | null
+          min_order_value?: number | null
           name?: string
+          notes?: string | null
+          order_days?: number[]
           restaurant_id?: string
           tax_id?: string | null
           updated_at?: string

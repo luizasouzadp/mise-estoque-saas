@@ -23,6 +23,9 @@ export default defineTool({
         ),
       }))
       .sort((a, b) => b.deficit - a.deficit);
-    return ok({ count: items.length, items }, `${items.length} itens abaixo do mínimo.`);
+    return ok(
+      { count: items.length, items },
+      JSON.stringify({ count: items.length, items }, null, 2),
+    );
   },
 });

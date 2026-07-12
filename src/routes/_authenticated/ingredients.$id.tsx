@@ -56,6 +56,11 @@ function IngredientDetail() {
     queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
   });
 
+  const { data: suppliersList } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => (await supabase.from("suppliers").select("id, name").order("name")).data ?? [],
+  });
+
   const [period, setPeriod] = useState<30 | 60 | 90>(30);
   const { data: movements } = useQuery({
     queryKey: ["ingredient_movements", id, period],
@@ -78,6 +83,7 @@ function IngredientDetail() {
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
+  const [defaultSupplierId, setDefaultSupplierId] = useState<string>("__none__");
   const [saving, setSaving] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustValue, setAdjustValue] = useState("");
@@ -99,6 +105,7 @@ function IngredientDetail() {
       setMinStock(String(data.min_stock));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
+      setDefaultSupplierId((data as { default_supplier_id?: string | null }).default_supplier_id ?? "__none__");
     }
   }, [data]);
 
@@ -124,6 +131,7 @@ function IngredientDetail() {
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
       name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
+      default_supplier_id: defaultSupplierId === "__none__" ? null : defaultSupplierId,
     }).eq("id", id);
     if (error) {
       setSaving(false);
@@ -432,6 +440,17 @@ function IngredientDetail() {
         <div>
           <Label htmlFor="min">Estoque mínimo</Label>
           <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="supplier">Fornecedor padrão</Label>
+          <Select value={defaultSupplierId} onValueChange={setDefaultSupplierId}>
+            <SelectTrigger id="supplier"><SelectValue placeholder="Sem fornecedor" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Sem fornecedor</SelectItem>
+              {(suppliersList ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">Usado para agrupar a lista de compras e calcular o horizonte por fornecedor.</p>
         </div>
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
