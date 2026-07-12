@@ -726,6 +726,170 @@
         "outputSchema": null
       },
       {
+        "name": "create_supplier",
+        "title": "Cadastrar fornecedor",
+        "description": "Cria um fornecedor com agenda semanal opcional (dias de pedido e de entrega, prazo, valor mínimo e observações). Convenção de dias: 0=domingo … 6=sábado.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "delivery_days": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6,
+                "description": "0=domingo, 1=segunda, ... 6=sábado."
+              }
+            },
+            "order_days": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/delivery_days/items"
+              }
+            },
+            "lead_time_days": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "min_order_value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_supplier",
+        "title": "Editar fornecedor",
+        "description": "Atualiza campos de um fornecedor existente. Apenas os campos enviados são alterados. Convenção de dias: 0=domingo … 6=sábado.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "supplier_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "delivery_days": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              }
+            },
+            "order_days": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/delivery_days/items"
+              }
+            },
+            "lead_time_days": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "min_order_value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "supplier_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_ingredient_supplier",
+        "title": "Definir fornecedor padrão de um insumo",
+        "description": "Define (ou remove, quando supplier_id é null) o fornecedor padrão de um insumo. Esse fornecedor é usado como agrupador da lista de compras semanal e para calcular o horizonte de cobertura da sugestão.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ingredient_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "supplier_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Envie null para limpar o fornecedor padrão."
+            }
+          },
+          "required": [
+            "ingredient_id",
+            "supplier_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
         "name": "create_purchase_suggestion",
         "title": "Sugestão de lista de compras",
         "description": "Gera a lista de compras agrupada pelo fornecedor padrão de cada insumo. Quando o fornecedor tem agenda semanal (order_days/delivery_days), o horizonte de cobertura é calculado por fornecedor: cobre o consumo até a próxima entrega DEPOIS da mais próxima, evitando ruptura entre pedidos. Sem agenda cadastrada, usa horizon_days (padrão 15). Fallback de agrupamento: último fornecedor do histórico → 'Sem fornecedor'.",

@@ -78,6 +78,9 @@ export default defineMcp({
     // Compras
     listSuppliers,
     getSupplierProducts,
+    createSupplier,
+    updateSupplier,
+    updateIngredientSupplier,
     createPurchaseSuggestion,
     createPurchaseOrder,
     // Produção
