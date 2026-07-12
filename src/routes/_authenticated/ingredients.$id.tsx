@@ -83,6 +83,7 @@ function IngredientDetail() {
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
+  const [defaultSupplierId, setDefaultSupplierId] = useState<string>("__none__");
   const [saving, setSaving] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustValue, setAdjustValue] = useState("");
@@ -104,6 +105,7 @@ function IngredientDetail() {
       setMinStock(String(data.min_stock));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
+      setDefaultSupplierId((data as { default_supplier_id?: string | null }).default_supplier_id ?? "__none__");
     }
   }, [data]);
 
@@ -129,6 +131,7 @@ function IngredientDetail() {
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
       name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
+      default_supplier_id: defaultSupplierId === "__none__" ? null : defaultSupplierId,
     }).eq("id", id);
     if (error) {
       setSaving(false);
