@@ -441,6 +441,17 @@ function IngredientDetail() {
           <Label htmlFor="min">Estoque mínimo</Label>
           <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
         </div>
+        <div>
+          <Label htmlFor="supplier">Fornecedor padrão</Label>
+          <Select value={defaultSupplierId} onValueChange={setDefaultSupplierId}>
+            <SelectTrigger id="supplier"><SelectValue placeholder="Sem fornecedor" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Sem fornecedor</SelectItem>
+              {(suppliersList ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">Usado para agrupar a lista de compras e calcular o horizonte por fornecedor.</p>
+        </div>
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
             <Label htmlFor="cmv">Compõe o CMV?</Label>

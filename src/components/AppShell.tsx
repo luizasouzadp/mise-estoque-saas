@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, ArrowLeftRight, BookOpen, DollarSign, Flame, Percent } from "lucide-react";
+import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, ArrowLeftRight, BookOpen, DollarSign, Flame, Percent, Truck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const allNavItems = [
   { to: "/pricing", label: "Cardápio", icon: DollarSign },
   { to: "/productions", label: "Produção", icon: Flame },
   { to: "/purchases", label: "Compras", icon: Receipt },
+  { to: "/suppliers", label: "Fornecedores", icon: Truck },
   { to: "/movements", label: "Mov.", icon: ArrowLeftRight },
   { to: "/inventories", label: "Inventário", icon: ClipboardList },
   { to: "/cmv", label: "CMV", icon: Percent },
