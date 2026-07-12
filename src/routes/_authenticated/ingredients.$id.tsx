@@ -56,6 +56,11 @@ function IngredientDetail() {
     queryFn: async () => (await supabase.from("ingredient_groups").select("id, name").order("name")).data ?? [],
   });
 
+  const { data: suppliersList } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => (await supabase.from("suppliers").select("id, name").order("name")).data ?? [],
+  });
+
   const [period, setPeriod] = useState<30 | 60 | 90>(30);
   const { data: movements } = useQuery({
     queryKey: ["ingredient_movements", id, period],
