@@ -19,7 +19,7 @@
       {
         "name": "list_ingredients",
         "title": "Listar insumos",
-        "description": "Lista os insumos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria e custo médio/último. Aceita busca por nome e filtro opcional apenas de itens em baixo estoque (aplicado no banco). O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
+        "description": "Lista os insumos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria, custo médio/último e fornecedor padrão (quando definido). Aceita busca por nome e filtro opcional apenas de itens em baixo estoque (aplicado no banco). O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -205,7 +205,7 @@
       {
         "name": "get_product_stock",
         "title": "Consultar saldo de um insumo",
-        "description": "Retorna o saldo atual, estoque mínimo, unidade e custo de um ingrediente. Aceita id ou nome (busca parcial).",
+        "description": "Retorna o saldo atual, estoque mínimo, unidade, custo e fornecedor padrão de um ingrediente. Aceita id ou nome (busca parcial).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -680,7 +680,7 @@
       {
         "name": "list_suppliers",
         "title": "Listar fornecedores",
-        "description": "Lista os fornecedores cadastrados no restaurante.",
+        "description": "Lista os fornecedores do restaurante com agenda semanal (dias de pedido, dias de entrega, prazo em dias, valor mínimo de pedido e observações). Convenção de dias: 0=domingo … 6=sábado.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,

@@ -13,7 +13,7 @@ export default defineTool({
   name: "list_ingredients",
   title: "Listar insumos",
   description:
-    "Lista os insumos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria e custo médio/último. Aceita busca por nome e filtro opcional apenas de itens em baixo estoque (aplicado no banco). O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
+    "Lista os insumos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria, custo médio/último e fornecedor padrão (quando definido). Aceita busca por nome e filtro opcional apenas de itens em baixo estoque (aplicado no banco). O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
   inputSchema: {
     search: z.string().trim().optional().describe("Filtro por nome (case-insensitive)."),
     low_stock_only: z
@@ -31,7 +31,9 @@ export default defineTool({
     const effectiveLimit = limit ?? (low_stock_only ? 500 : 100);
     let q = supabase
       .from("ingredients")
-      .select("id, name, unit, category, current_stock, min_stock, avg_cost, last_cost, composes_cmv")
+      .select(
+        "id, name, unit, category, current_stock, min_stock, avg_cost, last_cost, composes_cmv, default_supplier_id, default_supplier:suppliers!ingredients_default_supplier_id_fkey(id, name)",
+      )
       .order("name")
       .limit(effectiveLimit);
     if (search) q = q.ilike("name", `%${search}%`);

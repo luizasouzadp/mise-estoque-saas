@@ -6,7 +6,7 @@ export default defineTool({
   name: "get_product_stock",
   title: "Consultar saldo de um insumo",
   description:
-    "Retorna o saldo atual, estoque mínimo, unidade e custo de um ingrediente. Aceita id ou nome (busca parcial).",
+    "Retorna o saldo atual, estoque mínimo, unidade, custo e fornecedor padrão de um ingrediente. Aceita id ou nome (busca parcial).",
   inputSchema: {
     ingredient_id: z.string().uuid().optional(),
     name: z.string().trim().min(1).optional(),
@@ -18,7 +18,9 @@ export default defineTool({
     const supabase = supabaseForUser(ctx);
     let q = supabase
       .from("ingredients")
-      .select("id, name, unit, category, current_stock, min_stock, avg_cost, last_cost");
+      .select(
+        "id, name, unit, category, current_stock, min_stock, avg_cost, last_cost, default_supplier_id, default_supplier:suppliers!ingredients_default_supplier_id_fkey(id, name)",
+      );
     if (ingredient_id) q = q.eq("id", ingredient_id);
     else if (name) q = q.ilike("name", `%${name}%`);
     const { data, error } = await q.limit(5);
