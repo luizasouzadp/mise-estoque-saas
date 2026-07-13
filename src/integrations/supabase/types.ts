@@ -127,6 +127,52 @@ export type Database = {
           },
         ]
       }
+      ingredient_suppliers: {
+        Row: {
+          created_at: string
+          ingredient_id: string
+          is_primary: boolean
+          restaurant_id: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          ingredient_id: string
+          is_primary?: boolean
+          restaurant_id: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          ingredient_id?: string
+          is_primary?: boolean
+          restaurant_id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_suppliers_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_suppliers_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredient_unit_aliases: {
         Row: {
           created_at: string
