@@ -47,7 +47,16 @@ function IngredientDetail() {
         .from("ingredient_group_members")
         .select("group_id")
         .eq("ingredient_id", id);
-      return { ...data, groupIds: new Set((links ?? []).map((l) => l.group_id)) };
+      const { data: supLinks } = await supabase
+        .from("ingredient_suppliers")
+        .select("supplier_id, is_primary")
+        .eq("ingredient_id", id);
+      return {
+        ...data,
+        groupIds: new Set((links ?? []).map((l) => l.group_id)),
+        supplierIds: new Set((supLinks ?? []).map((s) => s.supplier_id)),
+        primarySupplierId: (supLinks ?? []).find((s) => s.is_primary)?.supplier_id ?? null,
+      };
     },
   });
 
@@ -83,7 +92,8 @@ function IngredientDetail() {
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
-  const [defaultSupplierId, setDefaultSupplierId] = useState<string>("__none__");
+  const [supplierIds, setSupplierIds] = useState<Set<string>>(new Set());
+  const [primarySupplierId, setPrimarySupplierId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustValue, setAdjustValue] = useState("");
@@ -105,7 +115,8 @@ function IngredientDetail() {
       setMinStock(String(data.min_stock));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
-      setDefaultSupplierId((data as { default_supplier_id?: string | null }).default_supplier_id ?? "__none__");
+      setSupplierIds(new Set((data as { supplierIds?: Set<string> }).supplierIds ?? []));
+      setPrimarySupplierId((data as { primarySupplierId?: string | null }).primarySupplierId ?? null);
     }
   }, [data]);
 
@@ -114,6 +125,20 @@ function IngredientDetail() {
       const next = new Set(prev);
       if (next.has(gid)) next.delete(gid);
       else next.add(gid);
+      return next;
+    });
+  }
+
+  function toggleSupplier(sid: string) {
+    setSupplierIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sid)) {
+        next.delete(sid);
+        if (primarySupplierId === sid) setPrimarySupplierId(null);
+      } else {
+        next.add(sid);
+        if (!primarySupplierId) setPrimarySupplierId(sid);
+      }
       return next;
     });
   }
