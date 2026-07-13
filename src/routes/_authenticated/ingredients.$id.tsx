@@ -47,7 +47,16 @@ function IngredientDetail() {
         .from("ingredient_group_members")
         .select("group_id")
         .eq("ingredient_id", id);
-      return { ...data, groupIds: new Set((links ?? []).map((l) => l.group_id)) };
+      const { data: supLinks } = await supabase
+        .from("ingredient_suppliers")
+        .select("supplier_id, is_primary")
+        .eq("ingredient_id", id);
+      return {
+        ...data,
+        groupIds: new Set((links ?? []).map((l) => l.group_id)),
+        supplierIds: new Set((supLinks ?? []).map((s) => s.supplier_id)),
+        primarySupplierId: (supLinks ?? []).find((s) => s.is_primary)?.supplier_id ?? null,
+      };
     },
   });
 
@@ -83,7 +92,8 @@ function IngredientDetail() {
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
-  const [defaultSupplierId, setDefaultSupplierId] = useState<string>("__none__");
+  const [supplierIds, setSupplierIds] = useState<Set<string>>(new Set());
+  const [primarySupplierId, setPrimarySupplierId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustValue, setAdjustValue] = useState("");
@@ -105,7 +115,8 @@ function IngredientDetail() {
       setMinStock(String(data.min_stock));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
-      setDefaultSupplierId((data as { default_supplier_id?: string | null }).default_supplier_id ?? "__none__");
+      setSupplierIds(new Set((data as { supplierIds?: Set<string> }).supplierIds ?? []));
+      setPrimarySupplierId((data as { primarySupplierId?: string | null }).primarySupplierId ?? null);
     }
   }, [data]);
 
@@ -114,6 +125,20 @@ function IngredientDetail() {
       const next = new Set(prev);
       if (next.has(gid)) next.delete(gid);
       else next.add(gid);
+      return next;
+    });
+  }
+
+  function toggleSupplier(sid: string) {
+    setSupplierIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sid)) {
+        next.delete(sid);
+        if (primarySupplierId === sid) setPrimarySupplierId(null);
+      } else {
+        next.add(sid);
+        if (!primarySupplierId) setPrimarySupplierId(sid);
+      }
       return next;
     });
   }
@@ -131,24 +156,62 @@ function IngredientDetail() {
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
       name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
-      default_supplier_id: defaultSupplierId === "__none__" ? null : defaultSupplierId,
     }).eq("id", id);
     if (error) {
       setSaving(false);
       return toast.error(error.message);
     }
-    // Sync junction table
-    const existing = data?.groupIds ?? new Set<string>();
-    const toAdd = Array.from(groupIds).filter((g) => !existing.has(g));
-    const toRemove = Array.from(existing).filter((g) => !groupIds.has(g));
-    if (toAdd.length) {
+    // Sync group junction table
+    const existingGroups = data?.groupIds ?? new Set<string>();
+    const groupsToAdd = Array.from(groupIds).filter((g) => !existingGroups.has(g));
+    const groupsToRemove = Array.from(existingGroups).filter((g) => !groupIds.has(g));
+    if (groupsToAdd.length) {
       await supabase.from("ingredient_group_members").insert(
-        toAdd.map((gid) => ({ ingredient_id: id, group_id: gid })),
+        groupsToAdd.map((gid) => ({ ingredient_id: id, group_id: gid })),
       );
     }
-    if (toRemove.length) {
+    if (groupsToRemove.length) {
       await supabase.from("ingredient_group_members").delete()
-        .eq("ingredient_id", id).in("group_id", toRemove);
+        .eq("ingredient_id", id).in("group_id", groupsToRemove);
+    }
+    // Sync suppliers junction table
+    const existingSup = (data as { supplierIds?: Set<string> })?.supplierIds ?? new Set<string>();
+    const supToAdd = Array.from(supplierIds).filter((s) => !existingSup.has(s));
+    const supToRemove = Array.from(existingSup).filter((s) => !supplierIds.has(s));
+    if (supToRemove.length) {
+      await supabase.from("ingredient_suppliers").delete()
+        .eq("ingredient_id", id).in("supplier_id", supToRemove);
+    }
+    if (supToAdd.length) {
+      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+      if (prof?.restaurant_id) {
+        await supabase.from("ingredient_suppliers").insert(
+          supToAdd.map((sid) => ({
+            ingredient_id: id,
+            supplier_id: sid,
+            restaurant_id: prof.restaurant_id,
+            is_primary: sid === primarySupplierId,
+          })),
+        );
+      }
+    }
+    // Ensure the correct primary flag is set (only for existing rows we didn't just insert)
+    if (primarySupplierId && supplierIds.has(primarySupplierId)) {
+      await supabase.from("ingredient_suppliers")
+        .update({ is_primary: false })
+        .eq("ingredient_id", id)
+        .neq("supplier_id", primarySupplierId);
+      await supabase.from("ingredient_suppliers")
+        .update({ is_primary: true })
+        .eq("ingredient_id", id)
+        .eq("supplier_id", primarySupplierId);
+    } else if (!primarySupplierId) {
+      await supabase.from("ingredient_suppliers")
+        .update({ is_primary: false })
+        .eq("ingredient_id", id);
+      await supabase.from("ingredients")
+        .update({ default_supplier_id: null })
+        .eq("id", id);
     }
     setSaving(false);
     toast.success("Atualizado");
@@ -442,15 +505,36 @@ function IngredientDetail() {
           <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
         </div>
         <div>
-          <Label htmlFor="supplier">Fornecedor padrão</Label>
-          <Select value={defaultSupplierId} onValueChange={setDefaultSupplierId}>
-            <SelectTrigger id="supplier"><SelectValue placeholder="Sem fornecedor" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">Sem fornecedor</SelectItem>
-              {(suppliersList ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <p className="mt-1 text-xs text-muted-foreground">Usado para agrupar a lista de compras e calcular o horizonte por fornecedor.</p>
+          <Label>Fornecedores</Label>
+          <p className="text-xs text-muted-foreground">Marque um ou mais fornecedores para este insumo. O marcado como <strong>principal</strong> é usado para agrupar a lista de compras e calcular o horizonte de cobertura.</p>
+          {(suppliersList ?? []).length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">Nenhum fornecedor cadastrado. <Link to="/suppliers" className="underline">Cadastrar</Link>.</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {(suppliersList ?? []).map((s) => {
+                const checked = supplierIds.has(s.id);
+                const isPrimary = primarySupplierId === s.id;
+                return (
+                  <div key={s.id} className="flex items-center gap-3 rounded-lg border p-2">
+                    <label className="flex flex-1 cursor-pointer items-center gap-3">
+                      <Checkbox checked={checked} onCheckedChange={() => toggleSupplier(s.id)} />
+                      <span className="text-sm">{s.name}</span>
+                    </label>
+                    {checked && (
+                      <button
+                        type="button"
+                        onClick={() => setPrimarySupplierId(s.id)}
+                        className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${isPrimary ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                        title="Marcar como fornecedor principal"
+                      >
+                        {isPrimary ? "★ Principal" : "Tornar principal"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
