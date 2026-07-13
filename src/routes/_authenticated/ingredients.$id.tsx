@@ -156,24 +156,62 @@ function IngredientDetail() {
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
       name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
-      default_supplier_id: defaultSupplierId === "__none__" ? null : defaultSupplierId,
     }).eq("id", id);
     if (error) {
       setSaving(false);
       return toast.error(error.message);
     }
-    // Sync junction table
-    const existing = data?.groupIds ?? new Set<string>();
-    const toAdd = Array.from(groupIds).filter((g) => !existing.has(g));
-    const toRemove = Array.from(existing).filter((g) => !groupIds.has(g));
-    if (toAdd.length) {
+    // Sync group junction table
+    const existingGroups = data?.groupIds ?? new Set<string>();
+    const groupsToAdd = Array.from(groupIds).filter((g) => !existingGroups.has(g));
+    const groupsToRemove = Array.from(existingGroups).filter((g) => !groupIds.has(g));
+    if (groupsToAdd.length) {
       await supabase.from("ingredient_group_members").insert(
-        toAdd.map((gid) => ({ ingredient_id: id, group_id: gid })),
+        groupsToAdd.map((gid) => ({ ingredient_id: id, group_id: gid })),
       );
     }
-    if (toRemove.length) {
+    if (groupsToRemove.length) {
       await supabase.from("ingredient_group_members").delete()
-        .eq("ingredient_id", id).in("group_id", toRemove);
+        .eq("ingredient_id", id).in("group_id", groupsToRemove);
+    }
+    // Sync suppliers junction table
+    const existingSup = (data as { supplierIds?: Set<string> })?.supplierIds ?? new Set<string>();
+    const supToAdd = Array.from(supplierIds).filter((s) => !existingSup.has(s));
+    const supToRemove = Array.from(existingSup).filter((s) => !supplierIds.has(s));
+    if (supToRemove.length) {
+      await supabase.from("ingredient_suppliers").delete()
+        .eq("ingredient_id", id).in("supplier_id", supToRemove);
+    }
+    if (supToAdd.length) {
+      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+      if (prof?.restaurant_id) {
+        await supabase.from("ingredient_suppliers").insert(
+          supToAdd.map((sid) => ({
+            ingredient_id: id,
+            supplier_id: sid,
+            restaurant_id: prof.restaurant_id,
+            is_primary: sid === primarySupplierId,
+          })),
+        );
+      }
+    }
+    // Ensure the correct primary flag is set (only for existing rows we didn't just insert)
+    if (primarySupplierId && supplierIds.has(primarySupplierId)) {
+      await supabase.from("ingredient_suppliers")
+        .update({ is_primary: false })
+        .eq("ingredient_id", id)
+        .neq("supplier_id", primarySupplierId);
+      await supabase.from("ingredient_suppliers")
+        .update({ is_primary: true })
+        .eq("ingredient_id", id)
+        .eq("supplier_id", primarySupplierId);
+    } else if (!primarySupplierId) {
+      await supabase.from("ingredient_suppliers")
+        .update({ is_primary: false })
+        .eq("ingredient_id", id);
+      await supabase.from("ingredients")
+        .update({ default_supplier_id: null })
+        .eq("id", id);
     }
     setSaving(false);
     toast.success("Atualizado");
