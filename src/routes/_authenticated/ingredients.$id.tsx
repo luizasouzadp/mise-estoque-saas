@@ -505,15 +505,36 @@ function IngredientDetail() {
           <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
         </div>
         <div>
-          <Label htmlFor="supplier">Fornecedor padrão</Label>
-          <Select value={defaultSupplierId} onValueChange={setDefaultSupplierId}>
-            <SelectTrigger id="supplier"><SelectValue placeholder="Sem fornecedor" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">Sem fornecedor</SelectItem>
-              {(suppliersList ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <p className="mt-1 text-xs text-muted-foreground">Usado para agrupar a lista de compras e calcular o horizonte por fornecedor.</p>
+          <Label>Fornecedores</Label>
+          <p className="text-xs text-muted-foreground">Marque um ou mais fornecedores para este insumo. O marcado como <strong>principal</strong> é usado para agrupar a lista de compras e calcular o horizonte de cobertura.</p>
+          {(suppliersList ?? []).length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">Nenhum fornecedor cadastrado. <Link to="/suppliers" className="underline">Cadastrar</Link>.</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {(suppliersList ?? []).map((s) => {
+                const checked = supplierIds.has(s.id);
+                const isPrimary = primarySupplierId === s.id;
+                return (
+                  <div key={s.id} className="flex items-center gap-3 rounded-lg border p-2">
+                    <label className="flex flex-1 cursor-pointer items-center gap-3">
+                      <Checkbox checked={checked} onCheckedChange={() => toggleSupplier(s.id)} />
+                      <span className="text-sm">{s.name}</span>
+                    </label>
+                    {checked && (
+                      <button
+                        type="button"
+                        onClick={() => setPrimarySupplierId(s.id)}
+                        className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${isPrimary ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                        title="Marcar como fornecedor principal"
+                      >
+                        {isPrimary ? "★ Principal" : "Tornar principal"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
