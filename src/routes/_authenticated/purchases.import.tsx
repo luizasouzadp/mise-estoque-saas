@@ -15,7 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/searchable-select";
-import { ArrowLeft, Camera, Trash2, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   parseInvoiceImage,
@@ -59,7 +59,8 @@ function ImportPurchase() {
   const [ingredientOptions, setIngredientOptions] = useState<Array<{ id: string; name: string; unit: string }>>([]);
   const [aliasMap, setAliasMap] = useState<Map<string, number>>(new Map()); // key: `${ingId}::${unit_up}` -> factor
   const [saving, setSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: ingredientsData } = useQuery({
     queryKey: ["ingredients"],
@@ -233,7 +234,8 @@ function ImportPurchase() {
       nav({ to: "/purchases" });
     } catch (e) {
       const err = e as Error;
-      toast.error(err.message);
+      console.error("[purchases.import] falha ao salvar", err);
+      toast.error(err.message || "Falha ao salvar a compra");
     } finally {
       setSaving(false);
     }
@@ -254,7 +256,7 @@ function ImportPurchase() {
           <div>
             <Label>Foto da nota</Label>
             <input
-              ref={inputRef}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
@@ -262,15 +264,31 @@ function ImportPurchase() {
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) onPickFile(f);
+                e.target.value = "";
               }}
             />
-            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
-              <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPickFile(f);
+                e.target.value = "";
+              }}
+            />
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start">
+              <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()}>
                 <Camera className="mr-2 h-4 w-4" />
-                {file ? "Trocar imagem" : "Escolher / tirar foto"}
+                Tirar foto
+              </Button>
+              <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()}>
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Escolher da galeria
               </Button>
               {file && (
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground self-center">
                   {file.name} · {(file.size / 1024).toFixed(0)} KB
                 </div>
               )}
