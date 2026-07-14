@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Images, ImageOff } from "lucide-react";
+import { ArrowLeft, Images, ImageOff, Download, Loader2 } from "lucide-react";
+import JSZip from "jszip";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
