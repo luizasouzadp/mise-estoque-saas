@@ -82,6 +82,44 @@ function NotesArchive() {
   }, [data, urls]);
 
   const [preview, setPreview] = useState<NoteRow | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  async function exportMonth(g: { key: string; label: string; notes: NoteRow[] }) {
+    setExporting(g.key);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder(g.label) ?? zip;
+      const used = new Map<string, number>();
+      for (const n of g.notes) {
+        const { data: blob, error } = await supabase.storage
+          .from("purchase-invoices")
+          .download(n.invoice_image_path);
+        if (error || !blob) continue;
+        const ext = n.invoice_image_path.split(".").pop()?.toLowerCase() || "jpg";
+        const date = new Date(n.purchased_at).toISOString().slice(0, 10);
+        const supplier = (n.supplier ?? "sem-fornecedor").replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 40);
+        let base = `${date}_${supplier}`;
+        const count = (used.get(base) ?? 0) + 1;
+        used.set(base, count);
+        if (count > 1) base = `${base}_${count}`;
+        folder.file(`${base}.${ext}`, blob);
+      }
+      const out = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(out);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `notas_${g.key}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`ZIP de ${g.label} gerado.`);
+    } catch (e) {
+      toast.error((e as Error).message || "Falha ao gerar ZIP");
+    } finally {
+      setExporting(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
