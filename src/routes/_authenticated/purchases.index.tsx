@@ -164,6 +164,9 @@ function PurchasesList() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
+            <Link to="/purchases/notes"><Images className="mr-2 h-4 w-4" /> Notas</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/purchases/import"><Camera className="mr-2 h-4 w-4" /> Por foto da nota</Link>
           </Button>
           <Button asChild>
