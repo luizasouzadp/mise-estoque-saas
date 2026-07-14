@@ -97,15 +97,7 @@ function ImportPurchase() {
     onSuccess: ({ parsed, suggested }) => {
       setSupplierName(parsed.supplier ?? "");
       setSupplierTaxId(parsed.tax_id ?? "");
-      if (parsed.purchased_at) {
-        try {
-          const d = new Date(parsed.purchased_at);
-          if (!isNaN(d.getTime())) {
-            const tz = d.getTimezoneOffset() * 60000;
-            setPurchasedAt(new Date(d.getTime() - tz).toISOString().slice(0, 16));
-          }
-        } catch { /* keep default */ }
-      }
+      // Data da compra = dia do lançamento (agora), ignorando a data da nota.
       setIngredientOptions(suggested.ingredients);
       const am = new Map<string, number>();
       suggested.aliases.forEach((a) => {
