@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Images, ImageOff } from "lucide-react";
+import { ArrowLeft, Images, ImageOff, Download, Loader2 } from "lucide-react";
+import JSZip from "jszip";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -80,6 +82,44 @@ function NotesArchive() {
   }, [data, urls]);
 
   const [preview, setPreview] = useState<NoteRow | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  async function exportMonth(g: { key: string; label: string; notes: NoteRow[] }) {
+    setExporting(g.key);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder(g.label) ?? zip;
+      const used = new Map<string, number>();
+      for (const n of g.notes) {
+        const { data: blob, error } = await supabase.storage
+          .from("purchase-invoices")
+          .download(n.invoice_image_path);
+        if (error || !blob) continue;
+        const ext = n.invoice_image_path.split(".").pop()?.toLowerCase() || "jpg";
+        const date = new Date(n.purchased_at).toISOString().slice(0, 10);
+        const supplier = (n.supplier ?? "sem-fornecedor").replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 40);
+        let base = `${date}_${supplier}`;
+        const count = (used.get(base) ?? 0) + 1;
+        used.set(base, count);
+        if (count > 1) base = `${base}_${count}`;
+        folder.file(`${base}.${ext}`, blob);
+      }
+      const out = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(out);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `notas_${g.key}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`ZIP de ${g.label} gerado.`);
+    } catch (e) {
+      toast.error((e as Error).message || "Falha ao gerar ZIP");
+    } finally {
+      setExporting(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
@@ -106,9 +146,18 @@ function NotesArchive() {
         ) : (
           groups.map((g) => (
             <section key={g.key}>
-              <div className="mb-3 flex items-baseline justify-between">
+              <div className="mb-3 flex items-baseline justify-between gap-2">
                 <h2 className="font-display text-xl">{g.label}</h2>
-                <span className="text-xs text-muted-foreground">{g.notes.length} nota(s)</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">{g.notes.length} nota(s)</span>
+                  <Button size="sm" variant="outline" onClick={() => exportMonth(g)} disabled={exporting === g.key}>
+                    {exporting === g.key ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Gerando…</>
+                    ) : (
+                      <><Download className="mr-2 h-4 w-4" /> Exportar ZIP</>
+                    )}
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {g.notes.map((n) => {
