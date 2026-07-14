@@ -146,9 +146,18 @@ function NotesArchive() {
         ) : (
           groups.map((g) => (
             <section key={g.key}>
-              <div className="mb-3 flex items-baseline justify-between">
+              <div className="mb-3 flex items-baseline justify-between gap-2">
                 <h2 className="font-display text-xl">{g.label}</h2>
-                <span className="text-xs text-muted-foreground">{g.notes.length} nota(s)</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">{g.notes.length} nota(s)</span>
+                  <Button size="sm" variant="outline" onClick={() => exportMonth(g)} disabled={exporting === g.key}>
+                    {exporting === g.key ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Gerando…</>
+                    ) : (
+                      <><Download className="mr-2 h-4 w-4" /> Exportar ZIP</>
+                    )}
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {g.notes.map((n) => {
