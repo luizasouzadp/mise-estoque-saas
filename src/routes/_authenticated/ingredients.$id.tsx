@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2, TrendingDown, Pencil } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceDot } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ReferenceLine } from "recharts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -333,11 +333,27 @@ function IngredientDetail() {
       label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
     });
   }
-  const maxAbsDelta = days.reduce((m, d) => Math.max(m, d.absDelta), 0);
-  const topVariationKeys = new Set(
-    days.filter((d) => d.absDelta > 0 && d.absDelta >= maxAbsDelta * 0.8).map((d) => d.date),
-  );
-  const xInterval = period <= 30 ? 4 : period <= 60 ? 8 : 12;
+  // Daily consumption (out flow) derived from stock delta
+  const consumption = days.map((d) => ({
+    ...d,
+    out: Number(Math.max(0, -d.delta).toFixed(2)),
+  }));
+  const totalConsumed = consumption.reduce((a, d) => a + d.out, 0);
+  const avgPerDay = totalConsumed / Math.max(consumption.length, 1);
+  const peakOut = consumption.reduce((m, d) => Math.max(m, d.out), 0);
+  const DOW_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const dowSums = [0, 0, 0, 0, 0, 0, 0];
+  const dowCounts = [0, 0, 0, 0, 0, 0, 0];
+  for (const d of consumption) {
+    const dow = new Date(d.date + "T12:00:00Z").getUTCDay();
+    dowSums[dow] += d.out;
+    dowCounts[dow] += 1;
+  }
+  const dowAvgs = dowSums.map((s, i) => (dowCounts[i] ? s / dowCounts[i] : 0));
+  const peakDowIdx = dowAvgs.reduce((best, v, i) => (v > dowAvgs[best] ? i : best), 0);
+  const peakDowAvg = dowAvgs[peakDowIdx];
+  const xInterval = period <= 30 ? 2 : period <= 60 ? 6 : 10;
+  const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-8">
@@ -414,72 +430,110 @@ function IngredientDetail() {
       </Dialog>
 
       <div className="mt-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-semibold flex items-center gap-2"><TrendingDown className="h-4 w-4 text-primary" /> Consumo médio semanal</h2>
-            <p className="text-xs text-muted-foreground">Baseado nas saídas dos últimos {period} dias.</p>
+            <h2 className="font-semibold flex items-center gap-2"><TrendingDown className="h-4 w-4 text-primary" /> Consumo</h2>
+            <p className="text-xs text-muted-foreground">Saídas dos últimos {period} dias.</p>
           </div>
-          <div className="font-display text-2xl">
-            {weeklyAvg.toFixed(2)} <span className="text-sm text-muted-foreground">{data.unit}/sem</span>
+          <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+            {([30, 60, 90] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`px-2.5 py-1 text-xs rounded-sm transition-colors ${period === p ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {p}d
+              </button>
+            ))}
           </div>
         </div>
-        <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-muted-foreground">Variação do estoque ({period} dias)</p>
-            <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
-              {([30, 60, 90] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 text-xs rounded-sm transition-colors ${period === p ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  {p}d
-                </button>
-              ))}
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-lg border bg-muted/30 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Média/dia</div>
+            <div className="font-display text-lg leading-tight">{fmt(avgPerDay)}<span className="ml-1 text-xs text-muted-foreground">{data.unit}</span></div>
+          </div>
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-primary/80">Média/semana</div>
+            <div className="font-display text-lg leading-tight text-primary">{fmt(weeklyAvg)}<span className="ml-1 text-xs text-muted-foreground">{data.unit}</span></div>
+          </div>
+          <div className="rounded-lg border bg-muted/30 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Pico semanal</div>
+            <div className="font-display text-lg leading-tight">
+              {peakDowAvg > 0 ? (
+                <>
+                  {DOW_LABELS[peakDowIdx]}
+                  <span className="ml-1 text-xs text-muted-foreground">{fmt(peakDowAvg)} {data.unit}</span>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
             </div>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Consumo diário</p>
+            <p className="text-[10px] text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-sm bg-primary mr-1 align-middle" /> diário
+              <span className="ml-2 inline-block h-[2px] w-3 bg-accent align-middle" /> média
+            </p>
+          </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={days} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={xInterval} />
-                <YAxis yAxisId="stock" tick={{ fontSize: 10 }} />
-                <YAxis yAxisId="delta" orientation="right" tick={{ fontSize: 10 }} hide />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number, n: string) => {
-                    if (n === "stock") return [`${v} ${data.unit}`, "Estoque"];
-                    if (n === "delta") return [`${v} ${data.unit}`, "Variação"];
-                    return [v, n];
-                  }}
-                  labelFormatter={(l) => l}
-                />
-                <Line yAxisId="stock" type="monotone" dataKey="stock" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                <Line yAxisId="delta" type="monotone" dataKey="delta" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                {days.filter((d) => topVariationKeys.has(d.date)).map((d) => (
-                  <ReferenceDot
-                    key={d.date}
-                    yAxisId="stock"
-                    x={d.label}
-                    y={d.stock}
-                    r={4}
-                    fill="hsl(var(--destructive))"
-                    stroke="hsl(var(--background))"
-                    strokeWidth={2}
+            {totalConsumed > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={consumption} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={xInterval} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={40} />
+                  <Tooltip
+                    cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+                    contentStyle={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                    formatter={(v: number) => [`${fmt(v)} ${data.unit}`, "Consumo"]}
+                    labelFormatter={(l) => l}
                   />
-                ))}
+                  <ReferenceLine y={avgPerDay} stroke="var(--accent)" strokeDasharray="4 4" strokeWidth={1.5} />
+                  <Bar dataKey="out" radius={[4, 4, 0, 0]}>
+                    {consumption.map((d) => (
+                      <Cell
+                        key={d.date}
+                        fill={d.out > 0 && d.out === peakOut ? "var(--accent)" : "var(--primary)"}
+                        fillOpacity={d.out > 0 && d.out === peakOut ? 1 : 0.85}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+                Sem saídas registradas nos últimos {period} dias.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Estoque no período</p>
+            <p className="text-[10px] text-muted-foreground">{fmt(days[0]?.stock ?? 0)} → {fmt(days[days.length - 1]?.stock ?? 0)} {data.unit}</p>
+          </div>
+          <div className="h-16 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={days} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                <Tooltip
+                  contentStyle={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number) => [`${fmt(v)} ${data.unit}`, "Estoque"]}
+                  labelFormatter={(_, p) => (p?.[0]?.payload?.label ?? "")}
+                />
+                <Line type="monotone" dataKey="stock" stroke="var(--primary)" strokeWidth={1.75} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {maxAbsDelta > 0 && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              <span className="inline-block h-2 w-2 rounded-full bg-destructive mr-1.5 align-middle" />
-              Dias destacados: maior variação do período.
-            </p>
-          )}
         </div>
       </div>
+
 
 
       <form onSubmit={save} className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
