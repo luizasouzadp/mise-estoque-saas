@@ -112,7 +112,7 @@ function IngredientDetail() {
       setName(data.name);
       setUnit(data.unit);
       setCategory(data.category ?? "");
-      setMinStock(String(data.min_stock));
+      setMinStock(Number(data.min_stock).toFixed(3));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
       setSupplierIds(new Set((data as { supplierIds?: Set<string> }).supplierIds ?? []));
