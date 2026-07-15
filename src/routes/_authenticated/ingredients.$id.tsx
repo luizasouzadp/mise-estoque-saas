@@ -333,11 +333,27 @@ function IngredientDetail() {
       label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
     });
   }
-  const maxAbsDelta = days.reduce((m, d) => Math.max(m, d.absDelta), 0);
-  const topVariationKeys = new Set(
-    days.filter((d) => d.absDelta > 0 && d.absDelta >= maxAbsDelta * 0.8).map((d) => d.date),
-  );
-  const xInterval = period <= 30 ? 4 : period <= 60 ? 8 : 12;
+  // Daily consumption (out flow) derived from stock delta
+  const consumption = days.map((d) => ({
+    ...d,
+    out: Number(Math.max(0, -d.delta).toFixed(2)),
+  }));
+  const totalConsumed = consumption.reduce((a, d) => a + d.out, 0);
+  const avgPerDay = totalConsumed / Math.max(consumption.length, 1);
+  const peakOut = consumption.reduce((m, d) => Math.max(m, d.out), 0);
+  const DOW_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const dowSums = [0, 0, 0, 0, 0, 0, 0];
+  const dowCounts = [0, 0, 0, 0, 0, 0, 0];
+  for (const d of consumption) {
+    const dow = new Date(d.date + "T12:00:00Z").getUTCDay();
+    dowSums[dow] += d.out;
+    dowCounts[dow] += 1;
+  }
+  const dowAvgs = dowSums.map((s, i) => (dowCounts[i] ? s / dowCounts[i] : 0));
+  const peakDowIdx = dowAvgs.reduce((best, v, i) => (v > dowAvgs[best] ? i : best), 0);
+  const peakDowAvg = dowAvgs[peakDowIdx];
+  const xInterval = period <= 30 ? 2 : period <= 60 ? 6 : 10;
+  const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-8">
