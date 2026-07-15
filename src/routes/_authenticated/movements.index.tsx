@@ -334,8 +334,8 @@ function MovementsPage() {
     setForm({
       ingredient_id: m.ingredient_id,
       type: m.type,
-      quantity: String(m.quantity),
-      unit_cost: m.unit_cost != null ? String(m.unit_cost) : "",
+      quantity: Number(m.quantity).toFixed(3),
+      unit_cost: m.unit_cost != null ? Number(m.unit_cost).toFixed(3) : "",
       reason: m.reason ?? "",
       notes: m.notes ?? "",
       occurred_at: toLocalDatetimeInput(new Date(m.occurred_at)),
@@ -393,15 +393,15 @@ function MovementsPage() {
   function openQuick(m: UnifiedMovement) {
     if (!isEditable(m)) return;
     setQuick(m);
-    setQuickQty(String(m.quantity));
+    setQuickQty(Number(m.quantity).toFixed(3));
     const bal = balanceByKey.get(m.key);
     setQuickPrevQty(bal?.prevQty ?? 0);
-    setQuickStock(bal ? String(bal.currQty) : "");
+    setQuickStock(bal ? Number(bal.currQty).toFixed(3) : "");
     if (m.purchase) {
-      setQuickCost(String(m.purchase.unit_cost ?? ""));
+      setQuickCost(m.purchase.unit_cost != null ? Number(m.purchase.unit_cost).toFixed(3) : "");
       setQuickSupplier(m.purchase.supplier ?? "");
     } else if (m.manual) {
-      setQuickCost(m.manual.unit_cost != null ? String(m.manual.unit_cost) : "");
+      setQuickCost(m.manual.unit_cost != null ? Number(m.manual.unit_cost).toFixed(3) : "");
       setQuickSupplier("");
     } else {
       setQuickCost("");
@@ -541,6 +541,9 @@ function MovementsPage() {
   function formatBRL(n: number | null) {
     if (n == null) return "—";
     return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+  function fmtQty(n: number) {
+    return n.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
   }
 
   return (
@@ -769,13 +772,13 @@ function MovementsPage() {
                     {m.type === "info" || !bal ? "—" : (
                       <div className="flex flex-col items-end gap-0.5">
                         <span className="text-xs text-muted-foreground">
-                          {Number(bal.prevQty).toLocaleString("pt-BR")} {ing?.unit ?? ""}
+                          {fmtQty(Number(bal.prevQty))} {ing?.unit ?? ""}
                         </span>
                         <span className={`font-semibold tabular-nums ${m.type === "in" ? "text-green-600" : "text-red-600"}`}>
-                          {m.type === "in" ? "+" : "−"}{Number(m.quantity).toLocaleString("pt-BR")} {ing?.unit ?? ""}
+                          {m.type === "in" ? "+" : "−"}{fmtQty(Number(m.quantity))} {ing?.unit ?? ""}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {Number(bal.currQty).toLocaleString("pt-BR")} {ing?.unit ?? ""}
+                          {fmtQty(Number(bal.currQty))} {ing?.unit ?? ""}
                         </span>
                       </div>
                     )}
@@ -825,11 +828,11 @@ function MovementsPage() {
                       onChange={(e) => setQuickStock(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Estoque anterior: {quickPrevQty.toLocaleString("pt-BR")} {ingMap.get(quick.ingredient_id)?.unit ?? ""}
+                      Estoque anterior: {fmtQty(quickPrevQty)} {ingMap.get(quick.ingredient_id)?.unit ?? ""}
                       {quickStock !== "" && Number.isFinite(Number(quickStock)) && (() => {
                         const d = Number(quickStock) - quickPrevQty;
                         if (d === 0) return " · sem alteração";
-                        return ` · ${d > 0 ? "entrada" : "saída"} de ${Math.abs(d).toLocaleString("pt-BR")}`;
+                        return ` · ${d > 0 ? "entrada" : "saída"} de ${fmtQty(Math.abs(d))}`;
                       })()}
                     </p>
                   </div>
