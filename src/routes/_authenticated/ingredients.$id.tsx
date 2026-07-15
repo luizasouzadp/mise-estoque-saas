@@ -112,7 +112,7 @@ function IngredientDetail() {
       setName(data.name);
       setUnit(data.unit);
       setCategory(data.category ?? "");
-      setMinStock(String(data.min_stock));
+      setMinStock(Number(data.min_stock).toFixed(3));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
       setSupplierIds(new Set((data as { supplierIds?: Set<string> }).supplierIds ?? []));
@@ -254,7 +254,7 @@ function IngredientDetail() {
   }
 
   function openAdjust() {
-    setAdjustValue(String(Number(data?.current_stock ?? 0)));
+    setAdjustValue(Number(data?.current_stock ?? 0).toFixed(3));
     setAdjustNotes("");
     setAdjustOpen(true);
   }
@@ -378,7 +378,7 @@ function IngredientDetail() {
           <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
             Estoque <Pencil className="h-3 w-3 opacity-60 group-hover:opacity-100" />
           </div>
-          <div className="mt-1 font-display text-lg">{currentStock.toFixed(2)} {data.unit}</div>
+          <div className="mt-1 font-display text-lg">{currentStock.toFixed(3)} {data.unit}</div>
         </button>
         <Stat label="Custo médio" value={`R$ ${Number(data.avg_cost).toFixed(2)}`} />
         <Stat label="Última compra" value={`R$ ${Number(data.last_cost).toFixed(2)}`} />
@@ -405,9 +405,9 @@ function IngredientDetail() {
                 autoFocus
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Atual: {currentStock.toFixed(2)} {data.unit}
+                Atual: {currentStock.toFixed(3)} {data.unit}
                 {adjustValue !== "" && isFinite(Number(String(adjustValue).replace(",", "."))) && (
-                  <> · Diferença: {(Number(String(adjustValue).replace(",", ".")) - currentStock).toFixed(2)} {data.unit}</>
+                  <> · Diferença: {(Number(String(adjustValue).replace(",", ".")) - currentStock).toFixed(3)} {data.unit}</>
                 )}
               </p>
             </div>
@@ -556,7 +556,7 @@ function IngredientDetail() {
         </div>
         <div>
           <Label htmlFor="min">Estoque mínimo</Label>
-          <Input id="min" type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+          <Input id="min" type="number" step="0.001" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
         </div>
         <div>
           <Label>Fornecedores</Label>
