@@ -65,170 +65,6 @@ export type Database = {
         }
         Relationships: []
       }
-      contagens: {
-        Row: {
-          created_at: string
-          data_contagem: string
-          id: string
-          ingredient_id: string
-          quantidade_contada: number
-          restaurant_id: string
-          usuario: string | null
-        }
-        Insert: {
-          created_at?: string
-          data_contagem: string
-          id?: string
-          ingredient_id: string
-          quantidade_contada: number
-          restaurant_id: string
-          usuario?: string | null
-        }
-        Update: {
-          created_at?: string
-          data_contagem?: string
-          id?: string
-          ingredient_id?: string
-          quantidade_contada?: number
-          restaurant_id?: string
-          usuario?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contagens_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contagens_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      divergencias: {
-        Row: {
-          contagem_id: string
-          created_at: string
-          diferenca_percentual: number
-          diferenca_qtd: number
-          diferenca_valor: number
-          id: string
-          ingredient_id: string
-          quantidade_contada: number
-          restaurant_id: string
-          saldo_esperado: number
-          semanas_consecutivas_negativas: number
-          status: string
-        }
-        Insert: {
-          contagem_id: string
-          created_at?: string
-          diferenca_percentual: number
-          diferenca_qtd: number
-          diferenca_valor: number
-          id?: string
-          ingredient_id: string
-          quantidade_contada: number
-          restaurant_id: string
-          saldo_esperado: number
-          semanas_consecutivas_negativas?: number
-          status?: string
-        }
-        Update: {
-          contagem_id?: string
-          created_at?: string
-          diferenca_percentual?: number
-          diferenca_qtd?: number
-          diferenca_valor?: number
-          id?: string
-          ingredient_id?: string
-          quantidade_contada?: number
-          restaurant_id?: string
-          saldo_esperado?: number
-          semanas_consecutivas_negativas?: number
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "divergencias_contagem_id_fkey"
-            columns: ["contagem_id"]
-            isOneToOne: false
-            referencedRelation: "contagens"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "divergencias_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "divergencias_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      estoque_estimado: {
-        Row: {
-          created_at: string
-          data_movimento: string
-          id: string
-          ingredient_id: string
-          origem_venda_id: string | null
-          quantidade: number
-          restaurant_id: string
-        }
-        Insert: {
-          created_at?: string
-          data_movimento?: string
-          id?: string
-          ingredient_id: string
-          origem_venda_id?: string | null
-          quantidade: number
-          restaurant_id: string
-        }
-        Update: {
-          created_at?: string
-          data_movimento?: string
-          id?: string
-          ingredient_id?: string
-          origem_venda_id?: string | null
-          quantidade?: number
-          restaurant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "estoque_estimado_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "estoque_estimado_origem_venda_id_fkey"
-            columns: ["origem_venda_id"]
-            isOneToOne: false
-            referencedRelation: "vendas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "estoque_estimado_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ingredient_group_members: {
         Row: {
           created_at: string
@@ -1049,7 +885,6 @@ export type Database = {
           is_stocked: boolean
           menu_category: string | null
           name: string
-          pdv_produto_id: string | null
           product_code: string | null
           restaurant_id: string
           updated_at: string
@@ -1067,7 +902,6 @@ export type Database = {
           is_stocked?: boolean
           menu_category?: string | null
           name: string
-          pdv_produto_id?: string | null
           product_code?: string | null
           restaurant_id: string
           updated_at?: string
@@ -1085,7 +919,6 @@ export type Database = {
           is_stocked?: boolean
           menu_category?: string | null
           name?: string
-          pdv_produto_id?: string | null
           product_code?: string | null
           restaurant_id?: string
           updated_at?: string
@@ -1389,83 +1222,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      vendas: {
-        Row: {
-          created_at: string
-          data_venda: string
-          id: string
-          pdv_venda_id: string
-          restaurant_id: string
-          status: string | null
-        }
-        Insert: {
-          created_at?: string
-          data_venda: string
-          id?: string
-          pdv_venda_id: string
-          restaurant_id: string
-          status?: string | null
-        }
-        Update: {
-          created_at?: string
-          data_venda?: string
-          id?: string
-          pdv_venda_id?: string
-          restaurant_id?: string
-          status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendas_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vendas_itens: {
-        Row: {
-          created_at: string
-          id: string
-          pdv_produto_id: string
-          quantidade: number
-          restaurant_id: string
-          venda_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          pdv_produto_id: string
-          quantidade: number
-          restaurant_id: string
-          venda_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          pdv_produto_id?: string
-          quantidade?: number
-          restaurant_id?: string
-          venda_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendas_itens_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendas_itens_venda_id_fkey"
-            columns: ["venda_id"]
-            isOneToOne: false
-            referencedRelation: "vendas"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       whatsapp_contacts: {
         Row: {
