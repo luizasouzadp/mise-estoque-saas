@@ -65,6 +65,108 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_sales_consumption: {
+        Row: {
+          created_at: string
+          daily_report_id: string
+          id: string
+          ingredient_id: string
+          quantity_theoretical: number
+          restaurant_id: string
+          sales_date: string
+        }
+        Insert: {
+          created_at?: string
+          daily_report_id: string
+          id?: string
+          ingredient_id: string
+          quantity_theoretical?: number
+          restaurant_id: string
+          sales_date: string
+        }
+        Update: {
+          created_at?: string
+          daily_report_id?: string
+          id?: string
+          ingredient_id?: string
+          quantity_theoretical?: number
+          restaurant_id?: string
+          sales_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_sales_consumption_daily_report_id_fkey"
+            columns: ["daily_report_id"]
+            isOneToOne: false
+            referencedRelation: "daily_sales_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_sales_consumption_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_sales_consumption_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_sales_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_name: string | null
+          id: string
+          mapped_count: number
+          restaurant_id: string
+          sales_date: string
+          total_quantity: number
+          total_revenue: number
+          unmapped_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          mapped_count?: number
+          restaurant_id: string
+          sales_date: string
+          total_quantity?: number
+          total_revenue?: number
+          unmapped_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          mapped_count?: number
+          restaurant_id?: string
+          sales_date?: string
+          total_quantity?: number
+          total_revenue?: number
+          unmapped_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_sales_reports_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredient_group_members: {
         Row: {
           created_at: string
@@ -1271,6 +1373,25 @@ export type Database = {
         Returns: number
       }
       is_manager_or_owner: { Args: { _user_id: string }; Returns: boolean }
+      projected_stock_for_ingredient: {
+        Args: { _ingredient_id: string }
+        Returns: number
+      }
+      projected_stock_status: {
+        Args: never
+        Returns: {
+          anchor_at: string
+          consumed_since_anchor: number
+          current_stock: number
+          days_since_anchor: number
+          ingredient_id: string
+          ingredient_name: string
+          min_stock: number
+          projected_stock: number
+          status: string
+          unit: string
+        }[]
+      }
       recipe_total_cost: {
         Args: { _depth?: number; _recipe_id: string }
         Returns: number
