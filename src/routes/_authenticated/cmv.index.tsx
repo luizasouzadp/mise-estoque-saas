@@ -250,13 +250,22 @@ function CmvPage() {
 
   return (
     <div className="container mx-auto space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="font-display text-2xl">CMV</h1>
-        <p className="text-sm text-muted-foreground">
-          Calcule o CMV de um período: saídas de insumos que compõem o CMV ÷ faturamento.
-          Saídas de produção não são contabilizadas.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl">CMV</h1>
+          <p className="text-sm text-muted-foreground">
+            Calcule o CMV de um período: saídas de insumos que compõem o CMV ÷ faturamento.
+            Saídas de produção não são contabilizadas.
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link to="/cmv/daily">
+            <AlertTriangle className="mr-1 h-4 w-4" />
+            Vendas diárias & alerta de compra
+          </Link>
+        </Button>
       </div>
+
 
       <Card>
         <CardHeader>
