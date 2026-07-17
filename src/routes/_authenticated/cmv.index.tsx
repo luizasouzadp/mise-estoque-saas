@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Scale, Upload } from "lucide-react";
+import { Trash2, Scale, Upload, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/cmv/")({
   component: CmvPage,
@@ -250,13 +250,22 @@ function CmvPage() {
 
   return (
     <div className="container mx-auto space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="font-display text-2xl">CMV</h1>
-        <p className="text-sm text-muted-foreground">
-          Calcule o CMV de um período: saídas de insumos que compõem o CMV ÷ faturamento.
-          Saídas de produção não são contabilizadas.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl">CMV</h1>
+          <p className="text-sm text-muted-foreground">
+            Calcule o CMV de um período: saídas de insumos que compõem o CMV ÷ faturamento.
+            Saídas de produção não são contabilizadas.
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link to="/cmv/daily">
+            <AlertTriangle className="mr-1 h-4 w-4" />
+            Vendas diárias & alerta de compra
+          </Link>
+        </Button>
       </div>
+
 
       <Card>
         <CardHeader>
