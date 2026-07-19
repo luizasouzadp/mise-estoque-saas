@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,10 +12,16 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, AlertTriangle, TrendingDown, CheckCircle2 } from "lucide-react";
+import {
+  ArrowLeft, Plus, Trash2, AlertTriangle, TrendingDown, CheckCircle2,
+  ChevronDown, ClipboardList, PackageCheck, Send, X,
+} from "lucide-react";
 import {
   createDailySalesReport,
   deleteDailySalesReport,
@@ -52,6 +58,45 @@ type ProjectedRow = {
   status: "zerado" | "abaixo_minimo" | "proximo_minimo" | "ok";
 };
 
+// ---------- purchase lists (localStorage) ----------
+
+type ListItem = {
+  ingredient_id: string;
+  name: string;
+  unit: string;
+  qty: number;
+  addedAt: string; // ISO
+};
+
+type ListsState = {
+  nextDay: ListItem[];
+  orders: ListItem[];
+  ordered: ListItem[];
+};
+
+const LS_KEY = "cmv.purchase-lists.v1";
+
+function loadLists(): ListsState {
+  if (typeof window === "undefined") return { nextDay: [], orders: [], ordered: [] };
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { nextDay: [], orders: [], ordered: [] };
+    const parsed = JSON.parse(raw) as Partial<ListsState>;
+    return {
+      nextDay: parsed.nextDay ?? [],
+      orders: parsed.orders ?? [],
+      ordered: parsed.ordered ?? [],
+    };
+  } catch {
+    return { nextDay: [], orders: [], ordered: [] };
+  }
+}
+
+function saveLists(s: ListsState) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_KEY, JSON.stringify(s));
+}
+
 function todayISO() {
   const d = new Date();
   const y = d.getFullYear();
@@ -66,10 +111,22 @@ function formatBR(s: string) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+function parseQty(input: string): number | null {
+  const v = Number(String(input).replace(",", "."));
+  return isFinite(v) && v > 0 ? v : null;
+}
+
 function DailySalesPage() {
   const qc = useQueryClient();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
+
+  const [lists, setLists] = useState<ListsState>(() => loadLists());
+  useEffect(() => { saveLists(lists); }, [lists]);
+
+  const [showNextDay, setShowNextDay] = useState(false);
+  const [showOrders, setShowOrders] = useState(false);
+  const [waTarget, setWaTarget] = useState<null | { title: string; message: string }>(null);
 
   const { data: reports } = useQuery<DailyReport[]>({
     queryKey: ["daily-sales-reports"],
@@ -90,9 +147,48 @@ function DailySalesPage() {
       const { data, error } = await supabase.rpc("projected_stock_status");
       if (error) throw error;
       const rows = ((data ?? []) as unknown[]) as ProjectedRow[];
-      // Order: zerado, abaixo, próximo, ok
       const order = { zerado: 0, abaixo_minimo: 1, proximo_minimo: 2, ok: 3 };
       return rows.sort((a, b) => order[a.status] - order[b.status]);
+    },
+  });
+
+  // Auto-clear "já encomendado" quando entra uma compra desse insumo após ter sido marcado.
+  const orderedIds = lists.ordered.map((o) => o.ingredient_id);
+  const { data: recentPurchases } = useQuery<{ ingredient_id: string; purchased_at: string }[]>({
+    queryKey: ["purchases-since-ordered", orderedIds.sort().join(",")],
+    enabled: orderedIds.length > 0,
+    queryFn: async () => {
+      const minAt = lists.ordered.reduce((m, o) => (o.addedAt < m ? o.addedAt : m), lists.ordered[0].addedAt);
+      const { data, error } = await supabase
+        .from("purchases")
+        .select("ingredient_id, purchased_at")
+        .in("ingredient_id", orderedIds)
+        .gte("purchased_at", minAt);
+      if (error) throw error;
+      return (data ?? []) as { ingredient_id: string; purchased_at: string }[];
+    },
+  });
+
+  useEffect(() => {
+    if (!recentPurchases || recentPurchases.length === 0) return;
+    setLists((prev) => {
+      const stillPending = prev.ordered.filter((o) => {
+        const found = recentPurchases.some(
+          (p) => p.ingredient_id === o.ingredient_id && p.purchased_at >= o.addedAt,
+        );
+        return !found;
+      });
+      if (stillPending.length === prev.ordered.length) return prev;
+      return { ...prev, ordered: stillPending };
+    });
+  }, [recentPurchases]);
+
+  // Contatos WhatsApp
+  const { data: contacts } = useQuery<{ id: string; name: string; phone: string }[]>({
+    queryKey: ["whatsapp_contacts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone").order("name");
+      return data ?? [];
     },
   });
 
@@ -109,10 +205,57 @@ function DailySalesPage() {
     }
   }
 
-  const alertRows = (projected ?? []).filter((r) => r.status !== "ok");
-  const zeroed = alertRows.filter((r) => r.status === "zerado");
-  const below = alertRows.filter((r) => r.status === "abaixo_minimo");
-  const near = alertRows.filter((r) => r.status === "proximo_minimo");
+  const orderedSet = useMemo(() => new Set(lists.ordered.map((o) => o.ingredient_id)), [lists.ordered]);
+  const alertRowsRaw = (projected ?? []).filter((r) => r.status !== "ok");
+  const alertPending = alertRowsRaw.filter((r) => !orderedSet.has(r.ingredient_id));
+  const alertOrdered = alertRowsRaw.filter((r) => orderedSet.has(r.ingredient_id));
+  const zeroed = alertPending.filter((r) => r.status === "zerado");
+  const below = alertPending.filter((r) => r.status === "abaixo_minimo");
+  const near = alertPending.filter((r) => r.status === "proximo_minimo");
+
+  function addToList(kind: "nextDay" | "orders" | "ordered", row: ProjectedRow) {
+    const suggested = Math.max(0, Number(row.min_stock) - Number(row.projected_stock));
+    const label = kind === "ordered" ? "Quantidade já encomendada" : "Quantidade a comprar";
+    const raw = window.prompt(
+      `${label} (${row.unit}) para ${row.ingredient_name}:`,
+      suggested > 0 ? QTY.format(suggested) : "",
+    );
+    if (raw == null) return;
+    const qty = parseQty(raw);
+    if (qty == null) return toast.error("Quantidade inválida");
+    setLists((prev) => {
+      const existing = prev[kind].find((x) => x.ingredient_id === row.ingredient_id);
+      const next = existing
+        ? prev[kind].map((x) => x.ingredient_id === row.ingredient_id ? { ...x, qty, addedAt: new Date().toISOString() } : x)
+        : [...prev[kind], { ingredient_id: row.ingredient_id, name: row.ingredient_name, unit: row.unit, qty, addedAt: new Date().toISOString() }];
+      const state = { ...prev, [kind]: next };
+      // Se marcou como encomendado, remove das outras listas
+      if (kind === "ordered") {
+        state.nextDay = prev.nextDay.filter((x) => x.ingredient_id !== row.ingredient_id);
+        state.orders = prev.orders.filter((x) => x.ingredient_id !== row.ingredient_id);
+      }
+      return state;
+    });
+    const dest = kind === "nextDay" ? "lista do dia seguinte" : kind === "orders" ? "lista de encomendas" : "já encomendados";
+    toast.success(`Adicionado à ${dest}`);
+  }
+
+  function updateItemQty(kind: "nextDay" | "orders", ingredient_id: string, qty: number) {
+    setLists((prev) => ({
+      ...prev,
+      [kind]: prev[kind].map((x) => x.ingredient_id === ingredient_id ? { ...x, qty } : x),
+    }));
+  }
+  function removeItem(kind: "nextDay" | "orders" | "ordered", ingredient_id: string) {
+    setLists((prev) => ({ ...prev, [kind]: prev[kind].filter((x) => x.ingredient_id !== ingredient_id) }));
+  }
+
+  function buildMessage(title: string, items: ListItem[]) {
+    const lines = [`*${title}* — ${formatBR(todayISO())}`, ""];
+    for (const it of items) lines.push(`• ${it.name}: ${QTY.format(it.qty)} ${it.unit}`);
+    lines.push("", `Total de itens: ${items.length}`);
+    return lines.join("\n");
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-4 md:p-8">
@@ -128,16 +271,28 @@ function DailySalesPage() {
               antecipar compras emergenciais antes da próxima contagem.
             </p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-1" /> Enviar vendas do dia</Button>
-            </DialogTrigger>
-            <NewDailyReportDialog onDone={() => {
-              setOpen(false);
-              qc.invalidateQueries({ queryKey: ["daily-sales-reports"] });
-              qc.invalidateQueries({ queryKey: ["projected-stock-status"] });
-            }} />
-          </Dialog>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => setShowNextDay(true)}>
+              <ClipboardList className="mr-1 h-4 w-4" />
+              Lista dia seguinte
+              {lists.nextDay.length > 0 && <Badge variant="secondary" className="ml-2">{lists.nextDay.length}</Badge>}
+            </Button>
+            <Button variant="outline" onClick={() => setShowOrders(true)}>
+              <ClipboardList className="mr-1 h-4 w-4" />
+              Lista de encomendas
+              {lists.orders.length > 0 && <Badge variant="secondary" className="ml-2">{lists.orders.length}</Badge>}
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="mr-1" /> Enviar vendas do dia</Button>
+              </DialogTrigger>
+              <NewDailyReportDialog onDone={() => {
+                setOpen(false);
+                qc.invalidateQueries({ queryKey: ["daily-sales-reports"] });
+                qc.invalidateQueries({ queryKey: ["projected-stock-status"] });
+              }} />
+            </Dialog>
+          </div>
         </div>
       </div>
 
@@ -155,7 +310,7 @@ function DailySalesPage() {
 
         {projLoading ? (
           <div className="rounded-lg border p-6 text-sm text-muted-foreground">Calculando…</div>
-        ) : alertRows.length === 0 ? (
+        ) : alertRowsRaw.length === 0 ? (
           <div className="rounded-lg border border-emerald-600/40 bg-emerald-50/40 p-6 text-sm text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
             Nenhum insumo em risco no momento — todos com estoque projetado acima do mínimo.
@@ -168,7 +323,7 @@ function DailySalesPage() {
           </div>
         )}
 
-        {alertRows.length > 0 && (
+        {alertRowsRaw.length > 0 && (
           <div className="rounded-xl border bg-card overflow-x-auto">
             <Table>
               <TableHeader>
@@ -184,10 +339,18 @@ function DailySalesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {alertRows.map((r) => (
+                {alertPending.map((r) => (
+                  <AlertRow
+                    key={r.ingredient_id}
+                    row={r}
+                    onOpen={() => nav({ to: "/ingredients/$id", params: { id: r.ingredient_id } })}
+                    onAdd={(kind) => addToList(kind, r)}
+                  />
+                ))}
+                {alertOrdered.map((r) => (
                   <TableRow
                     key={r.ingredient_id}
-                    className="cursor-pointer hover:bg-secondary/40"
+                    className="bg-emerald-50/60 hover:bg-emerald-100/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/40 cursor-pointer"
                     onClick={() => nav({ to: "/ingredients/$id", params: { id: r.ingredient_id } })}
                   >
                     <TableCell className="font-medium">{r.ingredient_name}</TableCell>
@@ -195,15 +358,21 @@ function DailySalesPage() {
                     <TableCell className="text-right text-muted-foreground">
                       −{QTY.format(Number(r.consumed_since_anchor))} {r.unit}
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${r.status === "zerado" ? "text-destructive" : r.status === "abaixo_minimo" ? "text-destructive" : "text-amber-600"}`}>
-                      {QTY.format(Number(r.projected_stock))} {r.unit}
-                    </TableCell>
+                    <TableCell className="text-right">{QTY.format(Number(r.projected_stock))} {r.unit}</TableCell>
                     <TableCell className="text-right">{QTY.format(Number(r.min_stock))} {r.unit}</TableCell>
                     <TableCell className="text-right">{r.days_since_anchor}d</TableCell>
-                    <TableCell><StatusBadge status={r.status} /></TableCell>
+                    <TableCell>
+                      <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                        <PackageCheck className="mr-1 h-3 w-3" /> Encomendado
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
-                        <Link to="/purchases/new">Comprar</Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); removeItem("ordered", r.ingredient_id); }}
+                      >
+                        <X className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -260,7 +429,185 @@ function DailySalesPage() {
           )}
         </div>
       </section>
+
+      {/* Dialogs das listas */}
+      <ListDialog
+        open={showNextDay}
+        onClose={() => setShowNextDay(false)}
+        title="Lista de compras — dia seguinte"
+        items={lists.nextDay}
+        onQtyChange={(id, q) => updateItemQty("nextDay", id, q)}
+        onRemove={(id) => removeItem("nextDay", id)}
+        onSend={() => setWaTarget({ title: "Lista de compras — dia seguinte", message: buildMessage("Lista de compras — dia seguinte", lists.nextDay) })}
+      />
+      <ListDialog
+        open={showOrders}
+        onClose={() => setShowOrders(false)}
+        title="Lista de encomendas"
+        items={lists.orders}
+        onQtyChange={(id, q) => updateItemQty("orders", id, q)}
+        onRemove={(id) => removeItem("orders", id)}
+        onSend={() => setWaTarget({ title: "Lista de encomendas", message: buildMessage("Lista de encomendas", lists.orders) })}
+      />
+
+      {/* WhatsApp picker */}
+      <Dialog open={waTarget != null} onOpenChange={(o) => !o && setWaTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar por WhatsApp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Escolha um contato:</p>
+            {(contacts ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum contato cadastrado. Cadastre um contato na tela de inventário.
+              </p>
+            ) : (
+              <div className="max-h-80 overflow-y-auto divide-y rounded-md border">
+                {(contacts ?? []).map((c) => (
+                  <button
+                    key={c.id}
+                    className="w-full text-left px-3 py-2 hover:bg-secondary/50 flex items-center justify-between"
+                    onClick={() => {
+                      if (!waTarget) return;
+                      const raw = c.phone.replace(/\D/g, "");
+                      const phone = raw.length === 10 || raw.length === 11 ? `55${raw}` : raw;
+                      const url = `https://wa.me/${phone}?text=${encodeURIComponent(waTarget.message)}`;
+                      window.open(url, "_blank");
+                      setWaTarget(null);
+                    }}
+                  >
+                    <span className="font-medium">{c.name}</span>
+                    <span className="text-xs text-muted-foreground">{c.phone}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWaTarget(null)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function AlertRow({
+  row, onOpen, onAdd,
+}: {
+  row: ProjectedRow;
+  onOpen: () => void;
+  onAdd: (kind: "nextDay" | "orders" | "ordered") => void;
+}) {
+  return (
+    <TableRow className="cursor-pointer hover:bg-secondary/40" onClick={onOpen}>
+      <TableCell className="font-medium">{row.ingredient_name}</TableCell>
+      <TableCell className="text-right">{QTY.format(Number(row.current_stock))} {row.unit}</TableCell>
+      <TableCell className="text-right text-muted-foreground">
+        −{QTY.format(Number(row.consumed_since_anchor))} {row.unit}
+      </TableCell>
+      <TableCell className={`text-right font-medium ${row.status === "zerado" ? "text-destructive" : row.status === "abaixo_minimo" ? "text-destructive" : "text-amber-600"}`}>
+        {QTY.format(Number(row.projected_stock))} {row.unit}
+      </TableCell>
+      <TableCell className="text-right">{QTY.format(Number(row.min_stock))} {row.unit}</TableCell>
+      <TableCell className="text-right">{row.days_since_anchor}d</TableCell>
+      <TableCell><StatusBadge status={row.status} /></TableCell>
+      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Ações <ChevronDown className="ml-1 h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Adicionar em…</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => onAdd("nextDay")}>
+              <ClipboardList className="mr-2 h-4 w-4" /> Lista do dia seguinte
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAdd("orders")}>
+              <ClipboardList className="mr-2 h-4 w-4" /> Lista de encomendas
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onAdd("ordered")}>
+              <PackageCheck className="mr-2 h-4 w-4 text-emerald-600" /> Já encomendado
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ListDialog({
+  open, onClose, title, items, onQtyChange, onRemove, onSend,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  items: ListItem[];
+  onQtyChange: (ingredient_id: string, qty: number) => void;
+  onRemove: (ingredient_id: string) => void;
+  onSend: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            Nenhum item na lista ainda. Use o botão “Ações” em cada insumo em risco para adicionar.
+          </p>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Insumo</TableHead>
+                  <TableHead className="text-right">Quantidade</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((it) => (
+                  <TableRow key={it.ingredient_id}>
+                    <TableCell className="font-medium">{it.name}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Input
+                          type="number"
+                          step="0.001"
+                          value={it.qty}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            if (isFinite(v) && v >= 0) onQtyChange(it.ingredient_id, v);
+                          }}
+                          className="h-8 w-24 text-right"
+                        />
+                        <span className="text-xs text-muted-foreground w-8 text-left">{it.unit}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => onRemove(it.ingredient_id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+          <Button onClick={onSend} disabled={items.length === 0}>
+            <Send className="mr-1 h-4 w-4" /> Enviar por WhatsApp
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
