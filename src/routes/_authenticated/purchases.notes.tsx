@@ -212,7 +212,8 @@ function NotesArchive() {
                       <div className="p-2 text-xs">
                         <p className="truncate font-medium">{n.supplier ?? "Sem fornecedor"}</p>
                         <p className="text-muted-foreground">
-                          {new Date(n.purchased_at).toLocaleDateString("pt-BR")} · R$ {Number(n.total_cost).toFixed(2)}
+                          {new Date(n.purchased_at).toLocaleDateString("pt-BR")}
+                          {Number(n.total_cost) > 0 ? ` · R$ ${Number(n.total_cost).toFixed(2)}` : " · aguardando entrada"}
                         </p>
                       </div>
                     </button>
