@@ -264,8 +264,12 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
       source: "photo",
       created_by: userId,
     }));
-    const { error } = await supabase.from("purchases").insert(rows);
+    const { data: insertedPurchases, error } = await supabase
+      .from("purchases")
+      .insert(rows)
+      .select("id");
     if (error) throw new Error(error.message);
+    const purchaseIds = (insertedPurchases ?? []).map((r) => r.id as string);
 
     // Learn aliases (only when user asked to save the conversion).
     const aliasesToLearn = data.items.filter((it) => it.learn_alias);
