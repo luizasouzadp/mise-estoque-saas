@@ -313,5 +313,5 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
       }
     }
 
-    return { ok: true, count: rows.length };
+    return { ok: true, count: rows.length, purchase_ids: purchaseIds };
   });
