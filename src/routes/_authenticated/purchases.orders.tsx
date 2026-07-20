@@ -5,6 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/searchable-select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -12,11 +16,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil } from "lucide-react";
+import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil, Plus, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/purchases/orders")({
   component: OrdersPage,
 });
+
+type SupplierOpt = { id: string; name: string };
+type IngredientOpt = { id: string; name: string; unit: string };
+type NewOrderLine = { ingredient_id: string; quantity: string; expected_at: string; notes: string };
 
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 
@@ -47,6 +55,12 @@ function OrdersPage() {
   const [editing, setEditing] = useState<OrderRow | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editExpected, setEditExpected] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
+  const [newSupplierId, setNewSupplierId] = useState<string>("");
+  const [newExpected, setNewExpected] = useState<string>("");
+  const [newLines, setNewLines] = useState<NewOrderLine[]>([
+    { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
+  ]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -66,6 +80,22 @@ function OrdersPage() {
     queryFn: async () => {
       const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone").order("name");
       return data ?? [];
+    },
+  });
+
+  const { data: suppliers } = useQuery<SupplierOpt[]>({
+    queryKey: ["suppliers-min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("suppliers").select("id, name").order("name");
+      return data ?? [];
+    },
+  });
+
+  const { data: ingredients } = useQuery<IngredientOpt[]>({
+    queryKey: ["ingredients-min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("ingredients").select("id, name, unit").order("name");
+      return (data ?? []) as IngredientOpt[];
     },
   });
 
@@ -93,6 +123,68 @@ function OrdersPage() {
     const { error } = await (supabase as any).from("purchase_orders").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Excluída");
+    qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+  }
+
+  async function receiveAll(items: OrderRow[]) {
+    if (items.length === 0) return;
+    if (!confirm(`Confirmar recebimento de ${items.length} ${items.length === 1 ? "item" : "itens"}?`)) return;
+    const ids = items.map((i) => i.id);
+    const { error } = await (supabase as any).from("purchase_orders").update({ status: "received" }).in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success("Pedido recebido");
+    qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+  }
+
+  function resetNewOrder() {
+    setNewSupplierId("");
+    setNewExpected("");
+    setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+  }
+
+  function addNewLine() {
+    setNewLines((ls) => [...ls, { ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+  }
+  function updateNewLine(idx: number, patch: Partial<NewOrderLine>) {
+    setNewLines((ls) => ls.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+  function removeNewLine(idx: number) {
+    setNewLines((ls) => ls.filter((_, i) => i !== idx));
+  }
+
+  async function saveNewOrder() {
+    const sup = (suppliers ?? []).find((s) => s.id === newSupplierId);
+    if (!sup) return toast.error("Selecione um fornecedor");
+    const rows = newLines
+      .map((l) => {
+        const ing = (ingredients ?? []).find((i) => i.id === l.ingredient_id);
+        const q = Number(String(l.quantity).replace(",", "."));
+        if (!ing || !isFinite(q) || q <= 0) return null;
+        return {
+          supplier_id: sup.id,
+          supplier_name: sup.name,
+          ingredient_id: ing.id,
+          quantity: q,
+          unit: ing.unit,
+          expected_at: (l.expected_at || newExpected) || null,
+          notes: l.notes || null,
+          status: "pending" as const,
+        };
+      })
+      .filter(Boolean);
+    if (rows.length === 0) return toast.error("Adicione ao menos um item válido");
+
+    const { data: prof } = await supabase
+      .from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+    const payload = rows.map((r) => ({ ...(r as object), restaurant_id: prof.restaurant_id }));
+    const { error } = await (supabase as any).from("purchase_orders").insert(payload);
+    if (error) return toast.error(error.message);
+    toast.success("Encomenda criada");
+    setNewOpen(false);
+    resetNewOrder();
     qc.invalidateQueries({ queryKey: ["purchase-orders"] });
     qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
   }
@@ -142,6 +234,9 @@ function OrdersPage() {
               para os contatos cadastrados.
             </p>
           </div>
+          <Button onClick={() => setNewOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" /> Nova encomenda
+          </Button>
         </div>
       </div>
 
@@ -165,9 +260,14 @@ function OrdersPage() {
                   {supplier}
                   <Badge variant="secondary">{items.length}</Badge>
                 </div>
-                <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
-                  <Send className="mr-1 h-4 w-4" /> Enviar ordem no WhatsApp
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => receiveAll(items)}>
+                    <CheckCircle2 className="mr-1 h-4 w-4 text-emerald-600" /> Confirmar recebimento
+                  </Button>
+                  <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
+                    <Send className="mr-1 h-4 w-4" /> Enviar ordem no WhatsApp
+                  </Button>
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -268,6 +368,77 @@ function OrdersPage() {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
             <Button onClick={saveEdit}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New order dialog */}
+      <Dialog open={newOpen} onOpenChange={(o) => { setNewOpen(o); if (!o) resetNewOrder(); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Nova encomenda</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Fornecedor</Label>
+                <Select value={newSupplierId} onValueChange={setNewSupplierId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
+                  <SelectContent>
+                    {(suppliers ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Previsão de chegada (padrão)</Label>
+                <Input type="date" value={newExpected} onChange={(e) => setNewExpected(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Itens do pedido</Label>
+                <Button size="sm" variant="outline" onClick={addNewLine}>
+                  <Plus className="mr-1 h-4 w-4" /> Adicionar item
+                </Button>
+              </div>
+              <div className="max-h-[50vh] space-y-2 overflow-y-auto rounded-md border p-2">
+                {newLines.map((line, idx) => {
+                  const ing = (ingredients ?? []).find((i) => i.id === line.ingredient_id);
+                  return (
+                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_120px_140px_auto]">
+                      <Select value={line.ingredient_id} onValueChange={(v) => updateNewLine(idx, { ingredient_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
+                        <SelectContent>
+                          {(ingredients ?? []).map((i) => (
+                            <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder={`Qtd${ing ? ` (${ing.unit})` : ""}`}
+                        value={line.quantity}
+                        onChange={(e) => updateNewLine(idx, { quantity: e.target.value })}
+                      />
+                      <Input
+                        type="date"
+                        value={line.expected_at}
+                        onChange={(e) => updateNewLine(idx, { expected_at: e.target.value })}
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => removeNewLine(idx)} title="Remover">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setNewOpen(false); resetNewOrder(); }}>Cancelar</Button>
+            <Button onClick={saveNewOrder}>Criar encomenda</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
