@@ -326,7 +326,7 @@ function OrdersPage() {
                   <Badge variant="secondary">{items.length}</Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => receiveAll(items)}>
+                  <Button size="sm" variant="outline" onClick={() => openReceive(supplier, items)}>
                     <CheckCircle2 className="mr-1 h-4 w-4 text-emerald-600" /> Confirmar recebimento
                   </Button>
                   <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
