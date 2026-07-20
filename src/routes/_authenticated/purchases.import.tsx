@@ -229,9 +229,9 @@ function ImportPurchase() {
     }
     setSaving(true);
     try {
-      // 1. Upload image
-      let invoicePath: string | null = null;
-      if (file) {
+      // 1. Upload image (reuse existing path when coming from an order receipt).
+      let invoicePath: string | null = existingInvoicePath;
+      if (!invoicePath && file) {
         const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
         if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
         const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -245,7 +245,7 @@ function ImportPurchase() {
       }
 
       // 2. Persist
-      await saveFn({
+      const result = await saveFn({
         data: {
           supplier_name: supplierName.trim() || null,
           supplier_tax_id: supplierTaxId.trim() || null,
@@ -262,10 +262,25 @@ function ImportPurchase() {
           })),
         },
       });
+
+      // 3. If linked to a receipt, mark the pending orders as imported.
+      if (existingInvoicePath) {
+        await (supabase as any)
+          .from("purchase_orders")
+          .update({
+            import_status: "imported",
+            imported_purchase_ids: result?.purchase_ids ?? null,
+          })
+          .eq("receipt_image_path", existingInvoicePath)
+          .eq("import_status", "pending");
+      }
+
       toast.success("Compra registrada! Estoque atualizado.");
       qc.invalidateQueries({ queryKey: ["purchases"] });
       qc.invalidateQueries({ queryKey: ["ingredients"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-import"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
       nav({ to: "/purchases" });
     } catch (e) {
       const err = e as Error;
