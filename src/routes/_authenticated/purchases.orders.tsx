@@ -127,6 +127,68 @@ function OrdersPage() {
     qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
   }
 
+  async function receiveAll(items: OrderRow[]) {
+    if (items.length === 0) return;
+    if (!confirm(`Confirmar recebimento de ${items.length} ${items.length === 1 ? "item" : "itens"}?`)) return;
+    const ids = items.map((i) => i.id);
+    const { error } = await (supabase as any).from("purchase_orders").update({ status: "received" }).in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success("Pedido recebido");
+    qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+  }
+
+  function resetNewOrder() {
+    setNewSupplierId("");
+    setNewExpected("");
+    setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+  }
+
+  function addNewLine() {
+    setNewLines((ls) => [...ls, { ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+  }
+  function updateNewLine(idx: number, patch: Partial<NewOrderLine>) {
+    setNewLines((ls) => ls.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+  function removeNewLine(idx: number) {
+    setNewLines((ls) => ls.filter((_, i) => i !== idx));
+  }
+
+  async function saveNewOrder() {
+    const sup = (suppliers ?? []).find((s) => s.id === newSupplierId);
+    if (!sup) return toast.error("Selecione um fornecedor");
+    const rows = newLines
+      .map((l) => {
+        const ing = (ingredients ?? []).find((i) => i.id === l.ingredient_id);
+        const q = Number(String(l.quantity).replace(",", "."));
+        if (!ing || !isFinite(q) || q <= 0) return null;
+        return {
+          supplier_id: sup.id,
+          supplier_name: sup.name,
+          ingredient_id: ing.id,
+          quantity: q,
+          unit: ing.unit,
+          expected_at: (l.expected_at || newExpected) || null,
+          notes: l.notes || null,
+          status: "pending" as const,
+        };
+      })
+      .filter(Boolean);
+    if (rows.length === 0) return toast.error("Adicione ao menos um item válido");
+
+    const { data: prof } = await supabase
+      .from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+    const payload = rows.map((r) => ({ ...(r as object), restaurant_id: prof.restaurant_id }));
+    const { error } = await (supabase as any).from("purchase_orders").insert(payload);
+    if (error) return toast.error(error.message);
+    toast.success("Encomenda criada");
+    setNewOpen(false);
+    resetNewOrder();
+    qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+  }
+
   function openEdit(o: OrderRow) {
     setEditing(o);
     setEditQty(String(o.quantity));
