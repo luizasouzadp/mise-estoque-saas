@@ -25,6 +25,8 @@ import {
 } from "@/lib/invoice-import.functions";
 
 export const Route = createFileRoute("/_authenticated/purchases/import")({
+  validateSearch: (search: Record<string, unknown>) =>
+    z.object({ fromOrderReceipt: z.string().optional() }).parse(search),
   component: ImportPurchase,
 });
 
