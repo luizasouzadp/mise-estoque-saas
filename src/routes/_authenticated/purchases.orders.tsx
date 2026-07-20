@@ -260,9 +260,14 @@ function OrdersPage() {
                   {supplier}
                   <Badge variant="secondary">{items.length}</Badge>
                 </div>
-                <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
-                  <Send className="mr-1 h-4 w-4" /> Enviar ordem no WhatsApp
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => receiveAll(items)}>
+                    <CheckCircle2 className="mr-1 h-4 w-4 text-emerald-600" /> Confirmar recebimento
+                  </Button>
+                  <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
+                    <Send className="mr-1 h-4 w-4" /> Enviar ordem no WhatsApp
+                  </Button>
+                </div>
               </div>
               <Table>
                 <TableHeader>
