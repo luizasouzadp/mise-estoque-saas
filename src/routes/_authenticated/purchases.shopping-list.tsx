@@ -626,7 +626,7 @@ function MarkOrderedDialog({
     const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
     if (!prof?.restaurant_id) { setSaving(false); return toast.error("Restaurante não encontrado"); }
     const chosen = suppliers?.find((s) => s.id === supplierId);
-    const { error } = await (supabase as any)(supabase as any).from("purchase_orders").insert({
+    const { error } = await (supabase as any).from("purchase_orders").insert({
       restaurant_id: prof.restaurant_id,
       supplier_id: supplierId || null,
       supplier_name: chosen?.name ?? (supplierName.trim() || null),
