@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,8 @@ import {
 } from "@/lib/invoice-import.functions";
 
 export const Route = createFileRoute("/_authenticated/purchases/import")({
+  validateSearch: (search: Record<string, unknown>) =>
+    z.object({ fromOrderReceipt: z.string().optional() }).parse(search),
   component: ImportPurchase,
 });
 
@@ -42,6 +45,8 @@ type ReviewItem = {
 function ImportPurchase() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const search = Route.useSearch();
+  const fromOrderReceipt = search.fromOrderReceipt;
   const parseFn = useServerFn(parseInvoiceImage);
   const suggestFn = useServerFn(suggestIngredientMatches);
   const saveFn = useServerFn(saveImportedPurchase);
@@ -59,8 +64,46 @@ function ImportPurchase() {
   const [ingredientOptions, setIngredientOptions] = useState<Array<{ id: string; name: string; unit: string }>>([]);
   const [aliasMap, setAliasMap] = useState<Map<string, number>>(new Map()); // key: `${ingId}::${unit_up}` -> factor
   const [saving, setSaving] = useState(false);
+  const [existingInvoicePath, setExistingInvoicePath] = useState<string | null>(null);
+  const [autoLoading, setAutoLoading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+
+  // If arriving from an order receipt, download that image and prefill.
+  useEffect(() => {
+    if (!fromOrderReceipt || existingInvoicePath) return;
+    let cancelled = false;
+    (async () => {
+      setAutoLoading(true);
+      try {
+        const { data: blob, error } = await supabase.storage
+          .from("purchase-invoices")
+          .download(fromOrderReceipt);
+        if (error || !blob) throw new Error(error?.message || "Falha ao carregar nota");
+        if (cancelled) return;
+        const name = fromOrderReceipt.split("/").pop() || "nota.jpg";
+        const f = new File([blob], name, { type: blob.type || "image/jpeg" });
+        setFile(f);
+        setExistingInvoicePath(fromOrderReceipt);
+        const reader = new FileReader();
+        reader.onload = () => !cancelled && setPreview(String(reader.result));
+        reader.readAsDataURL(f);
+        // Preload supplier from the linked order.
+        const { data: ord } = await (supabase as any)
+          .from("purchase_orders")
+          .select("supplier_name")
+          .eq("receipt_image_path", fromOrderReceipt)
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && ord?.supplier_name) setSupplierName(ord.supplier_name);
+      } catch (e) {
+        toast.error((e as Error).message);
+      } finally {
+        if (!cancelled) setAutoLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fromOrderReceipt, existingInvoicePath]);
 
   const { data: ingredientsData } = useQuery({
     queryKey: ["ingredients"],
@@ -186,9 +229,9 @@ function ImportPurchase() {
     }
     setSaving(true);
     try {
-      // 1. Upload image
-      let invoicePath: string | null = null;
-      if (file) {
+      // 1. Upload image (reuse existing path when coming from an order receipt).
+      let invoicePath: string | null = existingInvoicePath;
+      if (!invoicePath && file) {
         const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
         if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
         const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -202,7 +245,7 @@ function ImportPurchase() {
       }
 
       // 2. Persist
-      await saveFn({
+      const result = await saveFn({
         data: {
           supplier_name: supplierName.trim() || null,
           supplier_tax_id: supplierTaxId.trim() || null,
@@ -219,10 +262,25 @@ function ImportPurchase() {
           })),
         },
       });
+
+      // 3. If linked to a receipt, mark the pending orders as imported.
+      if (existingInvoicePath) {
+        await (supabase as any)
+          .from("purchase_orders")
+          .update({
+            import_status: "imported",
+            imported_purchase_ids: result?.purchase_ids ?? null,
+          })
+          .eq("receipt_image_path", existingInvoicePath)
+          .eq("import_status", "pending");
+      }
+
       toast.success("Compra registrada! Estoque atualizado.");
       qc.invalidateQueries({ queryKey: ["purchases"] });
       qc.invalidateQueries({ queryKey: ["ingredients"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-import"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
       nav({ to: "/purchases" });
     } catch (e) {
       const err = e as Error;

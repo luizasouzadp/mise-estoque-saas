@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +15,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil, Plus, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil, Plus, CheckCircle2, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/purchases/orders")({
   component: OrdersPage,
@@ -61,6 +62,13 @@ function OrdersPage() {
   const [newLines, setNewLines] = useState<NewOrderLine[]>([
     { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
   ]);
+  const [receiveTarget, setReceiveTarget] = useState<null | { supplier: string; items: OrderRow[] }>(null);
+  const [receiveFile, setReceiveFile] = useState<File | null>(null);
+  const [receivePreview, setReceivePreview] = useState<string | null>(null);
+  const [receiveNotes, setReceiveNotes] = useState("");
+  const [receiving, setReceiving] = useState(false);
+  const receiveCameraRef = useRef<HTMLInputElement | null>(null);
+  const receiveGalleryRef = useRef<HTMLInputElement | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
@@ -111,9 +119,15 @@ function OrdersPage() {
   }, [data]);
 
   async function updateStatus(id: string, status: "received" | "cancelled") {
+    if (status === "received") {
+      const o = (data ?? []).find((r) => r.id === id);
+      if (!o) return;
+      openReceive(o.supplier_name ?? "Sem fornecedor", [o]);
+      return;
+    }
     const { error } = await (supabase as any).from("purchase_orders").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success(status === "received" ? "Marcado como recebido" : "Cancelado");
+    toast.success("Cancelado");
     qc.invalidateQueries({ queryKey: ["purchase-orders"] });
     qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
   }
@@ -127,15 +141,62 @@ function OrdersPage() {
     qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
   }
 
-  async function receiveAll(items: OrderRow[]) {
-    if (items.length === 0) return;
-    if (!confirm(`Confirmar recebimento de ${items.length} ${items.length === 1 ? "item" : "itens"}?`)) return;
-    const ids = items.map((i) => i.id);
-    const { error } = await (supabase as any).from("purchase_orders").update({ status: "received" }).in("id", ids);
-    if (error) return toast.error(error.message);
-    toast.success("Pedido recebido");
-    qc.invalidateQueries({ queryKey: ["purchase-orders"] });
-    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+  function openReceive(supplier: string, items: OrderRow[]) {
+    setReceiveTarget({ supplier, items });
+    setReceiveFile(null);
+    setReceivePreview(null);
+    setReceiveNotes("");
+  }
+
+  function onPickReceiptFile(f: File) {
+    setReceiveFile(f);
+    const r = new FileReader();
+    r.onload = () => setReceivePreview(String(r.result));
+    r.readAsDataURL(f);
+  }
+
+  async function confirmReceive() {
+    if (!receiveTarget) return;
+    if (!receiveFile) return toast.error("Anexe a foto da nota");
+    setReceiving(true);
+    try {
+      const { data: prof } = await supabase
+        .from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const ext = (receiveFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+      const { error: upErr } = await supabase.storage
+        .from("purchase-invoices")
+        .upload(path, receiveFile, {
+          contentType: receiveFile.type || "image/jpeg",
+          upsert: false,
+        });
+      if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+
+      const ids = receiveTarget.items.map((i) => i.id);
+      const { error } = await (supabase as any)
+        .from("purchase_orders")
+        .update({
+          status: "received",
+          received_at: new Date().toISOString(),
+          receipt_image_path: path,
+          receipt_notes: receiveNotes.trim() || null,
+          import_status: "pending",
+        })
+        .in("id", ids);
+      if (error) throw new Error(error.message);
+
+      toast.success("Recebimento registrado. Nota disponível em Compras.");
+      setReceiveTarget(null);
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-import"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReceiving(false);
+    }
   }
 
   function resetNewOrder() {
@@ -265,7 +326,7 @@ function OrdersPage() {
                   <Badge variant="secondary">{items.length}</Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => receiveAll(items)}>
+                  <Button size="sm" variant="outline" onClick={() => openReceive(supplier, items)}>
                     <CheckCircle2 className="mr-1 h-4 w-4 text-emerald-600" /> Confirmar recebimento
                   </Button>
                   <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
@@ -442,6 +503,85 @@ function OrdersPage() {
           <DialogFooter>
             <Button variant="ghost" onClick={() => { setNewOpen(false); resetNewOrder(); }}>Cancelar</Button>
             <Button onClick={saveNewOrder}>Criar encomenda</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt confirmation dialog */}
+      <Dialog open={receiveTarget != null} onOpenChange={(o) => !o && !receiving && setReceiveTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Confirmar recebimento — {receiveTarget?.supplier}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="mb-1 font-medium">{receiveTarget?.items.length} item(ns) sendo recebidos</p>
+              <ul className="max-h-32 space-y-0.5 overflow-y-auto text-xs text-muted-foreground">
+                {receiveTarget?.items.map((it) => (
+                  <li key={it.id}>
+                    • {it.ingredient?.name ?? "—"}: {QTY.format(Number(it.quantity))} {it.unit}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Foto da nota fiscal *</Label>
+              <input
+                ref={receiveCameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onPickReceiptFile(f);
+                  e.target.value = "";
+                }}
+              />
+              <input
+                ref={receiveGalleryRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onPickReceiptFile(f);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => receiveCameraRef.current?.click()}>
+                  <Camera className="mr-2 h-4 w-4" /> Tirar foto
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => receiveGalleryRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" /> Da galeria
+                </Button>
+              </div>
+              {receivePreview && (
+                <img src={receivePreview} alt="Prévia da nota" className="mt-2 max-h-56 rounded-md border object-contain" />
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Observações / avarias</Label>
+              <Textarea
+                placeholder="Ex.: 2 caixas amassadas, faltou 1 unidade…"
+                value={receiveNotes}
+                onChange={(e) => setReceiveNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              A nota entrará no arquivo mensal e aparecerá como pendência em Compras para dar entrada dos itens.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
+            <Button onClick={confirmReceive} disabled={receiving || !receiveFile}>
+              {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Receipt, Pencil, Trash2, Search, X, Camera, Images, ShoppingCart, PackageCheck } from "lucide-react";
+import { Plus, Receipt, Pencil, Trash2, Search, X, Camera, Images, ShoppingCart, PackageCheck, FileWarning, ArrowRight, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/purchases/")({
@@ -39,6 +39,7 @@ type PurchaseRow = {
 
 function PurchasesList() {
   const qc = useQueryClient();
+  const nav = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ["purchases"],
     queryFn: async () => {
@@ -50,6 +51,81 @@ function PurchasesList() {
       return data as unknown as PurchaseRow[];
     },
   });
+
+  // Pending receipt notes waiting to become purchase entries.
+  const { data: pending } = useQuery({
+    queryKey: ["purchase-orders-pending-import"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("purchase_orders")
+        .select("id, supplier_name, receipt_image_path, receipt_notes, received_at")
+        .eq("import_status", "pending")
+        .not("receipt_image_path", "is", null)
+        .order("received_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        supplier_name: string | null;
+        receipt_image_path: string;
+        receipt_notes: string | null;
+        received_at: string | null;
+      }>;
+    },
+  });
+
+  const pendingGroups = useMemo(() => {
+    if (!pending) return [] as Array<{
+      path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[];
+    }>;
+    const map = new Map<string, { path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[] }>();
+    for (const p of pending) {
+      const g = map.get(p.receipt_image_path);
+      if (g) {
+        g.count += 1;
+        g.ids.push(p.id);
+        if (!g.notes && p.receipt_notes) g.notes = p.receipt_notes;
+      } else {
+        map.set(p.receipt_image_path, {
+          path: p.receipt_image_path,
+          supplier: p.supplier_name,
+          notes: p.receipt_notes,
+          received_at: p.received_at,
+          count: 1,
+          ids: [p.id],
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [pending]);
+
+  const [pendingUrls, setPendingUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const missing = pendingGroups.map((g) => g.path).filter((p) => !pendingUrls[p]);
+    if (missing.length === 0) return;
+    (async () => {
+      const { data: signed } = await supabase.storage
+        .from("purchase-invoices")
+        .createSignedUrls(missing, 60 * 60);
+      if (!signed) return;
+      setPendingUrls((prev) => {
+        const next = { ...prev };
+        signed.forEach((s, i) => {
+          if (s.signedUrl) next[missing[i]] = s.signedUrl;
+        });
+        return next;
+      });
+    })();
+  }, [pendingGroups, pendingUrls]);
+
+  async function skipPending(ids: string[]) {
+    if (!confirm("Ignorar esta pendência? A nota permanecerá arquivada, mas nenhuma entrada será cobrada.")) return;
+    const { error } = await (supabase as any)
+      .from("purchase_orders")
+      .update({ import_status: "skipped" })
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-import"] });
+  }
 
   const [ingredientFilter, setIngredientFilter] = useState<string>("all");
   const [supplierFilter, setSupplierFilter] = useState("");
@@ -182,6 +258,61 @@ function PurchasesList() {
       </div>
 
       <div className="mt-6 space-y-4">
+        {pendingGroups.length > 0 && (
+          <div className="rounded-xl border-2 border-amber-400/60 bg-amber-50 p-4 shadow-[var(--shadow-soft)] dark:bg-amber-950/30">
+            <div className="mb-3 flex items-center gap-2 text-amber-900 dark:text-amber-200">
+              <FileWarning className="h-5 w-5" />
+              <h2 className="font-semibold">Notas aguardando entrada</h2>
+              <span className="text-xs opacity-70">
+                Encomendas recebidas com nota anexada — dê entrada dos itens.
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {pendingGroups.map((g) => {
+                const url = pendingUrls[g.path];
+                return (
+                  <div key={g.path} className="flex gap-3 rounded-lg border bg-card p-3">
+                    <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+                      {url ? (
+                        <img src={url} alt="Nota" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                          <ImageOff className="h-5 w-5" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{g.supplier ?? "Sem fornecedor"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {g.received_at ? new Date(g.received_at).toLocaleDateString("pt-BR") : "—"} · {g.count} item(ns)
+                      </p>
+                      {g.notes && (
+                        <p className="mt-1 line-clamp-2 text-xs text-amber-800 dark:text-amber-200">
+                          ⚠ {g.notes}
+                        </p>
+                      )}
+                      <div className="mt-2 flex gap-1">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            nav({ to: "/purchases/import", search: { fromOrderReceipt: g.path } })
+                          }
+                        >
+                          Dar entrada <ArrowRight className="ml-1 h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => skipPending(g.ids)}>
+                          Ignorar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+
         <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
           <div className="flex flex-col gap-4 md:flex-row md:items-end">
             <div className="grid gap-2 md:w-56">
