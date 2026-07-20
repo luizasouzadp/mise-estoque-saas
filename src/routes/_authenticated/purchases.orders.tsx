@@ -15,8 +15,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil, Plus, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil, Plus, CheckCircle2, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/purchases/orders")({
   component: OrdersPage,
