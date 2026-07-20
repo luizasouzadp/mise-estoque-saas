@@ -83,6 +83,22 @@ function OrdersPage() {
     },
   });
 
+  const { data: suppliers } = useQuery<SupplierOpt[]>({
+    queryKey: ["suppliers-min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("suppliers").select("id, name").order("name");
+      return data ?? [];
+    },
+  });
+
+  const { data: ingredients } = useQuery<IngredientOpt[]>({
+    queryKey: ["ingredients-min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("ingredients").select("id, name, unit").order("name");
+      return (data ?? []) as IngredientOpt[];
+    },
+  });
+
   const grouped = useMemo(() => {
     const map = new Map<string, OrderRow[]>();
     for (const o of data ?? []) {
