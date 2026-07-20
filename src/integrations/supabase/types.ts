@@ -873,9 +873,14 @@ export type Database = {
           created_by: string | null
           expected_at: string | null
           id: string
+          import_status: string
+          imported_purchase_ids: string[] | null
           ingredient_id: string
           notes: string | null
           quantity: number
+          receipt_image_path: string | null
+          receipt_notes: string | null
+          received_at: string | null
           restaurant_id: string
           status: string
           supplier_id: string | null
@@ -888,9 +893,14 @@ export type Database = {
           created_by?: string | null
           expected_at?: string | null
           id?: string
+          import_status?: string
+          imported_purchase_ids?: string[] | null
           ingredient_id: string
           notes?: string | null
           quantity: number
+          receipt_image_path?: string | null
+          receipt_notes?: string | null
+          received_at?: string | null
           restaurant_id: string
           status?: string
           supplier_id?: string | null
@@ -903,9 +913,14 @@ export type Database = {
           created_by?: string | null
           expected_at?: string | null
           id?: string
+          import_status?: string
+          imported_purchase_ids?: string[] | null
           ingredient_id?: string
           notes?: string | null
           quantity?: number
+          receipt_image_path?: string | null
+          receipt_notes?: string | null
+          received_at?: string | null
           restaurant_id?: string
           status?: string
           supplier_id?: string | null
