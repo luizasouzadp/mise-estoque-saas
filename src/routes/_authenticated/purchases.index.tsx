@@ -39,6 +39,7 @@ type PurchaseRow = {
 
 function PurchasesList() {
   const qc = useQueryClient();
+  const nav = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ["purchases"],
     queryFn: async () => {
@@ -50,6 +51,81 @@ function PurchasesList() {
       return data as unknown as PurchaseRow[];
     },
   });
+
+  // Pending receipt notes waiting to become purchase entries.
+  const { data: pending } = useQuery({
+    queryKey: ["purchase-orders-pending-import"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("purchase_orders")
+        .select("id, supplier_name, receipt_image_path, receipt_notes, received_at")
+        .eq("import_status", "pending")
+        .not("receipt_image_path", "is", null)
+        .order("received_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        supplier_name: string | null;
+        receipt_image_path: string;
+        receipt_notes: string | null;
+        received_at: string | null;
+      }>;
+    },
+  });
+
+  const pendingGroups = useMemo(() => {
+    if (!pending) return [] as Array<{
+      path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[];
+    }>;
+    const map = new Map<string, { path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[] }>();
+    for (const p of pending) {
+      const g = map.get(p.receipt_image_path);
+      if (g) {
+        g.count += 1;
+        g.ids.push(p.id);
+        if (!g.notes && p.receipt_notes) g.notes = p.receipt_notes;
+      } else {
+        map.set(p.receipt_image_path, {
+          path: p.receipt_image_path,
+          supplier: p.supplier_name,
+          notes: p.receipt_notes,
+          received_at: p.received_at,
+          count: 1,
+          ids: [p.id],
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [pending]);
+
+  const [pendingUrls, setPendingUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const missing = pendingGroups.map((g) => g.path).filter((p) => !pendingUrls[p]);
+    if (missing.length === 0) return;
+    (async () => {
+      const { data: signed } = await supabase.storage
+        .from("purchase-invoices")
+        .createSignedUrls(missing, 60 * 60);
+      if (!signed) return;
+      setPendingUrls((prev) => {
+        const next = { ...prev };
+        signed.forEach((s, i) => {
+          if (s.signedUrl) next[missing[i]] = s.signedUrl;
+        });
+        return next;
+      });
+    })();
+  }, [pendingGroups, pendingUrls]);
+
+  async function skipPending(ids: string[]) {
+    if (!confirm("Ignorar esta pendência? A nota permanecerá arquivada, mas nenhuma entrada será cobrada.")) return;
+    const { error } = await (supabase as any)
+      .from("purchase_orders")
+      .update({ import_status: "skipped" })
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-import"] });
+  }
 
   const [ingredientFilter, setIngredientFilter] = useState<string>("all");
   const [supplierFilter, setSupplierFilter] = useState("");
