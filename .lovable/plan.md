@@ -1,77 +1,44 @@
-
 ## Objetivo
-Renomear e mover a tela atual "Vendas diárias & alerta de compra" para dentro do fluxo de Compras como **Lista de compras**, restringir aos insumos abaixo do mínimo (sem pré-preparos), permitir upload de vendas por dia único ou por período, renomear/ajustar as listas locais e criar uma página real de **Encomendas** (persistida no banco) agrupada por fornecedor com envio por WhatsApp para os contatos internos salvos.
 
-## Escopo
+Ao confirmar o recebimento de uma encomenda, capturar a foto da nota e observações (avarias). A foto entra no arquivo mensal de notas e uma pendência aparece nas Compras, abrindo o fluxo "Compra por foto da nota" já com a imagem carregada para dar entrada da mercadoria.
 
-### 1. Renomear e mover a rota
-- Novo arquivo `src/routes/_authenticated/purchases.shopping-list.tsx` (rota `/purchases/shopping-list`) com o conteúdo migrado de `cmv.daily.tsx`.
-- Título passa a ser **"Lista de compras"**; subtítulo curto sobre alerta baseado em estoque projetado.
-- Em `src/routes/_authenticated/purchases.index.tsx`: novo botão **"Lista de compras"** ao lado de "Notas" / "Nova compra".
-- Em `src/routes/_authenticated/cmv.index.tsx`: remover o card/link "Vendas diárias & alerta de compra".
-- `cmv.daily.tsx` removido.
+## Mudanças
 
-### 2. Filtrar apenas insumos abaixo do mínimo, sem pré-preparos
-- A tabela de alerta passa a mostrar apenas `status ∈ { zerado, abaixo_minimo }`, excluindo insumos com `ingredients.source_recipe_id IS NOT NULL` (pré-preparos gerados a partir de fichas técnicas). Filtro aplicado no client após `projected_stock_status` (com um `select id from ingredients where source_recipe_id is not null` para obter os IDs a excluir).
-- Cards de resumo passam a ser 2 (Zerados / Abaixo do mínimo).
+### 1. Banco (migration)
+Adicionar em `purchase_orders`:
+- `receipt_image_path text` — caminho da foto no bucket `purchase-invoices`.
+- `receipt_notes text` — observações de avaria.
+- `received_at timestamptz` — momento do recebimento.
+- `import_status text default 'pending'` — `'pending' | 'imported' | 'skipped'`.
+- `imported_purchase_ids uuid[]` — IDs das compras criadas ao dar entrada.
 
-### 3. Upload de vendas por dia único ou período
-- No `NewDailyReportDialog` migrado: toggle **"Dia único" / "Período"**.
-    - Dia único: comportamento atual.
-    - Período: dois campos (`start_date`, `end_date`). Um `daily_sales_reports` é criado para cada dia do intervalo, com quantidades/faturamento divididos igualmente por N dias e `file_name` sufixado com o intervalo.
-- `src/lib/daily-sales.functions.ts`: nova server fn `createDailySalesReportRange({ start_date, end_date, file_name, rows })` que reusa a lógica de `createDailySalesReport` iterando pelos dias.
+Backfill: registros antigos com `status='received'` recebem `import_status='skipped'` para não gerarem pendência retroativa.
 
-### 4. Renomear "lista do dia seguinte" → "compras emergenciais" com auto-remoção
-- Rótulos, títulos de dialog, toasts e mensagem WhatsApp trocados para **"Compras emergenciais"**.
-- `localStorage` mantido (`cmv.purchase-lists.v1`), migração idempotente da chave `nextDay` → `emergency`.
-- **Auto-remoção**: aplicar o mecanismo já usado para `ordered` também à lista `emergency` — consultar `purchases` com `ingredient_id IN (…)` e `purchased_at >= addedAt`; ao detectar compra, remover da lista emergencial.
+### 2. Encomendas (`purchases.orders.tsx`)
+- Substituir o botão "Confirmar recebimento" (e o ícone verde por linha) por um diálogo único que:
+  - Mostra os itens que serão recebidos.
+  - Aceita foto da nota (câmera ou galeria) e um campo "Observações / avarias".
+  - Ao salvar: faz upload no bucket `purchase-invoices` e atualiza as linhas selecionadas com `status='received'`, `received_at`, `receipt_image_path`, `receipt_notes`, `import_status='pending'` (mesmo `receipt_image_path` para todas as linhas do lote, para que representem uma nota só).
+- Foto e observação são obrigatórias para "Confirmar recebimento" do grupo. A ação por linha (✓) permanece como recebimento rápido sem nota (marcada `import_status='skipped'`), para casos avulsos.
 
-### 5. Lista de encomendas: remover ao marcar como encomendado
-- Já ocorre hoje (ao adicionar em `ordered`, sai de `orders`). Preservar esse comportamento agora que "ordered" passa a ir para o banco.
+### 3. Pendências na aba de Compras (`purchases.index.tsx`)
+- Nova query que busca `purchase_orders` com `import_status='pending'` agrupadas por `receipt_image_path`.
+- Renderizar um bloco "Notas aguardando entrada" acima dos filtros: um card por nota mostrando fornecedor, data do recebimento, miniatura da foto, quantidade de itens, observação. Botão "Dar entrada" leva para `/purchases/import?fromOrderReceipt=<receipt_image_path>`.
+- Botão secundário "Ignorar" marca as linhas como `import_status='skipped'`.
 
-### 6. "Já encomendado" persistente → nova página `/purchases/orders`
+### 4. Arquivo de notas (`purchases.notes.tsx`)
+- Query adicional em `purchase_orders` filtrando `receipt_image_path not null`.
+- Fundir com a lista atual (chave = `receipt_image_path`), evitando duplicar quando a mesma foto já foi importada e virou linhas em `purchases`. Fornecedor / data / total vêm de `purchases` quando existir, senão do `purchase_orders` (sem valor total).
+- Export ZIP passa a incluir também as fotos vindas somente das encomendas.
 
-**Banco (uma migration):**
-- Nova tabela `public.purchase_orders`:
-    - `id uuid pk`, `restaurant_id uuid fk`, `supplier_id uuid fk suppliers`, `ingredient_id uuid fk ingredients`, `quantity numeric`, `unit text`, `expected_at date`, `status text check in ('pending','received','cancelled') default 'pending'`, `notes text`, `created_by uuid`, `created_at`, `updated_at`.
-    - GRANTs padrão, RLS por `current_restaurant_id()`, trigger `set_updated_at`.
-- **Sem alteração em `suppliers`** — o WhatsApp usa os contatos internos já cadastrados em `whatsapp_contacts` (equipe de recebimento), não o telefone do fornecedor.
+### 5. Importação por foto (`purchases.import.tsx`)
+- Ler search param `fromOrderReceipt` (caminho no storage).
+- Quando presente: baixar a imagem do bucket via `createSignedUrl` + `fetch`, converter em `File`, preencher `file`/`preview` automaticamente e disparar `parseMut` para o usuário só revisar/salvar.
+- Após salvar com sucesso, atualizar as linhas de `purchase_orders` com aquele `receipt_image_path`: `import_status='imported'`, `imported_purchase_ids` com os IDs retornados por `saveImportedPurchase`.
+- Requer que `saveImportedPurchase` retorne os IDs das compras criadas (ajuste em `src/lib/invoice-import.functions.ts` se hoje não retorna).
 
-**Fluxo do botão "Já encomendado":**
-- Substitui o `window.prompt` atual por um `Dialog` com: fornecedor (select entre os cadastrados em `ingredient_suppliers` do insumo + qualquer fornecedor + opção "outro/livre"), quantidade, unidade (default = unidade do insumo), previsão de chegada (`expected_at`), observação.
-- Ao confirmar: `insert into purchase_orders` (status=pending), remove das listas locais `emergency` e `orders`, invalida queries.
-
-**Nova rota `/purchases/orders`** (`src/routes/_authenticated/purchases.orders.tsx`):
-- Lista `purchase_orders` com `status='pending'`, **agrupadas por fornecedor** (nome + resumo dos dias de entrega do fornecedor).
-- Cada linha: insumo, quantidade + unidade, previsão de chegada, ações (**Recebido** → `status='received'`; **Cancelar**; editar quantidade/data inline).
-- Cabeçalho do grupo com botão **"Enviar por WhatsApp"** → abre picker dos **contatos salvos em `whatsapp_contacts`** (mesmo padrão do inventário) para escolher o funcionário que vai receber a ordem; monta mensagem no formato:
-    ```
-    *Ordem de compra — {fornecedor}*
-    {data}
-
-    • {insumo}: {qty} {unit} (prev. {expected_at})
-    ...
-    Total de itens: N
-    ```
-- Auto-baixa: quando uma compra é lançada (em `purchases.new.tsx` e `purchases.import.tsx`) para um insumo com ordem `pending` do mesmo fornecedor, marcar automaticamente `status='received'`. Implementado via server fn `settlePurchaseOrders({ ingredient_ids, supplier })` chamada após insert nos dois pontos de entrada de compras.
-- Botão **"Encomendas"** adicionado em `purchases.index.tsx`.
-
-### 7. Ajustes de UI relacionados
-- Na "Lista de compras", remover a seção separada `alertOrdered` (encomendados agora ficam em `/purchases/orders`). Adicionar banner no topo com contagem de encomendas pendentes e link para `/purchases/orders`.
-- Manter botão "Enviar vendas do dia" (agora dia único ou período) e histórico de uploads.
-
-## Detalhes técnicos
-
-- **Rotas**: novas `purchases.shopping-list.tsx`, `purchases.orders.tsx`; removida `cmv.daily.tsx`.
-- **Migration**: create `purchase_orders` (grants + RLS + trigger).
-- **Server fns**:
-    - `src/lib/daily-sales.functions.ts`: adiciona `createDailySalesReportRange`.
-    - `src/lib/purchase-orders.functions.ts` (novo): `createPurchaseOrder`, `updatePurchaseOrderStatus`, `settlePurchaseOrders`.
-- **localStorage**: manter `emergency` e `orders`; remover `ordered` (migrado para banco). Migração `nextDay → emergency` idempotente.
-- **Filtro pré-preparo**: `ingredients.source_recipe_id IS NOT NULL`.
-- **WhatsApp**: link `https://wa.me/55<numero>?text=<encoded>` para contatos internos (`whatsapp_contacts`), mesmo padrão do inventário.
-
-## Fora de escopo
-- Não altera `projected_stock_status`.
-- Não envia WhatsApp para o fornecedor — só para contatos internos.
-- Não cria histórico separado de encomendas recebidas nesta fase.
+### Detalhes técnicos
+- Route search validation com `validateSearch` para tipar `fromOrderReceipt`.
+- Signed URLs de 1h reutilizadas via mesma técnica de `purchases.notes.tsx`.
+- Sem alteração em RLS (encomendas já são user-scoped via `restaurant_id`).
+- Sem novo bucket: reutiliza `purchase-invoices`.
