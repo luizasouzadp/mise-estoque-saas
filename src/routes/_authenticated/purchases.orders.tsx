@@ -5,6 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/searchable-select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -12,11 +16,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil } from "lucide-react";
+import { ArrowLeft, PackageCheck, Send, Trash2, Check, X, Pencil, Plus, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/purchases/orders")({
   component: OrdersPage,
 });
+
+type SupplierOpt = { id: string; name: string };
+type IngredientOpt = { id: string; name: string; unit: string };
+type NewOrderLine = { ingredient_id: string; quantity: string; expected_at: string; notes: string };
 
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 
