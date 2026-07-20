@@ -17,18 +17,21 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/searchable-select";
 import { toast } from "sonner";
 import {
   ArrowLeft, Plus, Trash2, AlertTriangle, TrendingDown, CheckCircle2,
-  ChevronDown, ClipboardList, PackageCheck, Send, X,
+  ChevronDown, ClipboardList, PackageCheck, Send, X, Upload,
 } from "lucide-react";
 import {
   createDailySalesReport,
   deleteDailySalesReport,
 } from "@/lib/daily-sales.functions";
 
-export const Route = createFileRoute("/_authenticated/cmv/daily")({
-  component: DailySalesPage,
+export const Route = createFileRoute("/_authenticated/purchases/shopping-list")({
+  component: ShoppingListPage,
 });
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -58,40 +61,32 @@ type ProjectedRow = {
   status: "zerado" | "abaixo_minimo" | "proximo_minimo" | "ok";
 };
 
-// ---------- purchase lists (localStorage) ----------
-
 type ListItem = {
   ingredient_id: string;
   name: string;
   unit: string;
   qty: number;
-  addedAt: string; // ISO
+  addedAt: string;
 };
 
 type ListsState = {
-  nextDay: ListItem[];
+  emergency: ListItem[];
   orders: ListItem[];
-  ordered: ListItem[];
 };
 
-const LS_KEY = "cmv.purchase-lists.v1";
+const LS_KEY = "purchases.shopping-lists.v2";
 
 function loadLists(): ListsState {
-  if (typeof window === "undefined") return { nextDay: [], orders: [], ordered: [] };
+  if (typeof window === "undefined") return { emergency: [], orders: [] };
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { nextDay: [], orders: [], ordered: [] };
+    if (!raw) return { emergency: [], orders: [] };
     const parsed = JSON.parse(raw) as Partial<ListsState>;
-    return {
-      nextDay: parsed.nextDay ?? [],
-      orders: parsed.orders ?? [],
-      ordered: parsed.ordered ?? [],
-    };
+    return { emergency: parsed.emergency ?? [], orders: parsed.orders ?? [] };
   } catch {
-    return { nextDay: [], orders: [], ordered: [] };
+    return { emergency: [], orders: [] };
   }
 }
-
 function saveLists(s: ListsState) {
   if (typeof window === "undefined") return;
   localStorage.setItem(LS_KEY, JSON.stringify(s));
@@ -104,29 +99,28 @@ function todayISO() {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-
 function formatBR(s: string) {
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return s;
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
-
 function parseQty(input: string): number | null {
   const v = Number(String(input).replace(",", "."));
   return isFinite(v) && v > 0 ? v : null;
 }
 
-function DailySalesPage() {
+function ShoppingListPage() {
   const qc = useQueryClient();
   const nav = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const [lists, setLists] = useState<ListsState>(() => loadLists());
   useEffect(() => { saveLists(lists); }, [lists]);
 
-  const [showNextDay, setShowNextDay] = useState(false);
+  const [showEmergency, setShowEmergency] = useState(false);
   const [showOrders, setShowOrders] = useState(false);
   const [waTarget, setWaTarget] = useState<null | { title: string; message: string }>(null);
+  const [orderTarget, setOrderTarget] = useState<null | { row: Pick<ProjectedRow, "ingredient_id" | "ingredient_name" | "unit" | "min_stock" | "projected_stock">; fromList?: "emergency" | "orders" }>(null);
 
   const { data: reports } = useQuery<DailyReport[]>({
     queryKey: ["daily-sales-reports"],
@@ -141,49 +135,25 @@ function DailySalesPage() {
     },
   });
 
+  // All ingredients projected + list of pre-preps (source_recipe_id) to exclude
   const { data: projected, isLoading: projLoading } = useQuery<ProjectedRow[]>({
     queryKey: ["projected-stock-status"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("projected_stock_status");
+      const [{ data, error }, prepRes] = await Promise.all([
+        supabase.rpc("projected_stock_status"),
+        supabase.from("ingredients").select("id, source_recipe_id"),
+      ]);
       if (error) throw error;
+      const preps = new Set(
+        ((prepRes.data ?? []) as { id: string; source_recipe_id: string | null }[])
+          .filter((i) => i.source_recipe_id).map((i) => i.id),
+      );
       const rows = ((data ?? []) as unknown[]) as ProjectedRow[];
       const order = { zerado: 0, abaixo_minimo: 1, proximo_minimo: 2, ok: 3 };
-      return rows.sort((a, b) => order[a.status] - order[b.status]);
+      return rows.filter((r) => !preps.has(r.ingredient_id)).sort((a, b) => order[a.status] - order[b.status]);
     },
   });
 
-  // Auto-clear "já encomendado" quando entra uma compra desse insumo após ter sido marcado.
-  const orderedIds = lists.ordered.map((o) => o.ingredient_id);
-  const { data: recentPurchases } = useQuery<{ ingredient_id: string; purchased_at: string }[]>({
-    queryKey: ["purchases-since-ordered", orderedIds.sort().join(",")],
-    enabled: orderedIds.length > 0,
-    queryFn: async () => {
-      const minAt = lists.ordered.reduce((m, o) => (o.addedAt < m ? o.addedAt : m), lists.ordered[0].addedAt);
-      const { data, error } = await supabase
-        .from("purchases")
-        .select("ingredient_id, purchased_at")
-        .in("ingredient_id", orderedIds)
-        .gte("purchased_at", minAt);
-      if (error) throw error;
-      return (data ?? []) as { ingredient_id: string; purchased_at: string }[];
-    },
-  });
-
-  useEffect(() => {
-    if (!recentPurchases || recentPurchases.length === 0) return;
-    setLists((prev) => {
-      const stillPending = prev.ordered.filter((o) => {
-        const found = recentPurchases.some(
-          (p) => p.ingredient_id === o.ingredient_id && p.purchased_at >= o.addedAt,
-        );
-        return !found;
-      });
-      if (stillPending.length === prev.ordered.length) return prev;
-      return { ...prev, ordered: stillPending };
-    });
-  }, [recentPurchases]);
-
-  // Contatos WhatsApp
   const { data: contacts } = useQuery<{ id: string; name: string; phone: string }[]>({
     queryKey: ["whatsapp_contacts"],
     queryFn: async () => {
@@ -192,9 +162,25 @@ function DailySalesPage() {
     },
   });
 
+  // Purchase orders already registered (pending) — remove ingredient from alerts
+  const { data: pendingOrders } = useQuery<{ ingredient_id: string }[]>({
+    queryKey: ["purchase-orders-pending-ings"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("purchase_orders")
+        .select("ingredient_id")
+        .eq("status", "pending");
+      if (error) throw error;
+      return (data ?? []) as { ingredient_id: string }[];
+    },
+  });
+  const orderedIngSet = useMemo(
+    () => new Set((pendingOrders ?? []).map((p) => p.ingredient_id)),
+    [pendingOrders],
+  );
+
   const del = useServerFn(deleteDailySalesReport);
-  async function remove(id: string, dateLabel: string) {
-    if (!confirm(`Excluir vendas de ${dateLabel}? Isso também remove o consumo estimado desse dia.`)) return;
+  async function removeReport(id: string, dateLabel: string) {
+    if (!confirm(`Excluir vendas de ${dateLabel}?`)) return;
     try {
       await del({ data: { id } });
       toast.success("Excluído");
@@ -205,19 +191,16 @@ function DailySalesPage() {
     }
   }
 
-  const orderedSet = useMemo(() => new Set(lists.ordered.map((o) => o.ingredient_id)), [lists.ordered]);
-  const alertRowsRaw = (projected ?? []).filter((r) => r.status !== "ok");
-  const alertPending = alertRowsRaw.filter((r) => !orderedSet.has(r.ingredient_id));
-  const alertOrdered = alertRowsRaw.filter((r) => orderedSet.has(r.ingredient_id));
-  const zeroed = alertPending.filter((r) => r.status === "zerado");
-  const below = alertPending.filter((r) => r.status === "abaixo_minimo");
-  const near = alertPending.filter((r) => r.status === "proximo_minimo");
+  // Only show items below (or near) minimum
+  const alertRows = (projected ?? []).filter((r) => r.status !== "ok" && !orderedIngSet.has(r.ingredient_id));
+  const zeroed = alertRows.filter((r) => r.status === "zerado");
+  const below = alertRows.filter((r) => r.status === "abaixo_minimo");
+  const near = alertRows.filter((r) => r.status === "proximo_minimo");
 
-  function addToList(kind: "nextDay" | "orders" | "ordered", row: ProjectedRow) {
+  function addToList(kind: "emergency" | "orders", row: ProjectedRow) {
     const suggested = Math.max(0, Number(row.min_stock) - Number(row.projected_stock));
-    const label = kind === "ordered" ? "Quantidade já encomendada" : "Quantidade a comprar";
     const raw = window.prompt(
-      `${label} (${row.unit}) para ${row.ingredient_name}:`,
+      `Quantidade a comprar (${row.unit}) para ${row.ingredient_name}:`,
       suggested > 0 ? QTY.format(suggested) : "",
     );
     if (raw == null) return;
@@ -228,25 +211,19 @@ function DailySalesPage() {
       const next = existing
         ? prev[kind].map((x) => x.ingredient_id === row.ingredient_id ? { ...x, qty, addedAt: new Date().toISOString() } : x)
         : [...prev[kind], { ingredient_id: row.ingredient_id, name: row.ingredient_name, unit: row.unit, qty, addedAt: new Date().toISOString() }];
-      const state = { ...prev, [kind]: next };
-      // Se marcou como encomendado, remove das outras listas
-      if (kind === "ordered") {
-        state.nextDay = prev.nextDay.filter((x) => x.ingredient_id !== row.ingredient_id);
-        state.orders = prev.orders.filter((x) => x.ingredient_id !== row.ingredient_id);
-      }
-      return state;
+      return { ...prev, [kind]: next };
     });
-    const dest = kind === "nextDay" ? "lista do dia seguinte" : kind === "orders" ? "lista de encomendas" : "já encomendados";
+    const dest = kind === "emergency" ? "compras emergenciais" : "lista de encomendas";
     toast.success(`Adicionado à ${dest}`);
   }
 
-  function updateItemQty(kind: "nextDay" | "orders", ingredient_id: string, qty: number) {
+  function updateItemQty(kind: "emergency" | "orders", ingredient_id: string, qty: number) {
     setLists((prev) => ({
       ...prev,
       [kind]: prev[kind].map((x) => x.ingredient_id === ingredient_id ? { ...x, qty } : x),
     }));
   }
-  function removeItem(kind: "nextDay" | "orders" | "ordered", ingredient_id: string) {
+  function removeItem(kind: "emergency" | "orders", ingredient_id: string) {
     setLists((prev) => ({ ...prev, [kind]: prev[kind].filter((x) => x.ingredient_id !== ingredient_id) }));
   }
 
@@ -257,37 +234,65 @@ function DailySalesPage() {
     return lines.join("\n");
   }
 
+  function openOrderDialog(row: ProjectedRow, fromList?: "emergency" | "orders") {
+    setOrderTarget({
+      row: {
+        ingredient_id: row.ingredient_id,
+        ingredient_name: row.ingredient_name,
+        unit: row.unit,
+        min_stock: row.min_stock,
+        projected_stock: row.projected_stock,
+      },
+      fromList,
+    });
+  }
+  function openOrderDialogFromList(it: ListItem) {
+    setOrderTarget({
+      row: {
+        ingredient_id: it.ingredient_id,
+        ingredient_name: it.name,
+        unit: it.unit,
+        min_stock: 0,
+        projected_stock: 0,
+      },
+      fromList: "orders",
+    });
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-4 md:p-8">
       <div>
-        <Link to="/cmv" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="mr-1 h-4 w-4" /> Voltar ao CMV
+        <Link to="/purchases" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
+          <ArrowLeft className="mr-1 h-4 w-4" /> Voltar às compras
         </Link>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl">Vendas diárias & alerta de compra</h1>
+            <h1 className="font-display text-3xl">Lista de compras</h1>
             <p className="text-sm text-muted-foreground">
-              Suba as vendas de cada dia para atualizar o consumo estimado dos insumos e
-              antecipar compras emergenciais antes da próxima contagem.
+              Insumos abaixo do mínimo (excluindo pré-preparos). Envie as vendas de um dia ou período
+              para atualizar o consumo estimado.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => setShowNextDay(true)}>
+            <Button variant="outline" onClick={() => setShowEmergency(true)}>
               <ClipboardList className="mr-1 h-4 w-4" />
-              Lista dia seguinte
-              {lists.nextDay.length > 0 && <Badge variant="secondary" className="ml-2">{lists.nextDay.length}</Badge>}
+              Compras emergenciais
+              {lists.emergency.length > 0 && <Badge variant="secondary" className="ml-2">{lists.emergency.length}</Badge>}
             </Button>
             <Button variant="outline" onClick={() => setShowOrders(true)}>
               <ClipboardList className="mr-1 h-4 w-4" />
               Lista de encomendas
               {lists.orders.length > 0 && <Badge variant="secondary" className="ml-2">{lists.orders.length}</Badge>}
             </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Button asChild variant="outline">
+              <Link to="/purchases/orders"><PackageCheck className="mr-1 h-4 w-4" /> Encomendas</Link>
+            </Button>
+            <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
               <DialogTrigger asChild>
-                <Button><Plus className="mr-1" /> Enviar vendas do dia</Button>
+                <Button><Upload className="mr-1 h-4 w-4" /> Enviar vendas</Button>
               </DialogTrigger>
               <NewDailyReportDialog onDone={() => {
-                setOpen(false);
+                setUploadOpen(false);
                 qc.invalidateQueries({ queryKey: ["daily-sales-reports"] });
                 qc.invalidateQueries({ queryKey: ["projected-stock-status"] });
               }} />
@@ -296,24 +301,21 @@ function DailySalesPage() {
         </div>
       </div>
 
-      {/* Alerta de compra emergencial */}
+      {/* Alertas */}
       <section className="space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="text-lg font-medium flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-destructive" />
-            Alerta de compra emergencial
+            Insumos abaixo do mínimo
           </h2>
-          <span className="text-xs text-muted-foreground">
-            Estoque projetado = último saldo real (última contagem de inventário) menos consumo estimado dos dias enviados.
-          </span>
         </div>
 
         {projLoading ? (
           <div className="rounded-lg border p-6 text-sm text-muted-foreground">Calculando…</div>
-        ) : alertRowsRaw.length === 0 ? (
+        ) : alertRows.length === 0 ? (
           <div className="rounded-lg border border-emerald-600/40 bg-emerald-50/40 p-6 text-sm text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
-            Nenhum insumo em risco no momento — todos com estoque projetado acima do mínimo.
+            Nenhum insumo em risco no momento.
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-3">
@@ -323,7 +325,7 @@ function DailySalesPage() {
           </div>
         )}
 
-        {alertRowsRaw.length > 0 && (
+        {alertRows.length > 0 && (
           <div className="rounded-xl border bg-card overflow-x-auto">
             <Table>
               <TableHeader>
@@ -333,47 +335,45 @@ function DailySalesPage() {
                   <TableHead className="text-right">Consumo estimado</TableHead>
                   <TableHead className="text-right">Projetado</TableHead>
                   <TableHead className="text-right">Mínimo</TableHead>
-                  <TableHead className="text-right">Dias desde contagem</TableHead>
+                  <TableHead className="text-right">Dias</TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {alertPending.map((r) => (
-                  <AlertRow
-                    key={r.ingredient_id}
-                    row={r}
-                    onOpen={() => nav({ to: "/ingredients/$id", params: { id: r.ingredient_id } })}
-                    onAdd={(kind) => addToList(kind, r)}
-                  />
-                ))}
-                {alertOrdered.map((r) => (
-                  <TableRow
-                    key={r.ingredient_id}
-                    className="bg-emerald-50/60 hover:bg-emerald-100/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/40 cursor-pointer"
-                    onClick={() => nav({ to: "/ingredients/$id", params: { id: r.ingredient_id } })}
-                  >
+                {alertRows.map((r) => (
+                  <TableRow key={r.ingredient_id} className="cursor-pointer hover:bg-secondary/40"
+                    onClick={() => nav({ to: "/ingredients/$id", params: { id: r.ingredient_id } })}>
                     <TableCell className="font-medium">{r.ingredient_name}</TableCell>
                     <TableCell className="text-right">{QTY.format(Number(r.current_stock))} {r.unit}</TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       −{QTY.format(Number(r.consumed_since_anchor))} {r.unit}
                     </TableCell>
-                    <TableCell className="text-right">{QTY.format(Number(r.projected_stock))} {r.unit}</TableCell>
+                    <TableCell className={`text-right font-medium ${r.status === "zerado" || r.status === "abaixo_minimo" ? "text-destructive" : "text-amber-600"}`}>
+                      {QTY.format(Number(r.projected_stock))} {r.unit}
+                    </TableCell>
                     <TableCell className="text-right">{QTY.format(Number(r.min_stock))} {r.unit}</TableCell>
                     <TableCell className="text-right">{r.days_since_anchor}d</TableCell>
-                    <TableCell>
-                      <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
-                        <PackageCheck className="mr-1 h-3 w-3" /> Encomendado
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => { e.stopPropagation(); removeItem("ordered", r.ingredient_id); }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                    <TableCell><StatusBadge status={r.status} /></TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">Ações <ChevronDown className="ml-1 h-3 w-3" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Adicionar em…</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => addToList("emergency", r)}>
+                            <ClipboardList className="mr-2 h-4 w-4" /> Compras emergenciais
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addToList("orders", r)}>
+                            <ClipboardList className="mr-2 h-4 w-4" /> Lista de encomendas
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openOrderDialog(r)}>
+                            <PackageCheck className="mr-2 h-4 w-4 text-emerald-600" /> Já encomendado
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -383,13 +383,13 @@ function DailySalesPage() {
         )}
       </section>
 
-      {/* Histórico de uploads diários */}
+      {/* Histórico */}
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Últimos dias enviados</h2>
+        <h2 className="text-lg font-medium">Últimos envios</h2>
         <div className="rounded-xl border bg-card">
           {!reports || reports.length === 0 ? (
             <p className="p-8 text-center text-sm text-muted-foreground">
-              Nenhum upload diário ainda. Comece enviando as vendas do dia.
+              Nenhum envio ainda.
             </p>
           ) : (
             <Table>
@@ -397,7 +397,7 @@ function DailySalesPage() {
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Arquivo</TableHead>
-                  <TableHead className="text-right">Itens vendidos</TableHead>
+                  <TableHead className="text-right">Itens</TableHead>
                   <TableHead className="text-right">Faturamento</TableHead>
                   <TableHead className="text-right">Mapeados</TableHead>
                   <TableHead className="text-right">Sem código</TableHead>
@@ -418,7 +418,7 @@ function DailySalesPage() {
                       ) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => remove(r.id, formatBR(r.sales_date))}>
+                      <Button variant="ghost" size="icon" onClick={() => removeReport(r.id, formatBR(r.sales_date))}>
                         <Trash2 className="text-destructive h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -430,15 +430,16 @@ function DailySalesPage() {
         </div>
       </section>
 
-      {/* Dialogs das listas */}
+      {/* Diálogos das listas */}
       <ListDialog
-        open={showNextDay}
-        onClose={() => setShowNextDay(false)}
-        title="Lista de compras — dia seguinte"
-        items={lists.nextDay}
-        onQtyChange={(id, q) => updateItemQty("nextDay", id, q)}
-        onRemove={(id) => removeItem("nextDay", id)}
-        onSend={() => setWaTarget({ title: "Lista de compras — dia seguinte", message: buildMessage("Lista de compras — dia seguinte", lists.nextDay) })}
+        open={showEmergency}
+        onClose={() => setShowEmergency(false)}
+        title="Compras emergenciais"
+        items={lists.emergency}
+        onQtyChange={(id, q) => updateItemQty("emergency", id, q)}
+        onRemove={(id) => removeItem("emergency", id)}
+        onSend={() => setWaTarget({ title: "Compras emergenciais", message: buildMessage("Compras emergenciais", lists.emergency) })}
+        onMarkOrdered={undefined}
       />
       <ListDialog
         open={showOrders}
@@ -448,6 +449,7 @@ function DailySalesPage() {
         onQtyChange={(id, q) => updateItemQty("orders", id, q)}
         onRemove={(id) => removeItem("orders", id)}
         onSend={() => setWaTarget({ title: "Lista de encomendas", message: buildMessage("Lista de encomendas", lists.orders) })}
+        onMarkOrdered={(it) => openOrderDialogFromList(it)}
       />
 
       {/* WhatsApp picker */}
@@ -459,9 +461,7 @@ function DailySalesPage() {
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Escolha um contato:</p>
             {(contacts ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nenhum contato cadastrado. Cadastre um contato na tela de inventário.
-              </p>
+              <p className="text-sm text-muted-foreground">Nenhum contato cadastrado.</p>
             ) : (
               <div className="max-h-80 overflow-y-auto divide-y rounded-md border">
                 {(contacts ?? []).map((c) => (
@@ -489,58 +489,24 @@ function DailySalesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* "Já encomendado" — supplier / qty / expected */}
+      <MarkOrderedDialog
+        target={orderTarget}
+        onClose={() => setOrderTarget(null)}
+        onSaved={(ingId, fromList) => {
+          if (fromList) removeItem(fromList, ingId);
+          setOrderTarget(null);
+          qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+          qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+        }}
+      />
     </div>
   );
 }
 
-function AlertRow({
-  row, onOpen, onAdd,
-}: {
-  row: ProjectedRow;
-  onOpen: () => void;
-  onAdd: (kind: "nextDay" | "orders" | "ordered") => void;
-}) {
-  return (
-    <TableRow className="cursor-pointer hover:bg-secondary/40" onClick={onOpen}>
-      <TableCell className="font-medium">{row.ingredient_name}</TableCell>
-      <TableCell className="text-right">{QTY.format(Number(row.current_stock))} {row.unit}</TableCell>
-      <TableCell className="text-right text-muted-foreground">
-        −{QTY.format(Number(row.consumed_since_anchor))} {row.unit}
-      </TableCell>
-      <TableCell className={`text-right font-medium ${row.status === "zerado" ? "text-destructive" : row.status === "abaixo_minimo" ? "text-destructive" : "text-amber-600"}`}>
-        {QTY.format(Number(row.projected_stock))} {row.unit}
-      </TableCell>
-      <TableCell className="text-right">{QTY.format(Number(row.min_stock))} {row.unit}</TableCell>
-      <TableCell className="text-right">{row.days_since_anchor}d</TableCell>
-      <TableCell><StatusBadge status={row.status} /></TableCell>
-      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              Ações <ChevronDown className="ml-1 h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Adicionar em…</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onAdd("nextDay")}>
-              <ClipboardList className="mr-2 h-4 w-4" /> Lista do dia seguinte
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAdd("orders")}>
-              <ClipboardList className="mr-2 h-4 w-4" /> Lista de encomendas
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onAdd("ordered")}>
-              <PackageCheck className="mr-2 h-4 w-4 text-emerald-600" /> Já encomendado
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
-    </TableRow>
-  );
-}
-
 function ListDialog({
-  open, onClose, title, items, onQtyChange, onRemove, onSend,
+  open, onClose, title, items, onQtyChange, onRemove, onSend, onMarkOrdered,
 }: {
   open: boolean;
   onClose: () => void;
@@ -549,6 +515,7 @@ function ListDialog({
   onQtyChange: (ingredient_id: string, qty: number) => void;
   onRemove: (ingredient_id: string) => void;
   onSend: () => void;
+  onMarkOrdered?: (it: ListItem) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -557,9 +524,7 @@ function ListDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">
-            Nenhum item na lista ainda. Use o botão “Ações” em cada insumo em risco para adicionar.
-          </p>
+          <p className="text-sm text-muted-foreground py-6 text-center">Nenhum item na lista.</p>
         ) : (
           <div className="max-h-[60vh] overflow-y-auto rounded-md border">
             <Table>
@@ -590,9 +555,16 @@ function ListDialog({
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => onRemove(it.ingredient_id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        {onMarkOrdered && (
+                          <Button variant="outline" size="sm" onClick={() => onMarkOrdered(it)}>
+                            <PackageCheck className="h-4 w-4 text-emerald-600" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => onRemove(it.ingredient_id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -604,6 +576,114 @@ function ListDialog({
           <Button variant="outline" onClick={onClose}>Fechar</Button>
           <Button onClick={onSend} disabled={items.length === 0}>
             <Send className="mr-1 h-4 w-4" /> Enviar por WhatsApp
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MarkOrderedDialog({
+  target, onClose, onSaved,
+}: {
+  target: null | { row: { ingredient_id: string; ingredient_name: string; unit: string; min_stock: number; projected_stock: number }; fromList?: "emergency" | "orders" };
+  onClose: () => void;
+  onSaved: (ingredient_id: string, fromList?: "emergency" | "orders") => void;
+}) {
+  const [supplierId, setSupplierId] = useState<string>("");
+  const [supplierName, setSupplierName] = useState<string>("");
+  const [qty, setQty] = useState<string>("");
+  const [expectedAt, setExpectedAt] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: suppliers } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["suppliers-min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("suppliers").select("id, name").order("name");
+      return data ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (target) {
+      const suggested = Math.max(0, Number(target.row.min_stock) - Number(target.row.projected_stock));
+      setQty(suggested > 0 ? QTY.format(suggested) : "");
+      setSupplierId("");
+      setSupplierName("");
+      setExpectedAt("");
+      setNotes("");
+    }
+  }, [target]);
+
+  async function save() {
+    if (!target) return;
+    const q = parseQty(qty);
+    if (q == null) return toast.error("Quantidade inválida");
+    if (!supplierId && !supplierName.trim()) return toast.error("Selecione ou informe um fornecedor");
+    setSaving(true);
+    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    if (!prof?.restaurant_id) { setSaving(false); return toast.error("Restaurante não encontrado"); }
+    const chosen = suppliers?.find((s) => s.id === supplierId);
+    const { error } = await (supabase as any).from("purchase_orders").insert({
+      restaurant_id: prof.restaurant_id,
+      supplier_id: supplierId || null,
+      supplier_name: chosen?.name ?? (supplierName.trim() || null),
+      ingredient_id: target.row.ingredient_id,
+      quantity: q,
+      unit: target.row.unit,
+      expected_at: expectedAt || null,
+      notes: notes.trim() || null,
+      status: "pending",
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Encomenda registrada");
+    onSaved(target.row.ingredient_id, target.fromList);
+  }
+
+  return (
+    <Dialog open={target != null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Já encomendado — {target?.row.ingredient_name}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-2">
+            <Label>Fornecedor</Label>
+            <Select value={supplierId} onValueChange={setSupplierId}>
+              <SelectTrigger><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
+              <SelectContent>
+                {(suppliers ?? []).map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Ou digite o nome do fornecedor"
+              value={supplierName}
+              onChange={(e) => setSupplierName(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2">
+              <Label>Quantidade ({target?.row.unit})</Label>
+              <Input value={qty} onChange={(e) => setQty(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Previsão de chegada</Label>
+              <Input type="date" value={expectedAt} onChange={(e) => setExpectedAt(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Observação (opcional)</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Salvando..." : "Registrar encomenda"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -656,9 +736,23 @@ function parseNum(v: unknown) {
   if (v == null || v === "") return NaN;
   return Number(String(v).replace(/\./g, "").replace(",", "."));
 }
+function eachDate(fromISO: string, toISO: string): string[] {
+  const out: string[] = [];
+  const [fy, fm, fd] = fromISO.split("-").map(Number);
+  const [ty, tm, td] = toISO.split("-").map(Number);
+  const start = new Date(fy, fm - 1, fd);
+  const end = new Date(ty, tm - 1, td);
+  for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  return out;
+}
 
 function NewDailyReportDialog({ onDone }: { onDone: () => void }) {
+  const [isRange, setIsRange] = useState(false);
   const [salesDate, setSalesDate] = useState(todayISO());
+  const [dateFrom, setDateFrom] = useState(todayISO());
+  const [dateTo, setDateTo] = useState(todayISO());
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [noHeader, setNoHeader] = useState(true);
@@ -679,7 +773,7 @@ function NewDailyReportDialog({ onDone }: { onDone: () => void }) {
         const cIdx = colLetterToIndex(codeCol);
         const qIdx = colLetterToIndex(qtyCol);
         const pIdx = priceCol.trim() ? colLetterToIndex(priceCol) : -1;
-        if (cIdx < 0 || qIdx < 0) throw new Error("Coluna de código ou quantidade inválida");
+        if (cIdx < 0 || qIdx < 0) throw new Error("Coluna inválida");
         const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
         rows = raw.map((r) => {
           const code = String(r[cIdx] ?? "").trim();
@@ -699,7 +793,7 @@ function NewDailyReportDialog({ onDone }: { onDone: () => void }) {
         const codeKey = HEADERS_CODE.map((h) => normMap.get(h)).find(Boolean);
         const qtyKey = HEADERS_QTY.map((h) => normMap.get(h)).find(Boolean);
         const priceKey = HEADERS_PRICE.map((h) => normMap.get(h)).find(Boolean);
-        if (!codeKey || !qtyKey) throw new Error("Planilha precisa ter colunas de código e quantidade, ou marque 'sem cabeçalho'");
+        if (!codeKey || !qtyKey) throw new Error("Precisa ter colunas de código e quantidade");
         rows = raw.map((r) => {
           const code = String(r[codeKey] ?? "").trim();
           const qty = parseNum(r[qtyKey]);
@@ -713,10 +807,23 @@ function NewDailyReportDialog({ onDone }: { onDone: () => void }) {
       }
       if (rows.length === 0) throw new Error("Nenhuma linha válida na planilha");
 
-      const res = await create({
-        data: { sales_date: salesDate, file_name: file.name, rows },
-      });
-      toast.success(`Dia gravado · ${res.mapped} produtos · ${res.ingredients} insumos atualizados${res.unmapped ? ` · ${res.unmapped} sem código` : ""}`);
+      if (isRange) {
+        if (dateTo < dateFrom) throw new Error("Data final anterior à inicial");
+        const days = eachDate(dateFrom, dateTo);
+        if (days.length === 0) throw new Error("Período inválido");
+        // Split quantities across days
+        const perDay = rows.map((r) => ({
+          ...r,
+          quantity: r.quantity / days.length,
+        }));
+        for (const d of days) {
+          await create({ data: { sales_date: d, file_name: file.name, rows: perDay } });
+        }
+        toast.success(`Vendas gravadas em ${days.length} dia(s)`);
+      } else {
+        const res = await create({ data: { sales_date: salesDate, file_name: file.name, rows } });
+        toast.success(`Dia gravado · ${res.mapped} produtos · ${res.ingredients} insumos${res.unmapped ? ` · ${res.unmapped} sem código` : ""}`);
+      }
       onDone();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -728,16 +835,36 @@ function NewDailyReportDialog({ onDone }: { onDone: () => void }) {
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Vendas do dia</DialogTitle>
+        <DialogTitle>Enviar vendas</DialogTitle>
       </DialogHeader>
       <div className="space-y-4">
-        <div>
-          <Label>Data das vendas</Label>
-          <Input type="date" value={salesDate} onChange={(e) => setSalesDate(e.target.value)} max={todayISO()} />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Enviar novamente esta data substitui os valores anteriores.
-          </p>
-        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={isRange} onChange={(e) => setIsRange(e.target.checked)} />
+          Enviar um período (várias datas)
+        </label>
+        {isRange ? (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>De</Label>
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} max={todayISO()} />
+            </div>
+            <div>
+              <Label>Até</Label>
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} max={todayISO()} />
+            </div>
+            <p className="col-span-2 text-xs text-muted-foreground">
+              A quantidade total será dividida igualmente entre os dias do período.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <Label>Data das vendas</Label>
+            <Input type="date" value={salesDate} onChange={(e) => setSalesDate(e.target.value)} max={todayISO()} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enviar novamente esta data substitui os valores anteriores.
+            </p>
+          </div>
+        )}
         <div>
           <Label>Planilha (.xlsx, .csv)</Label>
           <Input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />

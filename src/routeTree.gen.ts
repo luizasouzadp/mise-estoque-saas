@@ -31,6 +31,8 @@ import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedCmvIndexRouteImport } from './routes/_authenticated/cmv.index'
 import { Route as AuthenticatedRecipesNewRouteImport } from './routes/_authenticated/recipes.new'
 import { Route as AuthenticatedRecipesIdRouteImport } from './routes/_authenticated/recipes.$id'
+import { Route as AuthenticatedPurchasesShoppingListRouteImport } from './routes/_authenticated/purchases.shopping-list'
+import { Route as AuthenticatedPurchasesOrdersRouteImport } from './routes/_authenticated/purchases.orders'
 import { Route as AuthenticatedPurchasesNotesRouteImport } from './routes/_authenticated/purchases.notes'
 import { Route as AuthenticatedPurchasesNewRouteImport } from './routes/_authenticated/purchases.new'
 import { Route as AuthenticatedPurchasesImportRouteImport } from './routes/_authenticated/purchases.import'
@@ -40,7 +42,6 @@ import { Route as AuthenticatedInventoriesIdRouteImport } from './routes/_authen
 import { Route as AuthenticatedIngredientsNewRouteImport } from './routes/_authenticated/ingredients.new'
 import { Route as AuthenticatedIngredientsIdRouteImport } from './routes/_authenticated/ingredients.$id'
 import { Route as AuthenticatedGroupsIdRouteImport } from './routes/_authenticated/groups.$id'
-import { Route as AuthenticatedCmvDailyRouteImport } from './routes/_authenticated/cmv.daily'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
@@ -165,6 +166,18 @@ const AuthenticatedRecipesIdRoute = AuthenticatedRecipesIdRouteImport.update({
   path: '/recipes/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPurchasesShoppingListRoute =
+  AuthenticatedPurchasesShoppingListRouteImport.update({
+    id: '/purchases/shopping-list',
+    path: '/purchases/shopping-list',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPurchasesOrdersRoute =
+  AuthenticatedPurchasesOrdersRouteImport.update({
+    id: '/purchases/orders',
+    path: '/purchases/orders',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPurchasesNotesRoute =
   AuthenticatedPurchasesNotesRouteImport.update({
     id: '/purchases/notes',
@@ -218,11 +231,6 @@ const AuthenticatedGroupsIdRoute = AuthenticatedGroupsIdRouteImport.update({
   path: '/groups/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCmvDailyRoute = AuthenticatedCmvDailyRouteImport.update({
-  id: '/cmv/daily',
-  path: '/cmv/daily',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -246,7 +254,6 @@ export interface FileRoutesByFullPath {
   '/count/$token': typeof CountTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
-  '/cmv/daily': typeof AuthenticatedCmvDailyRoute
   '/groups/$id': typeof AuthenticatedGroupsIdRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
@@ -256,6 +263,8 @@ export interface FileRoutesByFullPath {
   '/purchases/import': typeof AuthenticatedPurchasesImportRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/purchases/notes': typeof AuthenticatedPurchasesNotesRoute
+  '/purchases/orders': typeof AuthenticatedPurchasesOrdersRoute
+  '/purchases/shopping-list': typeof AuthenticatedPurchasesShoppingListRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
   '/cmv/': typeof AuthenticatedCmvIndexRoute
@@ -281,7 +290,6 @@ export interface FileRoutesByTo {
   '/count/$token': typeof CountTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
-  '/cmv/daily': typeof AuthenticatedCmvDailyRoute
   '/groups/$id': typeof AuthenticatedGroupsIdRoute
   '/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
@@ -291,6 +299,8 @@ export interface FileRoutesByTo {
   '/purchases/import': typeof AuthenticatedPurchasesImportRoute
   '/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/purchases/notes': typeof AuthenticatedPurchasesNotesRoute
+  '/purchases/orders': typeof AuthenticatedPurchasesOrdersRoute
+  '/purchases/shopping-list': typeof AuthenticatedPurchasesShoppingListRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/recipes/new': typeof AuthenticatedRecipesNewRoute
   '/cmv': typeof AuthenticatedCmvIndexRoute
@@ -318,7 +328,6 @@ export interface FileRoutesById {
   '/count/$token': typeof CountTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
-  '/_authenticated/cmv/daily': typeof AuthenticatedCmvDailyRoute
   '/_authenticated/groups/$id': typeof AuthenticatedGroupsIdRoute
   '/_authenticated/ingredients/$id': typeof AuthenticatedIngredientsIdRoute
   '/_authenticated/ingredients/new': typeof AuthenticatedIngredientsNewRoute
@@ -328,6 +337,8 @@ export interface FileRoutesById {
   '/_authenticated/purchases/import': typeof AuthenticatedPurchasesImportRoute
   '/_authenticated/purchases/new': typeof AuthenticatedPurchasesNewRoute
   '/_authenticated/purchases/notes': typeof AuthenticatedPurchasesNotesRoute
+  '/_authenticated/purchases/orders': typeof AuthenticatedPurchasesOrdersRoute
+  '/_authenticated/purchases/shopping-list': typeof AuthenticatedPurchasesShoppingListRoute
   '/_authenticated/recipes/$id': typeof AuthenticatedRecipesIdRoute
   '/_authenticated/recipes/new': typeof AuthenticatedRecipesNewRoute
   '/_authenticated/cmv/': typeof AuthenticatedCmvIndexRoute
@@ -355,7 +366,6 @@ export interface FileRouteTypes {
     | '/count/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
-    | '/cmv/daily'
     | '/groups/$id'
     | '/ingredients/$id'
     | '/ingredients/new'
@@ -365,6 +375,8 @@ export interface FileRouteTypes {
     | '/purchases/import'
     | '/purchases/new'
     | '/purchases/notes'
+    | '/purchases/orders'
+    | '/purchases/shopping-list'
     | '/recipes/$id'
     | '/recipes/new'
     | '/cmv/'
@@ -390,7 +402,6 @@ export interface FileRouteTypes {
     | '/count/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
-    | '/cmv/daily'
     | '/groups/$id'
     | '/ingredients/$id'
     | '/ingredients/new'
@@ -400,6 +411,8 @@ export interface FileRouteTypes {
     | '/purchases/import'
     | '/purchases/new'
     | '/purchases/notes'
+    | '/purchases/orders'
+    | '/purchases/shopping-list'
     | '/recipes/$id'
     | '/recipes/new'
     | '/cmv'
@@ -426,7 +439,6 @@ export interface FileRouteTypes {
     | '/count/$token'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
-    | '/_authenticated/cmv/daily'
     | '/_authenticated/groups/$id'
     | '/_authenticated/ingredients/$id'
     | '/_authenticated/ingredients/new'
@@ -436,6 +448,8 @@ export interface FileRouteTypes {
     | '/_authenticated/purchases/import'
     | '/_authenticated/purchases/new'
     | '/_authenticated/purchases/notes'
+    | '/_authenticated/purchases/orders'
+    | '/_authenticated/purchases/shopping-list'
     | '/_authenticated/recipes/$id'
     | '/_authenticated/recipes/new'
     | '/_authenticated/cmv/'
@@ -620,6 +634,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecipesIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/purchases/shopping-list': {
+      id: '/_authenticated/purchases/shopping-list'
+      path: '/purchases/shopping-list'
+      fullPath: '/purchases/shopping-list'
+      preLoaderRoute: typeof AuthenticatedPurchasesShoppingListRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/purchases/orders': {
+      id: '/_authenticated/purchases/orders'
+      path: '/purchases/orders'
+      fullPath: '/purchases/orders'
+      preLoaderRoute: typeof AuthenticatedPurchasesOrdersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/purchases/notes': {
       id: '/_authenticated/purchases/notes'
       path: '/purchases/notes'
@@ -683,13 +711,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGroupsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/cmv/daily': {
-      id: '/_authenticated/cmv/daily'
-      path: '/cmv/daily'
-      fullPath: '/cmv/daily'
-      preLoaderRoute: typeof AuthenticatedCmvDailyRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
       path: '/.mcp/invoke-tool/$tool'
@@ -709,7 +730,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedCmvDailyRoute: typeof AuthenticatedCmvDailyRoute
   AuthenticatedGroupsIdRoute: typeof AuthenticatedGroupsIdRoute
   AuthenticatedIngredientsIdRoute: typeof AuthenticatedIngredientsIdRoute
   AuthenticatedIngredientsNewRoute: typeof AuthenticatedIngredientsNewRoute
@@ -719,6 +739,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPurchasesImportRoute: typeof AuthenticatedPurchasesImportRoute
   AuthenticatedPurchasesNewRoute: typeof AuthenticatedPurchasesNewRoute
   AuthenticatedPurchasesNotesRoute: typeof AuthenticatedPurchasesNotesRoute
+  AuthenticatedPurchasesOrdersRoute: typeof AuthenticatedPurchasesOrdersRoute
+  AuthenticatedPurchasesShoppingListRoute: typeof AuthenticatedPurchasesShoppingListRoute
   AuthenticatedRecipesIdRoute: typeof AuthenticatedRecipesIdRoute
   AuthenticatedRecipesNewRoute: typeof AuthenticatedRecipesNewRoute
   AuthenticatedCmvIndexRoute: typeof AuthenticatedCmvIndexRoute
@@ -736,7 +758,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedCmvDailyRoute: AuthenticatedCmvDailyRoute,
   AuthenticatedGroupsIdRoute: AuthenticatedGroupsIdRoute,
   AuthenticatedIngredientsIdRoute: AuthenticatedIngredientsIdRoute,
   AuthenticatedIngredientsNewRoute: AuthenticatedIngredientsNewRoute,
@@ -746,6 +767,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPurchasesImportRoute: AuthenticatedPurchasesImportRoute,
   AuthenticatedPurchasesNewRoute: AuthenticatedPurchasesNewRoute,
   AuthenticatedPurchasesNotesRoute: AuthenticatedPurchasesNotesRoute,
+  AuthenticatedPurchasesOrdersRoute: AuthenticatedPurchasesOrdersRoute,
+  AuthenticatedPurchasesShoppingListRoute:
+    AuthenticatedPurchasesShoppingListRoute,
   AuthenticatedRecipesIdRoute: AuthenticatedRecipesIdRoute,
   AuthenticatedRecipesNewRoute: AuthenticatedRecipesNewRoute,
   AuthenticatedCmvIndexRoute: AuthenticatedCmvIndexRoute,

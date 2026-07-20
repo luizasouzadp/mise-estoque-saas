@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash2, Scale, Upload, AlertTriangle } from "lucide-react";
+import { Trash2, Scale, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/cmv/")({
   component: CmvPage,
@@ -258,12 +258,6 @@ function CmvPage() {
             Saídas de produção não são contabilizadas.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link to="/cmv/daily">
-            <AlertTriangle className="mr-1 h-4 w-4" />
-            Vendas diárias & alerta de compra
-          </Link>
-        </Button>
       </div>
 
 

@@ -867,6 +867,76 @@ export type Database = {
           },
         ]
       }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expected_at: string | null
+          id: string
+          ingredient_id: string
+          notes: string | null
+          quantity: number
+          restaurant_id: string
+          status: string
+          supplier_id: string | null
+          supplier_name: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expected_at?: string | null
+          id?: string
+          ingredient_id: string
+          notes?: string | null
+          quantity: number
+          restaurant_id: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expected_at?: string | null
+          id?: string
+          ingredient_id?: string
+          notes?: string | null
+          quantity?: number
+          restaurant_id?: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchases: {
         Row: {
           created_at: string
