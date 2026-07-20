@@ -386,14 +386,18 @@ function OrdersPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label>Fornecedor</Label>
-                <Select value={newSupplierId} onValueChange={setNewSupplierId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
-                  <SelectContent>
-                    {(suppliers ?? []).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  list="orders-supplier-options"
+                  value={newSupplierText}
+                  onChange={(e) => setNewSupplierText(e.target.value)}
+                  placeholder="Nome do fornecedor"
+                  maxLength={120}
+                />
+                <datalist id="orders-supplier-options">
+                  {(suppliers ?? []).map((s) => (
+                    <option key={s.id} value={s.name} />
+                  ))}
+                </datalist>
               </div>
               <div className="grid gap-2">
                 <Label>Previsão de chegada (padrão)</Label>
