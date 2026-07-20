@@ -81,7 +81,7 @@ function OrdersPage() {
   }, [data]);
 
   async function updateStatus(id: string, status: "received" | "cancelled") {
-    const { error } = await supabase.from("purchase_orders").update({ status }).eq("id", id);
+    const { error } = await (supabase as any).from("purchase_orders").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(status === "received" ? "Marcado como recebido" : "Cancelado");
     qc.invalidateQueries({ queryKey: ["purchase-orders"] });
@@ -90,7 +90,7 @@ function OrdersPage() {
 
   async function removeOrder(id: string) {
     if (!confirm("Excluir esta encomenda?")) return;
-    const { error } = await supabase.from("purchase_orders").delete().eq("id", id);
+    const { error } = await (supabase as any).from("purchase_orders").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Excluída");
     qc.invalidateQueries({ queryKey: ["purchase-orders"] });
@@ -107,7 +107,7 @@ function OrdersPage() {
     if (!editing) return;
     const q = Number(String(editQty).replace(",", "."));
     if (!isFinite(q) || q <= 0) return toast.error("Quantidade inválida");
-    const { error } = await supabase.from("purchase_orders").update({
+    const { error } = await (supabase as any).from("purchase_orders").update({
       quantity: q, expected_at: editExpected || null,
     }).eq("id", editing.id);
     if (error) return toast.error(error.message);
