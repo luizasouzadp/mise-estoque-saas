@@ -31,13 +31,44 @@ function NotesArchive() {
   const { data, isLoading } = useQuery({
     queryKey: ["purchase-notes"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("purchases")
-        .select("id, purchased_at, supplier, total_cost, invoice_image_path")
-        .not("invoice_image_path", "is", null)
-        .order("purchased_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as NoteRow[];
+      const [purchasesRes, ordersRes] = await Promise.all([
+        supabase
+          .from("purchases")
+          .select("id, purchased_at, supplier, total_cost, invoice_image_path")
+          .not("invoice_image_path", "is", null)
+          .order("purchased_at", { ascending: false }),
+        (supabase as any)
+          .from("purchase_orders")
+          .select("id, received_at, supplier_name, receipt_image_path")
+          .not("receipt_image_path", "is", null)
+          .order("received_at", { ascending: false }),
+      ]);
+      if (purchasesRes.error) throw purchasesRes.error;
+      if (ordersRes.error) throw ordersRes.error;
+
+      const purchaseRows = (purchasesRes.data ?? []) as NoteRow[];
+      // Paths already in `purchases` — dedupe orders that were already imported.
+      const known = new Set(purchaseRows.map((p) => p.invoice_image_path));
+
+      const orderRows: NoteRow[] = [];
+      const seenOrderPath = new Set<string>();
+      for (const o of (ordersRes.data ?? []) as Array<{
+        id: string; received_at: string | null; supplier_name: string | null; receipt_image_path: string;
+      }>) {
+        if (known.has(o.receipt_image_path)) continue;
+        if (seenOrderPath.has(o.receipt_image_path)) continue;
+        seenOrderPath.add(o.receipt_image_path);
+        orderRows.push({
+          id: `order:${o.id}`,
+          purchased_at: o.received_at ?? new Date().toISOString(),
+          supplier: o.supplier_name,
+          total_cost: 0,
+          invoice_image_path: o.receipt_image_path,
+        });
+      }
+      return [...purchaseRows, ...orderRows].sort((a, b) =>
+        a.purchased_at < b.purchased_at ? 1 : -1,
+      );
     },
   });
 
