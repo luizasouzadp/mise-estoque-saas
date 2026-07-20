@@ -139,7 +139,7 @@ function OrdersPage() {
   }
 
   function resetNewOrder() {
-    setNewSupplierId("");
+    setNewSupplierText("");
     setNewExpected("");
     setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
   }
