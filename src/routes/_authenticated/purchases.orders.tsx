@@ -119,9 +119,15 @@ function OrdersPage() {
   }, [data]);
 
   async function updateStatus(id: string, status: "received" | "cancelled") {
+    if (status === "received") {
+      const o = (data ?? []).find((r) => r.id === id);
+      if (!o) return;
+      openReceive(o.supplier_name ?? "Sem fornecedor", [o]);
+      return;
+    }
     const { error } = await (supabase as any).from("purchase_orders").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success(status === "received" ? "Marcado como recebido" : "Cancelado");
+    toast.success("Cancelado");
     qc.invalidateQueries({ queryKey: ["purchase-orders"] });
     qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
   }
@@ -135,15 +141,62 @@ function OrdersPage() {
     qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
   }
 
-  async function receiveAll(items: OrderRow[]) {
-    if (items.length === 0) return;
-    if (!confirm(`Confirmar recebimento de ${items.length} ${items.length === 1 ? "item" : "itens"}?`)) return;
-    const ids = items.map((i) => i.id);
-    const { error } = await (supabase as any).from("purchase_orders").update({ status: "received" }).in("id", ids);
-    if (error) return toast.error(error.message);
-    toast.success("Pedido recebido");
-    qc.invalidateQueries({ queryKey: ["purchase-orders"] });
-    qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+  function openReceive(supplier: string, items: OrderRow[]) {
+    setReceiveTarget({ supplier, items });
+    setReceiveFile(null);
+    setReceivePreview(null);
+    setReceiveNotes("");
+  }
+
+  function onPickReceiptFile(f: File) {
+    setReceiveFile(f);
+    const r = new FileReader();
+    r.onload = () => setReceivePreview(String(r.result));
+    r.readAsDataURL(f);
+  }
+
+  async function confirmReceive() {
+    if (!receiveTarget) return;
+    if (!receiveFile) return toast.error("Anexe a foto da nota");
+    setReceiving(true);
+    try {
+      const { data: prof } = await supabase
+        .from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const ext = (receiveFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+      const { error: upErr } = await supabase.storage
+        .from("purchase-invoices")
+        .upload(path, receiveFile, {
+          contentType: receiveFile.type || "image/jpeg",
+          upsert: false,
+        });
+      if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+
+      const ids = receiveTarget.items.map((i) => i.id);
+      const { error } = await (supabase as any)
+        .from("purchase_orders")
+        .update({
+          status: "received",
+          received_at: new Date().toISOString(),
+          receipt_image_path: path,
+          receipt_notes: receiveNotes.trim() || null,
+          import_status: "pending",
+        })
+        .in("id", ids);
+      if (error) throw new Error(error.message);
+
+      toast.success("Recebimento registrado. Nota disponível em Compras.");
+      setReceiveTarget(null);
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-import"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReceiving(false);
+    }
   }
 
   function resetNewOrder() {
