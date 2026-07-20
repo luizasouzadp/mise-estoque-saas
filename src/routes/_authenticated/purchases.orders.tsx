@@ -506,6 +506,85 @@ function OrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Receipt confirmation dialog */}
+      <Dialog open={receiveTarget != null} onOpenChange={(o) => !o && !receiving && setReceiveTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Confirmar recebimento — {receiveTarget?.supplier}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="mb-1 font-medium">{receiveTarget?.items.length} item(ns) sendo recebidos</p>
+              <ul className="max-h-32 space-y-0.5 overflow-y-auto text-xs text-muted-foreground">
+                {receiveTarget?.items.map((it) => (
+                  <li key={it.id}>
+                    • {it.ingredient?.name ?? "—"}: {QTY.format(Number(it.quantity))} {it.unit}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Foto da nota fiscal *</Label>
+              <input
+                ref={receiveCameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onPickReceiptFile(f);
+                  e.target.value = "";
+                }}
+              />
+              <input
+                ref={receiveGalleryRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onPickReceiptFile(f);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => receiveCameraRef.current?.click()}>
+                  <Camera className="mr-2 h-4 w-4" /> Tirar foto
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => receiveGalleryRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" /> Da galeria
+                </Button>
+              </div>
+              {receivePreview && (
+                <img src={receivePreview} alt="Prévia da nota" className="mt-2 max-h-56 rounded-md border object-contain" />
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Observações / avarias</Label>
+              <Textarea
+                placeholder="Ex.: 2 caixas amassadas, faltou 1 unidade…"
+                value={receiveNotes}
+                onChange={(e) => setReceiveNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              A nota entrará no arquivo mensal e aparecerá como pendência em Compras para dar entrada dos itens.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
+            <Button onClick={confirmReceive} disabled={receiving || !receiveFile}>
+              {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
