@@ -51,7 +51,7 @@ function OrdersPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("purchase_orders")
         .select("id, supplier_id, supplier_name, ingredient_id, quantity, unit, expected_at, status, notes, created_at, ingredient:ingredients(name)")
         .eq("status", "pending")

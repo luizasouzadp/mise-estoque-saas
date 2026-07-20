@@ -166,8 +166,7 @@ function ShoppingListPage() {
   const { data: pendingOrders } = useQuery<{ ingredient_id: string }[]>({
     queryKey: ["purchase-orders-pending-ings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        (supabase as any).from("purchase_orders")
+      const { data, error } = await (supabase as any).from("purchase_orders")
         .select("ingredient_id")
         .eq("status", "pending");
       if (error) throw error;
