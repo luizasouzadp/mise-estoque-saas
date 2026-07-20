@@ -56,7 +56,7 @@ function OrdersPage() {
   const [editQty, setEditQty] = useState("");
   const [editExpected, setEditExpected] = useState("");
   const [newOpen, setNewOpen] = useState(false);
-  const [newSupplierId, setNewSupplierId] = useState<string>("");
+  const [newSupplierText, setNewSupplierText] = useState<string>("");
   const [newExpected, setNewExpected] = useState<string>("");
   const [newLines, setNewLines] = useState<NewOrderLine[]>([
     { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
@@ -139,7 +139,7 @@ function OrdersPage() {
   }
 
   function resetNewOrder() {
-    setNewSupplierId("");
+    setNewSupplierText("");
     setNewExpected("");
     setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
   }
@@ -155,20 +155,24 @@ function OrdersPage() {
   }
 
   async function saveNewOrder() {
-    const sup = (suppliers ?? []).find((s) => s.id === newSupplierId);
-    if (!sup) return toast.error("Selecione um fornecedor");
+    const name = newSupplierText.trim();
+    if (!name) return toast.error("Informe o fornecedor");
+    if (name.length > 120) return toast.error("Nome do fornecedor muito longo");
+    const existing = (suppliers ?? []).find(
+      (s) => s.name.trim().toLowerCase() === name.toLowerCase(),
+    );
     const rows = newLines
       .map((l) => {
         const ing = (ingredients ?? []).find((i) => i.id === l.ingredient_id);
         const q = Number(String(l.quantity).replace(",", "."));
         if (!ing || !isFinite(q) || q <= 0) return null;
         return {
-          supplier_id: sup.id,
-          supplier_name: sup.name,
+          supplier_id: existing?.id ?? null,
+          supplier_name: existing?.name ?? name,
           ingredient_id: ing.id,
           quantity: q,
           unit: ing.unit,
-          expected_at: (l.expected_at || newExpected) || null,
+          expected_at: newExpected || null,
           notes: l.notes || null,
           status: "pending" as const,
         };
@@ -382,14 +386,18 @@ function OrdersPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label>Fornecedor</Label>
-                <Select value={newSupplierId} onValueChange={setNewSupplierId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
-                  <SelectContent>
-                    {(suppliers ?? []).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  list="orders-supplier-options"
+                  value={newSupplierText}
+                  onChange={(e) => setNewSupplierText(e.target.value)}
+                  placeholder="Nome do fornecedor"
+                  maxLength={120}
+                />
+                <datalist id="orders-supplier-options">
+                  {(suppliers ?? []).map((s) => (
+                    <option key={s.id} value={s.name} />
+                  ))}
+                </datalist>
               </div>
               <div className="grid gap-2">
                 <Label>Previsão de chegada (padrão)</Label>
@@ -408,7 +416,7 @@ function OrdersPage() {
                 {newLines.map((line, idx) => {
                   const ing = (ingredients ?? []).find((i) => i.id === line.ingredient_id);
                   return (
-                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_120px_140px_auto]">
+                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_140px_auto]">
                       <Select value={line.ingredient_id} onValueChange={(v) => updateNewLine(idx, { ingredient_id: v })}>
                         <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
                         <SelectContent>
@@ -421,11 +429,6 @@ function OrdersPage() {
                         placeholder={`Qtd${ing ? ` (${ing.unit})` : ""}`}
                         value={line.quantity}
                         onChange={(e) => updateNewLine(idx, { quantity: e.target.value })}
-                      />
-                      <Input
-                        type="date"
-                        value={line.expected_at}
-                        onChange={(e) => updateNewLine(idx, { expected_at: e.target.value })}
                       />
                       <Button size="icon" variant="ghost" onClick={() => removeNewLine(idx)} title="Remover">
                         <Trash2 className="h-4 w-4 text-destructive" />
