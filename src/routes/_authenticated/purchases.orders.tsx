@@ -55,6 +55,12 @@ function OrdersPage() {
   const [editing, setEditing] = useState<OrderRow | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editExpected, setEditExpected] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
+  const [newSupplierId, setNewSupplierId] = useState<string>("");
+  const [newExpected, setNewExpected] = useState<string>("");
+  const [newLines, setNewLines] = useState<NewOrderLine[]>([
+    { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
+  ]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
