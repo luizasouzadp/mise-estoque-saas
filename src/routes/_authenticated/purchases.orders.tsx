@@ -371,6 +371,77 @@ function OrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* New order dialog */}
+      <Dialog open={newOpen} onOpenChange={(o) => { setNewOpen(o); if (!o) resetNewOrder(); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Nova encomenda</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Fornecedor</Label>
+                <Select value={newSupplierId} onValueChange={setNewSupplierId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
+                  <SelectContent>
+                    {(suppliers ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Previsão de chegada (padrão)</Label>
+                <Input type="date" value={newExpected} onChange={(e) => setNewExpected(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Itens do pedido</Label>
+                <Button size="sm" variant="outline" onClick={addNewLine}>
+                  <Plus className="mr-1 h-4 w-4" /> Adicionar item
+                </Button>
+              </div>
+              <div className="max-h-[50vh] space-y-2 overflow-y-auto rounded-md border p-2">
+                {newLines.map((line, idx) => {
+                  const ing = (ingredients ?? []).find((i) => i.id === line.ingredient_id);
+                  return (
+                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_120px_140px_auto]">
+                      <Select value={line.ingredient_id} onValueChange={(v) => updateNewLine(idx, { ingredient_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
+                        <SelectContent>
+                          {(ingredients ?? []).map((i) => (
+                            <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder={`Qtd${ing ? ` (${ing.unit})` : ""}`}
+                        value={line.quantity}
+                        onChange={(e) => updateNewLine(idx, { quantity: e.target.value })}
+                      />
+                      <Input
+                        type="date"
+                        value={line.expected_at}
+                        onChange={(e) => updateNewLine(idx, { expected_at: e.target.value })}
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => removeNewLine(idx)} title="Remover">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setNewOpen(false); resetNewOrder(); }}>Cancelar</Button>
+            <Button onClick={saveNewOrder}>Criar encomenda</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
