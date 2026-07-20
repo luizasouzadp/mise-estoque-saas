@@ -64,8 +64,46 @@ function ImportPurchase() {
   const [ingredientOptions, setIngredientOptions] = useState<Array<{ id: string; name: string; unit: string }>>([]);
   const [aliasMap, setAliasMap] = useState<Map<string, number>>(new Map()); // key: `${ingId}::${unit_up}` -> factor
   const [saving, setSaving] = useState(false);
+  const [existingInvoicePath, setExistingInvoicePath] = useState<string | null>(null);
+  const [autoLoading, setAutoLoading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+
+  // If arriving from an order receipt, download that image and prefill.
+  useEffect(() => {
+    if (!fromOrderReceipt || existingInvoicePath) return;
+    let cancelled = false;
+    (async () => {
+      setAutoLoading(true);
+      try {
+        const { data: blob, error } = await supabase.storage
+          .from("purchase-invoices")
+          .download(fromOrderReceipt);
+        if (error || !blob) throw new Error(error?.message || "Falha ao carregar nota");
+        if (cancelled) return;
+        const name = fromOrderReceipt.split("/").pop() || "nota.jpg";
+        const f = new File([blob], name, { type: blob.type || "image/jpeg" });
+        setFile(f);
+        setExistingInvoicePath(fromOrderReceipt);
+        const reader = new FileReader();
+        reader.onload = () => !cancelled && setPreview(String(reader.result));
+        reader.readAsDataURL(f);
+        // Preload supplier from the linked order.
+        const { data: ord } = await (supabase as any)
+          .from("purchase_orders")
+          .select("supplier_name")
+          .eq("receipt_image_path", fromOrderReceipt)
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && ord?.supplier_name) setSupplierName(ord.supplier_name);
+      } catch (e) {
+        toast.error((e as Error).message);
+      } finally {
+        if (!cancelled) setAutoLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fromOrderReceipt, existingInvoicePath]);
 
   const { data: ingredientsData } = useQuery({
     queryKey: ["ingredients"],
