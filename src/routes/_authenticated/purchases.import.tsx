@@ -45,6 +45,8 @@ type ReviewItem = {
 function ImportPurchase() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const search = Route.useSearch();
+  const fromOrderReceipt = search.fromOrderReceipt;
   const parseFn = useServerFn(parseInvoiceImage);
   const suggestFn = useServerFn(suggestIngredientMatches);
   const saveFn = useServerFn(saveImportedPurchase);
