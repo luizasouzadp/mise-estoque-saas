@@ -155,20 +155,24 @@ function OrdersPage() {
   }
 
   async function saveNewOrder() {
-    const sup = (suppliers ?? []).find((s) => s.id === newSupplierId);
-    if (!sup) return toast.error("Selecione um fornecedor");
+    const name = newSupplierText.trim();
+    if (!name) return toast.error("Informe o fornecedor");
+    if (name.length > 120) return toast.error("Nome do fornecedor muito longo");
+    const existing = (suppliers ?? []).find(
+      (s) => s.name.trim().toLowerCase() === name.toLowerCase(),
+    );
     const rows = newLines
       .map((l) => {
         const ing = (ingredients ?? []).find((i) => i.id === l.ingredient_id);
         const q = Number(String(l.quantity).replace(",", "."));
         if (!ing || !isFinite(q) || q <= 0) return null;
         return {
-          supplier_id: sup.id,
-          supplier_name: sup.name,
+          supplier_id: existing?.id ?? null,
+          supplier_name: existing?.name ?? name,
           ingredient_id: ing.id,
           quantity: q,
           unit: ing.unit,
-          expected_at: (l.expected_at || newExpected) || null,
+          expected_at: newExpected || null,
           notes: l.notes || null,
           status: "pending" as const,
         };
