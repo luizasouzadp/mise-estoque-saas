@@ -234,6 +234,9 @@ function OrdersPage() {
               para os contatos cadastrados.
             </p>
           </div>
+          <Button onClick={() => setNewOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" /> Nova encomenda
+          </Button>
         </div>
       </div>
 
