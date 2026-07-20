@@ -62,6 +62,13 @@ function OrdersPage() {
   const [newLines, setNewLines] = useState<NewOrderLine[]>([
     { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
   ]);
+  const [receiveTarget, setReceiveTarget] = useState<null | { supplier: string; items: OrderRow[] }>(null);
+  const [receiveFile, setReceiveFile] = useState<File | null>(null);
+  const [receivePreview, setReceivePreview] = useState<string | null>(null);
+  const [receiveNotes, setReceiveNotes] = useState("");
+  const [receiving, setReceiving] = useState(false);
+  const receiveCameraRef = useRef<HTMLInputElement | null>(null);
+  const receiveGalleryRef = useRef<HTMLInputElement | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
