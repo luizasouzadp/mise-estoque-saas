@@ -416,7 +416,7 @@ function OrdersPage() {
                 {newLines.map((line, idx) => {
                   const ing = (ingredients ?? []).find((i) => i.id === line.ingredient_id);
                   return (
-                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_120px_140px_auto]">
+                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_140px_auto]">
                       <Select value={line.ingredient_id} onValueChange={(v) => updateNewLine(idx, { ingredient_id: v })}>
                         <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
                         <SelectContent>
@@ -429,11 +429,6 @@ function OrdersPage() {
                         placeholder={`Qtd${ing ? ` (${ing.unit})` : ""}`}
                         value={line.quantity}
                         onChange={(e) => updateNewLine(idx, { quantity: e.target.value })}
-                      />
-                      <Input
-                        type="date"
-                        value={line.expected_at}
-                        onChange={(e) => updateNewLine(idx, { expected_at: e.target.value })}
                       />
                       <Button size="icon" variant="ghost" onClick={() => removeNewLine(idx)} title="Remover">
                         <Trash2 className="h-4 w-4 text-destructive" />
