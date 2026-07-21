@@ -201,6 +201,11 @@ function OrdersPage() {
 
       toast.success("Recebimento registrado. Nota disponível em Compras.");
       setReceiveTarget(null);
+      setSelected((s) => {
+        const next = { ...s };
+        for (const id of ids) delete next[id];
+        return next;
+      });
       qc.invalidateQueries({ queryKey: ["purchase-orders"] });
       qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
       qc.invalidateQueries({ queryKey: ["purchase-notes"] });
