@@ -68,6 +68,11 @@ function OrdersPage() {
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiving, setReceiving] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [addTarget, setAddTarget] = useState<null | { supplier: string; supplier_id: string | null; supplier_name: string | null; expected_at: string | null }>(null);
+  const [addIngredient, setAddIngredient] = useState("");
+  const [addQty, setAddQty] = useState("");
+  const [addExpected, setAddExpected] = useState("");
+  const [addingItem, setAddingItem] = useState(false);
   const receiveCameraRef = useRef<HTMLInputElement | null>(null);
   const receiveGalleryRef = useRef<HTMLInputElement | null>(null);
 
@@ -291,6 +296,52 @@ function OrdersPage() {
     qc.invalidateQueries({ queryKey: ["purchase-orders"] });
   }
 
+  function openAddItem(supplier: string, items: OrderRow[]) {
+    const first = items[0];
+    setAddTarget({
+      supplier,
+      supplier_id: first?.supplier_id ?? null,
+      supplier_name: first?.supplier_name ?? supplier,
+      expected_at: first?.expected_at ?? null,
+    });
+    setAddIngredient("");
+    setAddQty("");
+    setAddExpected(first?.expected_at ?? "");
+  }
+
+  async function saveAddItem() {
+    if (!addTarget) return;
+    const ing = (ingredients ?? []).find((i) => i.id === addIngredient);
+    if (!ing) return toast.error("Selecione um insumo");
+    const q = Number(String(addQty).replace(",", "."));
+    if (!isFinite(q) || q <= 0) return toast.error("Quantidade inválida");
+    setAddingItem(true);
+    try {
+      const { data: prof } = await supabase
+        .from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const { error } = await (supabase as any).from("purchase_orders").insert({
+        restaurant_id: prof.restaurant_id,
+        supplier_id: addTarget.supplier_id,
+        supplier_name: addTarget.supplier_name,
+        ingredient_id: ing.id,
+        quantity: q,
+        unit: ing.unit,
+        expected_at: addExpected || null,
+        status: "pending",
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Item adicionado à encomenda");
+      setAddTarget(null);
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setAddingItem(false);
+    }
+  }
+
   function buildMessage(supplier: string, items: OrderRow[]) {
     const lines = [`*Ordem de compra — ${supplier}*`, ""];
     for (const it of items) {
@@ -351,6 +402,9 @@ function OrdersPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openAddItem(supplier, items)}>
+                    <Plus className="mr-1 h-4 w-4" /> Adicionar item
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -629,6 +683,47 @@ function OrdersPage() {
             <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
             <Button onClick={confirmReceive} disabled={receiving || !receiveFile}>
               {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add item to existing order */}
+      <Dialog open={addTarget != null} onOpenChange={(o) => !o && !addingItem && setAddTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar item — {addTarget?.supplier}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-2">
+              <Label>Insumo</Label>
+              <Select value={addIngredient} onValueChange={setAddIngredient}>
+                <SelectTrigger><SelectValue placeholder="Selecione o insumo" /></SelectTrigger>
+                <SelectContent>
+                  {(ingredients ?? []).map((i) => (
+                    <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>
+                Quantidade{(() => {
+                  const ing = (ingredients ?? []).find((i) => i.id === addIngredient);
+                  return ing ? ` (${ing.unit})` : "";
+                })()}
+              </Label>
+              <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} placeholder="0" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Previsão de chegada</Label>
+              <Input type="date" value={addExpected} onChange={(e) => setAddExpected(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAddTarget(null)} disabled={addingItem}>Cancelar</Button>
+            <Button onClick={saveAddItem} disabled={addingItem}>
+              {addingItem ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adicionando…</>) : "Adicionar"}
             </Button>
           </DialogFooter>
         </DialogContent>
