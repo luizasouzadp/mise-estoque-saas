@@ -402,6 +402,9 @@ function OrdersPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openAddItem(supplier, items)}>
+                    <Plus className="mr-1 h-4 w-4" /> Adicionar item
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
