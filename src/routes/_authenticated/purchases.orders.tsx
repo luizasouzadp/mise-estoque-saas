@@ -68,6 +68,11 @@ function OrdersPage() {
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiving, setReceiving] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [addTarget, setAddTarget] = useState<null | { supplier: string; supplier_id: string | null; supplier_name: string | null; expected_at: string | null }>(null);
+  const [addIngredient, setAddIngredient] = useState("");
+  const [addQty, setAddQty] = useState("");
+  const [addExpected, setAddExpected] = useState("");
+  const [addingItem, setAddingItem] = useState(false);
   const receiveCameraRef = useRef<HTMLInputElement | null>(null);
   const receiveGalleryRef = useRef<HTMLInputElement | null>(null);
 
