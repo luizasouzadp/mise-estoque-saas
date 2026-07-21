@@ -67,8 +67,21 @@ function OrdersPage() {
   const [receivePreview, setReceivePreview] = useState<string | null>(null);
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiving, setReceiving] = useState(false);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const receiveCameraRef = useRef<HTMLInputElement | null>(null);
   const receiveGalleryRef = useRef<HTMLInputElement | null>(null);
+
+  function toggleSelect(id: string) {
+    setSelected((s) => ({ ...s, [id]: !s[id] }));
+  }
+  function toggleSelectAll(items: OrderRow[]) {
+    const allSelected = items.every((i) => selected[i.id]);
+    setSelected((s) => {
+      const next = { ...s };
+      for (const i of items) next[i.id] = !allSelected;
+      return next;
+    });
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["purchase-orders"],
