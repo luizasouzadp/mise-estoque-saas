@@ -296,6 +296,52 @@ function OrdersPage() {
     qc.invalidateQueries({ queryKey: ["purchase-orders"] });
   }
 
+  function openAddItem(supplier: string, items: OrderRow[]) {
+    const first = items[0];
+    setAddTarget({
+      supplier,
+      supplier_id: first?.supplier_id ?? null,
+      supplier_name: first?.supplier_name ?? supplier,
+      expected_at: first?.expected_at ?? null,
+    });
+    setAddIngredient("");
+    setAddQty("");
+    setAddExpected(first?.expected_at ?? "");
+  }
+
+  async function saveAddItem() {
+    if (!addTarget) return;
+    const ing = (ingredients ?? []).find((i) => i.id === addIngredient);
+    if (!ing) return toast.error("Selecione um insumo");
+    const q = Number(String(addQty).replace(",", "."));
+    if (!isFinite(q) || q <= 0) return toast.error("Quantidade inválida");
+    setAddingItem(true);
+    try {
+      const { data: prof } = await supabase
+        .from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const { error } = await (supabase as any).from("purchase_orders").insert({
+        restaurant_id: prof.restaurant_id,
+        supplier_id: addTarget.supplier_id,
+        supplier_name: addTarget.supplier_name,
+        ingredient_id: ing.id,
+        quantity: q,
+        unit: ing.unit,
+        expected_at: addExpected || null,
+        status: "pending",
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Item adicionado à encomenda");
+      setAddTarget(null);
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setAddingItem(false);
+    }
+  }
+
   function buildMessage(supplier: string, items: OrderRow[]) {
     const lines = [`*Ordem de compra — ${supplier}*`, ""];
     for (const it of items) {
