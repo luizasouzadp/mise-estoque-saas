@@ -687,6 +687,47 @@ function OrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add item to existing order */}
+      <Dialog open={addTarget != null} onOpenChange={(o) => !o && !addingItem && setAddTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar item — {addTarget?.supplier}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-2">
+              <Label>Insumo</Label>
+              <Select value={addIngredient} onValueChange={setAddIngredient}>
+                <SelectTrigger><SelectValue placeholder="Selecione o insumo" /></SelectTrigger>
+                <SelectContent>
+                  {(ingredients ?? []).map((i) => (
+                    <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>
+                Quantidade{(() => {
+                  const ing = (ingredients ?? []).find((i) => i.id === addIngredient);
+                  return ing ? ` (${ing.unit})` : "";
+                })()}
+              </Label>
+              <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} placeholder="0" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Previsão de chegada</Label>
+              <Input type="date" value={addExpected} onChange={(e) => setAddExpected(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAddTarget(null)} disabled={addingItem}>Cancelar</Button>
+            <Button onClick={saveAddItem} disabled={addingItem}>
+              {addingItem ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adicionando…</>) : "Adicionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
