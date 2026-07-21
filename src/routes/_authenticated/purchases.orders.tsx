@@ -336,16 +336,29 @@ function OrdersPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {grouped.map(([supplier, items]) => (
+          {grouped.map(([supplier, items]) => {
+            const selectedItems = items.filter((i) => selected[i.id]);
+            const allSelected = items.length > 0 && selectedItems.length === items.length;
+            const someSelected = selectedItems.length > 0 && !allSelected;
+            return (
             <div key={supplier} className="rounded-xl border bg-card overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 p-3">
                 <div className="font-semibold flex items-center gap-2">
                   {supplier}
                   <Badge variant="secondary">{items.length}</Badge>
+                  {selectedItems.length > 0 && (
+                    <Badge className="bg-emerald-600 text-white">{selectedItems.length} selecionado(s)</Badge>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => openReceive(supplier, items)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={selectedItems.length === 0}
+                    onClick={() => openReceive(supplier, selectedItems)}
+                  >
                     <CheckCircle2 className="mr-1 h-4 w-4 text-emerald-600" /> Confirmar recebimento
+                    {selectedItems.length > 0 ? ` (${selectedItems.length})` : ""}
                   </Button>
                   <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
                     <Send className="mr-1 h-4 w-4" /> Enviar ordem no WhatsApp
@@ -355,6 +368,16 @@ function OrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="Selecionar todos"
+                        className="h-4 w-4 accent-emerald-600"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                        onChange={() => toggleSelectAll(items)}
+                      />
+                    </TableHead>
                     <TableHead>Insumo</TableHead>
                     <TableHead className="text-right">Quantidade</TableHead>
                     <TableHead>Previsão</TableHead>
@@ -364,7 +387,16 @@ function OrdersPage() {
                 </TableHeader>
                 <TableBody>
                   {items.map((o) => (
-                    <TableRow key={o.id}>
+                    <TableRow key={o.id} data-state={selected[o.id] ? "selected" : undefined}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={`Selecionar ${o.ingredient?.name ?? ""}`}
+                          className="h-4 w-4 accent-emerald-600"
+                          checked={!!selected[o.id]}
+                          onChange={() => toggleSelect(o.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{o.ingredient?.name ?? "—"}</TableCell>
                       <TableCell className="text-right">{QTY.format(Number(o.quantity))} {o.unit}</TableCell>
                       <TableCell>{formatBR(o.expected_at)}</TableCell>
@@ -373,9 +405,6 @@ function OrdersPage() {
                         <div className="flex justify-end gap-1">
                           <Button size="icon" variant="ghost" onClick={() => openEdit(o)} title="Editar">
                             <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => updateStatus(o.id, "received")} title="Recebido">
-                            <Check className="h-4 w-4 text-emerald-600" />
                           </Button>
                           <Button size="icon" variant="ghost" onClick={() => updateStatus(o.id, "cancelled")} title="Cancelar">
                             <X className="h-4 w-4" />
@@ -390,7 +419,8 @@ function OrdersPage() {
                 </TableBody>
               </Table>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
