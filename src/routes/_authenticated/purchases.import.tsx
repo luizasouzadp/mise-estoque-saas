@@ -52,9 +52,10 @@ function ImportPurchase() {
   const suggestFn = useServerFn(suggestIngredientMatches);
   const saveFn = useServerFn(saveImportedPurchase);
 
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [zoomIndex, setZoomIndex] = useState(0);
   const [supplierName, setSupplierName] = useState("");
   const [supplierTaxId, setSupplierTaxId] = useState("");
   const [purchasedAt, setPurchasedAt] = useState(() => {
@@ -66,38 +67,50 @@ function ImportPurchase() {
   const [ingredientOptions, setIngredientOptions] = useState<Array<{ id: string; name: string; unit: string }>>([]);
   const [aliasMap, setAliasMap] = useState<Map<string, number>>(new Map()); // key: `${ingId}::${unit_up}` -> factor
   const [saving, setSaving] = useState(false);
-  const [existingInvoicePath, setExistingInvoicePath] = useState<string | null>(null);
+  const [existingInvoicePaths, setExistingInvoicePaths] = useState<string[]>([]);
   const [autoLoading, setAutoLoading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
-  // If arriving from an order receipt, download that image and prefill.
+  // If arriving from an order receipt, download all receipt images and prefill.
   useEffect(() => {
-    if (!fromOrderReceipt || existingInvoicePath) return;
+    if (!fromOrderReceipt || existingInvoicePaths.length) return;
     let cancelled = false;
     (async () => {
       setAutoLoading(true);
       try {
-        const { data: blob, error } = await supabase.storage
-          .from("purchase-invoices")
-          .download(fromOrderReceipt);
-        if (error || !blob) throw new Error(error?.message || "Falha ao carregar nota");
-        if (cancelled) return;
-        const name = fromOrderReceipt.split("/").pop() || "nota.jpg";
-        const f = new File([blob], name, { type: blob.type || "image/jpeg" });
-        setFile(f);
-        setExistingInvoicePath(fromOrderReceipt);
-        const reader = new FileReader();
-        reader.onload = () => !cancelled && setPreview(String(reader.result));
-        reader.readAsDataURL(f);
-        // Preload supplier from the linked order.
+        // Look up the order(s) that reference this receipt path to get all pages.
         const { data: ord } = await (supabase as any)
           .from("purchase_orders")
-          .select("supplier_name")
+          .select("supplier_name, receipt_image_paths, receipt_image_path")
           .eq("receipt_image_path", fromOrderReceipt)
           .limit(1)
           .maybeSingle();
-        if (!cancelled && ord?.supplier_name) setSupplierName(ord.supplier_name);
+        const paths: string[] = (ord?.receipt_image_paths?.length
+          ? ord.receipt_image_paths
+          : [fromOrderReceipt]) as string[];
+        const loadedFiles: File[] = [];
+        const loadedPreviews: string[] = [];
+        for (const p of paths) {
+          const { data: blob, error } = await supabase.storage
+            .from("purchase-invoices")
+            .download(p);
+          if (error || !blob) throw new Error(error?.message || "Falha ao carregar nota");
+          const name = p.split("/").pop() || "nota.jpg";
+          const f = new File([blob], name, { type: blob.type || "image/jpeg" });
+          loadedFiles.push(f);
+          loadedPreviews.push(await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }));
+        }
+        if (cancelled) return;
+        setFiles(loadedFiles);
+        setPreviews(loadedPreviews);
+        setExistingInvoicePaths(paths);
+        if (ord?.supplier_name) setSupplierName(ord.supplier_name);
       } catch (e) {
         toast.error((e as Error).message);
       } finally {
@@ -105,7 +118,8 @@ function ImportPurchase() {
       }
     })();
     return () => { cancelled = true; };
-  }, [fromOrderReceipt, existingInvoicePath]);
+  }, [fromOrderReceipt, existingInvoicePaths.length]);
+
 
   const { data: ingredientsData } = useQuery({
     queryKey: ["ingredients"],
