@@ -334,7 +334,7 @@ function ImportPurchase() {
       {items.length === 0 && (
         <div className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
           <div>
-            <Label>Foto da nota</Label>
+            <Label>Fotos da nota (adicione várias páginas se necessário)</Label>
             <input
               ref={cameraInputRef}
               type="file"
@@ -342,8 +342,8 @@ function ImportPurchase() {
               capture="environment"
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onPickFile(f);
+                const list = Array.from(e.target.files ?? []);
+                if (list.length) void addFiles(list);
                 e.target.value = "";
               }}
             />
@@ -351,10 +351,11 @@ function ImportPurchase() {
               ref={galleryInputRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onPickFile(f);
+                const list = Array.from(e.target.files ?? []);
+                if (list.length) void addFiles(list);
                 e.target.value = "";
               }}
             />
@@ -367,30 +368,47 @@ function ImportPurchase() {
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Escolher da galeria
               </Button>
-              {file && (
+              {files.length > 0 && (
                 <div className="text-xs text-muted-foreground self-center">
-                  {file.name} · {(file.size / 1024).toFixed(0)} KB
+                  {files.length} {files.length === 1 ? "página" : "páginas"} · {(files.reduce((s, f) => s + f.size, 0) / 1024).toFixed(0)} KB
                 </div>
               )}
             </div>
-            {preview && (
-              <button
-                type="button"
-                onClick={() => setZoomOpen(true)}
-                title="Clique para ampliar"
-                className="mt-3 group relative block overflow-hidden rounded-lg border transition hover:ring-2 hover:ring-primary"
-              >
-                <img src={preview} alt="Prévia" className="max-h-80 w-auto" />
-                <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                  <ZoomIn className="h-3 w-3" /> Ampliar
-                </span>
-              </button>
+            {previews.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {previews.map((src, i) => (
+                  <div key={i} className="relative overflow-hidden rounded-lg border">
+                    <button
+                      type="button"
+                      onClick={() => { setZoomIndex(i); setZoomOpen(true); }}
+                      title="Clique para ampliar"
+                      className="group block w-full"
+                    >
+                      <img src={src} alt={`Página ${i + 1}`} className="h-32 w-full object-cover" />
+                      <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                        {i + 1}
+                      </span>
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                        <ZoomIn className="h-4 w-4 text-white" />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Remover página"
+                      className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeFileAt(i)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
           <Button
             type="button"
             onClick={() => parseMut.mutate()}
-            disabled={!file || parseMut.isPending}
+            disabled={files.length === 0 || parseMut.isPending}
             className="w-full sm:w-auto"
           >
             {parseMut.isPending ? (
@@ -404,6 +422,7 @@ function ImportPurchase() {
           )}
         </div>
       )}
+
 
       {items.length > 0 && (
         <div className="mt-6 space-y-4">
