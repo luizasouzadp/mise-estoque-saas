@@ -605,13 +605,30 @@ function ImportPurchase() {
 
       <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
         <DialogContent className="max-w-5xl p-2">
-          {preview && (
-            <div className="max-h-[85vh] overflow-auto">
-              <img src={preview} alt="Nota ampliada" className="mx-auto w-auto max-w-full" />
+          {previews.length > 0 && (
+            <div className="space-y-2">
+              <div className="max-h-[80vh] overflow-auto">
+                <img src={previews[zoomIndex] ?? previews[0]} alt={`Página ${zoomIndex + 1}`} className="mx-auto w-auto max-w-full" />
+              </div>
+              {previews.length > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {previews.map((src, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setZoomIndex(i)}
+                      className={`rounded border overflow-hidden ${i === zoomIndex ? "ring-2 ring-primary" : ""}`}
+                    >
+                      <img src={src} alt={`Página ${i + 1}`} className="h-14 w-14 object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
