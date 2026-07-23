@@ -100,10 +100,29 @@ function NewPurchase() {
       setSaving(false);
       return toast.error("Sessão inválida.");
     }
+
+    // Upload attachments (photos or PDF) to purchase-invoices bucket.
+    const uploadedPaths: string[] = [];
+    try {
+      for (const f of attachments) {
+        const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${profile.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const { error: upErr } = await supabase.storage
+          .from("purchase-invoices")
+          .upload(path, f, { contentType: f.type || "application/octet-stream", upsert: false });
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        uploadedPaths.push(path);
+      }
+    } catch (err) {
+      setSaving(false);
+      return toast.error((err as Error).message);
+    }
+
     const now = new Date();
     const time = now.toTimeString().slice(0, 8);
     const datePart = purchasedAt || now.toISOString().slice(0, 10);
     const purchasedAtWithTime = new Date(`${datePart}T${time}`).toISOString();
+    const firstPath = uploadedPaths[0] ?? null;
     const rows = valid.map((it) => {
       const q = Number(it.quantity);
       const uc = Number(it.unitCost);
@@ -115,6 +134,8 @@ function NewPurchase() {
         total_cost: q * uc,
         supplier: supplier || null,
         purchased_at: purchasedAtWithTime,
+        invoice_image_path: firstPath,
+        invoice_image_paths: uploadedPaths.length ? uploadedPaths : null,
         created_by: u.user!.id,
       };
     });
@@ -125,8 +146,10 @@ function NewPurchase() {
     qc.invalidateQueries({ queryKey: ["purchases"] });
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["purchase-notes"] });
     nav({ to: "/purchases" });
   }
+
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-8">
