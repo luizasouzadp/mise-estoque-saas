@@ -1,14 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 // supplier picker uses existing Select component
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/searchable-select";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Paperclip, FileText, X } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/purchases/new")({
   component: NewPurchase,
@@ -54,6 +55,9 @@ function NewPurchase() {
     return new Date(d.getTime() - tz).toISOString().slice(0, 10);
   });
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   async function addSupplier() {
     const name = newSupplierName.trim();
@@ -96,10 +100,29 @@ function NewPurchase() {
       setSaving(false);
       return toast.error("Sessão inválida.");
     }
+
+    // Upload attachments (photos or PDF) to purchase-invoices bucket.
+    const uploadedPaths: string[] = [];
+    try {
+      for (const f of attachments) {
+        const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${profile.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const { error: upErr } = await supabase.storage
+          .from("purchase-invoices")
+          .upload(path, f, { contentType: f.type || "application/octet-stream", upsert: false });
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        uploadedPaths.push(path);
+      }
+    } catch (err) {
+      setSaving(false);
+      return toast.error((err as Error).message);
+    }
+
     const now = new Date();
     const time = now.toTimeString().slice(0, 8);
     const datePart = purchasedAt || now.toISOString().slice(0, 10);
     const purchasedAtWithTime = new Date(`${datePart}T${time}`).toISOString();
+    const firstPath = uploadedPaths[0] ?? null;
     const rows = valid.map((it) => {
       const q = Number(it.quantity);
       const uc = Number(it.unitCost);
@@ -111,6 +134,8 @@ function NewPurchase() {
         total_cost: q * uc,
         supplier: supplier || null,
         purchased_at: purchasedAtWithTime,
+        invoice_image_path: firstPath,
+        invoice_image_paths: uploadedPaths.length ? uploadedPaths : null,
         created_by: u.user!.id,
       };
     });
@@ -121,8 +146,10 @@ function NewPurchase() {
     qc.invalidateQueries({ queryKey: ["purchases"] });
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["purchase-notes"] });
     nav({ to: "/purchases" });
   }
+
 
   return (
     <div className="mx-auto max-w-2xl p-4 md:p-8">
@@ -218,6 +245,60 @@ function NewPurchase() {
               <Plus className="mr-1 h-4 w-4" /> Adicionar item
             </Button>
           </div>
+
+          <div className="space-y-2 rounded-lg border bg-background/50 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2"><Paperclip className="h-4 w-4" /> Anexos da nota (fotos ou PDF)</Label>
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Plus className="mr-1 h-4 w-4" /> Adicionar
+              </Button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const list = Array.from(e.target.files ?? []);
+                if (!list.length) return;
+                setAttachments((prev) => [...prev, ...list]);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+            {attachments.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Opcional. Adicione várias páginas se a nota tiver mais de uma folha.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {attachments.map((f, i) => {
+                  const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+                  const url = !isPdf ? URL.createObjectURL(f) : null;
+                  return (
+                    <div key={i} className="relative rounded-md border bg-card p-2">
+                      {isPdf ? (
+                        <div className="flex h-24 items-center justify-center gap-2 text-muted-foreground">
+                          <FileText className="h-6 w-6" />
+                          <span className="text-xs truncate max-w-[10rem]">{f.name}</span>
+                        </div>
+                      ) : (
+                        <img src={url!} alt={f.name} className="h-24 w-full rounded object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        aria-label="Remover anexo"
+                        className="absolute -top-2 -right-2 rounded-full bg-background border p-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+
 
 
           <div className="flex items-center justify-between rounded-lg bg-secondary p-4">

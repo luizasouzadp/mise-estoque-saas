@@ -52,9 +52,10 @@ function ImportPurchase() {
   const suggestFn = useServerFn(suggestIngredientMatches);
   const saveFn = useServerFn(saveImportedPurchase);
 
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [zoomIndex, setZoomIndex] = useState(0);
   const [supplierName, setSupplierName] = useState("");
   const [supplierTaxId, setSupplierTaxId] = useState("");
   const [purchasedAt, setPurchasedAt] = useState(() => {
@@ -66,38 +67,50 @@ function ImportPurchase() {
   const [ingredientOptions, setIngredientOptions] = useState<Array<{ id: string; name: string; unit: string }>>([]);
   const [aliasMap, setAliasMap] = useState<Map<string, number>>(new Map()); // key: `${ingId}::${unit_up}` -> factor
   const [saving, setSaving] = useState(false);
-  const [existingInvoicePath, setExistingInvoicePath] = useState<string | null>(null);
+  const [existingInvoicePaths, setExistingInvoicePaths] = useState<string[]>([]);
   const [autoLoading, setAutoLoading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
-  // If arriving from an order receipt, download that image and prefill.
+  // If arriving from an order receipt, download all receipt images and prefill.
   useEffect(() => {
-    if (!fromOrderReceipt || existingInvoicePath) return;
+    if (!fromOrderReceipt || existingInvoicePaths.length) return;
     let cancelled = false;
     (async () => {
       setAutoLoading(true);
       try {
-        const { data: blob, error } = await supabase.storage
-          .from("purchase-invoices")
-          .download(fromOrderReceipt);
-        if (error || !blob) throw new Error(error?.message || "Falha ao carregar nota");
-        if (cancelled) return;
-        const name = fromOrderReceipt.split("/").pop() || "nota.jpg";
-        const f = new File([blob], name, { type: blob.type || "image/jpeg" });
-        setFile(f);
-        setExistingInvoicePath(fromOrderReceipt);
-        const reader = new FileReader();
-        reader.onload = () => !cancelled && setPreview(String(reader.result));
-        reader.readAsDataURL(f);
-        // Preload supplier from the linked order.
+        // Look up the order(s) that reference this receipt path to get all pages.
         const { data: ord } = await (supabase as any)
           .from("purchase_orders")
-          .select("supplier_name")
+          .select("supplier_name, receipt_image_paths, receipt_image_path")
           .eq("receipt_image_path", fromOrderReceipt)
           .limit(1)
           .maybeSingle();
-        if (!cancelled && ord?.supplier_name) setSupplierName(ord.supplier_name);
+        const paths: string[] = (ord?.receipt_image_paths?.length
+          ? ord.receipt_image_paths
+          : [fromOrderReceipt]) as string[];
+        const loadedFiles: File[] = [];
+        const loadedPreviews: string[] = [];
+        for (const p of paths) {
+          const { data: blob, error } = await supabase.storage
+            .from("purchase-invoices")
+            .download(p);
+          if (error || !blob) throw new Error(error?.message || "Falha ao carregar nota");
+          const name = p.split("/").pop() || "nota.jpg";
+          const f = new File([blob], name, { type: blob.type || "image/jpeg" });
+          loadedFiles.push(f);
+          loadedPreviews.push(await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }));
+        }
+        if (cancelled) return;
+        setFiles(loadedFiles);
+        setPreviews(loadedPreviews);
+        setExistingInvoicePaths(paths);
+        if (ord?.supplier_name) setSupplierName(ord.supplier_name);
       } catch (e) {
         toast.error((e as Error).message);
       } finally {
@@ -105,7 +118,8 @@ function ImportPurchase() {
       }
     })();
     return () => { cancelled = true; };
-  }, [fromOrderReceipt, existingInvoicePath]);
+  }, [fromOrderReceipt, existingInvoicePaths.length]);
+
 
   const { data: ingredientsData } = useQuery({
     queryKey: ["ingredients"],
@@ -124,21 +138,29 @@ function ImportPurchase() {
     });
   }
 
-  function onPickFile(f: File) {
-    setFile(f);
-    fileToDataUrl(f).then(setPreview);
+  async function addFiles(newFiles: File[]) {
+    if (!newFiles.length) return;
+    const urls = await Promise.all(newFiles.map(fileToDataUrl));
+    setFiles((prev) => [...prev, ...newFiles]);
+    setPreviews((prev) => [...prev, ...urls]);
+  }
+
+  function removeFileAt(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+    setPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
   const parseMut = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Escolha uma foto da nota primeiro.");
-      const dataUrl = await fileToDataUrl(file);
-      const parsed = await parseFn({ data: { imageDataUrl: dataUrl } });
+      if (!files.length) throw new Error("Escolha ao menos uma foto da nota.");
+      const dataUrls = await Promise.all(files.map(fileToDataUrl));
+      const parsed = await parseFn({ data: { imageDataUrls: dataUrls } });
       const suggested = await suggestFn({
         data: { raw_texts: parsed.items.map((i) => i.raw_text) },
       });
       return { parsed, suggested };
     },
+
     onSuccess: ({ parsed, suggested }) => {
       setSupplierName(parsed.supplier ?? "");
       setSupplierTaxId(parsed.tax_id ?? "");
@@ -231,19 +253,23 @@ function ImportPurchase() {
     }
     setSaving(true);
     try {
-      // 1. Upload image (reuse existing path when coming from an order receipt).
-      let invoicePath: string | null = existingInvoicePath;
-      if (!invoicePath && file) {
+      // 1. Upload images (reuse existing paths when coming from an order receipt).
+      let invoicePaths: string[] = existingInvoicePaths;
+      if (invoicePaths.length === 0 && files.length) {
         const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
         if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
-        const { error: upErr } = await supabase.storage.from("purchase-invoices").upload(path, file, {
-          contentType: file.type || "image/jpeg",
-          upsert: false,
-        });
-        if (upErr) throw new Error(`Falha no upload da imagem: ${upErr.message}`);
-        invoicePath = path;
+        const uploaded: string[] = [];
+        for (const f of files) {
+          const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+          const { error: upErr } = await supabase.storage.from("purchase-invoices").upload(path, f, {
+            contentType: f.type || "image/jpeg",
+            upsert: false,
+          });
+          if (upErr) throw new Error(`Falha no upload da imagem: ${upErr.message}`);
+          uploaded.push(path);
+        }
+        invoicePaths = uploaded;
       }
 
       // 2. Persist
@@ -252,7 +278,8 @@ function ImportPurchase() {
           supplier_name: supplierName.trim() || null,
           supplier_tax_id: supplierTaxId.trim() || null,
           purchased_at: new Date(purchasedAt).toISOString(),
-          invoice_image_path: invoicePath,
+          invoice_image_path: invoicePaths[0] ?? null,
+          invoice_image_paths: invoicePaths.length ? invoicePaths : null,
           items: items.map((it) => ({
             ingredient_id: it.ingredient_id,
             raw_text: it.raw_text,
@@ -266,16 +293,17 @@ function ImportPurchase() {
       });
 
       // 3. If linked to a receipt, mark the pending orders as imported.
-      if (existingInvoicePath) {
+      if (existingInvoicePaths.length) {
         await (supabase as any)
           .from("purchase_orders")
           .update({
             import_status: "imported",
             imported_purchase_ids: result?.purchase_ids ?? null,
           })
-          .eq("receipt_image_path", existingInvoicePath)
+          .eq("receipt_image_path", existingInvoicePaths[0])
           .eq("import_status", "pending");
       }
+
 
       toast.success("Compra registrada! Estoque atualizado.");
       qc.invalidateQueries({ queryKey: ["purchases"] });
@@ -306,7 +334,7 @@ function ImportPurchase() {
       {items.length === 0 && (
         <div className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
           <div>
-            <Label>Foto da nota</Label>
+            <Label>Fotos da nota (adicione várias páginas se necessário)</Label>
             <input
               ref={cameraInputRef}
               type="file"
@@ -314,8 +342,8 @@ function ImportPurchase() {
               capture="environment"
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onPickFile(f);
+                const list = Array.from(e.target.files ?? []);
+                if (list.length) void addFiles(list);
                 e.target.value = "";
               }}
             />
@@ -323,10 +351,11 @@ function ImportPurchase() {
               ref={galleryInputRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onPickFile(f);
+                const list = Array.from(e.target.files ?? []);
+                if (list.length) void addFiles(list);
                 e.target.value = "";
               }}
             />
@@ -339,30 +368,47 @@ function ImportPurchase() {
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Escolher da galeria
               </Button>
-              {file && (
+              {files.length > 0 && (
                 <div className="text-xs text-muted-foreground self-center">
-                  {file.name} · {(file.size / 1024).toFixed(0)} KB
+                  {files.length} {files.length === 1 ? "página" : "páginas"} · {(files.reduce((s, f) => s + f.size, 0) / 1024).toFixed(0)} KB
                 </div>
               )}
             </div>
-            {preview && (
-              <button
-                type="button"
-                onClick={() => setZoomOpen(true)}
-                title="Clique para ampliar"
-                className="mt-3 group relative block overflow-hidden rounded-lg border transition hover:ring-2 hover:ring-primary"
-              >
-                <img src={preview} alt="Prévia" className="max-h-80 w-auto" />
-                <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                  <ZoomIn className="h-3 w-3" /> Ampliar
-                </span>
-              </button>
+            {previews.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {previews.map((src, i) => (
+                  <div key={i} className="relative overflow-hidden rounded-lg border">
+                    <button
+                      type="button"
+                      onClick={() => { setZoomIndex(i); setZoomOpen(true); }}
+                      title="Clique para ampliar"
+                      className="group block w-full"
+                    >
+                      <img src={src} alt={`Página ${i + 1}`} className="h-32 w-full object-cover" />
+                      <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                        {i + 1}
+                      </span>
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                        <ZoomIn className="h-4 w-4 text-white" />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Remover página"
+                      className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeFileAt(i)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
           <Button
             type="button"
             onClick={() => parseMut.mutate()}
-            disabled={!file || parseMut.isPending}
+            disabled={files.length === 0 || parseMut.isPending}
             className="w-full sm:w-auto"
           >
             {parseMut.isPending ? (
@@ -376,6 +422,7 @@ function ImportPurchase() {
           )}
         </div>
       )}
+
 
       {items.length > 0 && (
         <div className="mt-6 space-y-4">
@@ -400,19 +447,28 @@ function ImportPurchase() {
           <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-semibold">Itens extraídos ({items.length})</h2>
-              {preview && (
-                <button
-                  type="button"
-                  onClick={() => setZoomOpen(true)}
-                  title="Ver nota"
-                  className="group relative shrink-0 overflow-hidden rounded-md border transition hover:ring-2 hover:ring-primary"
-                >
-                  <img src={preview} alt="Nota" className="h-14 w-14 object-cover" />
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
-                    <ZoomIn className="h-4 w-4 text-white" />
-                  </span>
-                </button>
+              {previews.length > 0 && (
+                <div className="flex shrink-0 items-center gap-1">
+                  {previews.map((src, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => { setZoomIndex(i); setZoomOpen(true); }}
+                      title={`Ver página ${i + 1}`}
+                      className="group relative overflow-hidden rounded-md border transition hover:ring-2 hover:ring-primary"
+                    >
+                      <img src={src} alt={`Página ${i + 1}`} className="h-14 w-14 object-cover" />
+                      <span className="absolute right-0 top-0 rounded-bl bg-black/60 px-1 text-[10px] text-white">
+                        {i + 1}
+                      </span>
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                        <ZoomIn className="h-4 w-4 text-white" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
+
             </div>
             <div className="space-y-3">
               {items.map((it, idx) => {
@@ -549,13 +605,30 @@ function ImportPurchase() {
 
       <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
         <DialogContent className="max-w-5xl p-2">
-          {preview && (
-            <div className="max-h-[85vh] overflow-auto">
-              <img src={preview} alt="Nota ampliada" className="mx-auto w-auto max-w-full" />
+          {previews.length > 0 && (
+            <div className="space-y-2">
+              <div className="max-h-[80vh] overflow-auto">
+                <img src={previews[zoomIndex] ?? previews[0]} alt={`Página ${zoomIndex + 1}`} className="mx-auto w-auto max-w-full" />
+              </div>
+              {previews.length > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {previews.map((src, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setZoomIndex(i)}
+                      className={`rounded border overflow-hidden ${i === zoomIndex ? "ring-2 ring-primary" : ""}`}
+                    >
+                      <img src={src} alt={`Página ${i + 1}`} className="h-14 w-14 object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

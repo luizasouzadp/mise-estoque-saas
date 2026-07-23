@@ -63,8 +63,9 @@ function OrdersPage() {
     { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
   ]);
   const [receiveTarget, setReceiveTarget] = useState<null | { supplier: string; items: OrderRow[] }>(null);
-  const [receiveFile, setReceiveFile] = useState<File | null>(null);
-  const [receivePreview, setReceivePreview] = useState<string | null>(null);
+  const [receiveFiles, setReceiveFiles] = useState<File[]>([]);
+  const [receivePreviews, setReceivePreviews] = useState<string[]>([]);
+
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiving, setReceiving] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -161,35 +162,54 @@ function OrdersPage() {
 
   function openReceive(supplier: string, items: OrderRow[]) {
     setReceiveTarget({ supplier, items });
-    setReceiveFile(null);
-    setReceivePreview(null);
+    setReceiveFiles([]);
+    setReceivePreviews([]);
     setReceiveNotes("");
   }
 
-  function onPickReceiptFile(f: File) {
-    setReceiveFile(f);
-    const r = new FileReader();
-    r.onload = () => setReceivePreview(String(r.result));
-    r.readAsDataURL(f);
+  async function addReceiptFiles(list: File[]) {
+    if (!list.length) return;
+    const urls = await Promise.all(
+      list.map(
+        (f) =>
+          new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }),
+      ),
+    );
+    setReceiveFiles((prev) => [...prev, ...list]);
+    setReceivePreviews((prev) => [...prev, ...urls]);
+  }
+
+  function removeReceiptAt(idx: number) {
+    setReceiveFiles((prev) => prev.filter((_, i) => i !== idx));
+    setReceivePreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function confirmReceive() {
     if (!receiveTarget) return;
-    if (!receiveFile) return toast.error("Anexe a foto da nota");
+    if (receiveFiles.length === 0) return toast.error("Anexe ao menos uma foto da nota");
     setReceiving(true);
     try {
       const { data: prof } = await supabase
         .from("profiles").select("restaurant_id").maybeSingle();
       if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
-      const ext = (receiveFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
-      const { error: upErr } = await supabase.storage
-        .from("purchase-invoices")
-        .upload(path, receiveFile, {
-          contentType: receiveFile.type || "image/jpeg",
-          upsert: false,
-        });
-      if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+      const uploadedPaths: string[] = [];
+      for (const f of receiveFiles) {
+        const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const { error: upErr } = await supabase.storage
+          .from("purchase-invoices")
+          .upload(path, f, {
+            contentType: f.type || "image/jpeg",
+            upsert: false,
+          });
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        uploadedPaths.push(path);
+      }
 
       const ids = receiveTarget.items.map((i) => i.id);
       const { error } = await (supabase as any)
@@ -197,12 +217,14 @@ function OrdersPage() {
         .update({
           status: "received",
           received_at: new Date().toISOString(),
-          receipt_image_path: path,
+          receipt_image_path: uploadedPaths[0],
+          receipt_image_paths: uploadedPaths,
           receipt_notes: receiveNotes.trim() || null,
           import_status: "pending",
         })
         .in("id", ids);
       if (error) throw new Error(error.message);
+
 
       toast.success("Recebimento registrado. Nota disponível em Compras.");
       setReceiveTarget(null);
@@ -628,7 +650,7 @@ function OrdersPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Foto da nota fiscal *</Label>
+              <Label>Fotos da nota fiscal * (adicione várias páginas se necessário)</Label>
               <input
                 ref={receiveCameraRef}
                 type="file"
@@ -636,8 +658,8 @@ function OrdersPage() {
                 capture="environment"
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onPickReceiptFile(f);
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addReceiptFiles(list);
                   e.target.value = "";
                 }}
               />
@@ -645,10 +667,11 @@ function OrdersPage() {
                 ref={receiveGalleryRef}
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onPickReceiptFile(f);
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addReceiptFiles(list);
                   e.target.value = "";
                 }}
               />
@@ -660,8 +683,25 @@ function OrdersPage() {
                   <ImageIcon className="mr-2 h-4 w-4" /> Da galeria
                 </Button>
               </div>
-              {receivePreview && (
-                <img src={receivePreview} alt="Prévia da nota" className="mt-2 max-h-56 rounded-md border object-contain" />
+              {receivePreviews.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {receivePreviews.map((src, i) => (
+                    <div key={i} className="relative overflow-hidden rounded-md border">
+                      <img src={src} alt={`Página ${i + 1}`} className="h-24 w-full object-cover" />
+                      <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                        {i + 1}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Remover página"
+                        className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeReceiptAt(i)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -681,9 +721,10 @@ function OrdersPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
-            <Button onClick={confirmReceive} disabled={receiving || !receiveFile}>
+            <Button onClick={confirmReceive} disabled={receiving || receiveFiles.length === 0}>
               {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
             </Button>
+
           </DialogFooter>
         </DialogContent>
       </Dialog>

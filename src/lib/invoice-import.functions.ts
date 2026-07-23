@@ -22,13 +22,26 @@ const ParsedInvoice = z.object({
 export const parseInvoiceImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ imageDataUrl: z.string().min(30) }).parse(input),
+    z
+      .object({
+        imageDataUrl: z.string().min(30).optional(),
+        imageDataUrls: z.array(z.string().min(30)).min(1).max(10).optional(),
+      })
+      .refine((v) => v.imageDataUrl || (v.imageDataUrls && v.imageDataUrls.length > 0), {
+        message: "Envie ao menos uma imagem.",
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("LOVABLE_API_KEY não configurada");
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-2.5-pro");
+    const urls: string[] = data.imageDataUrls?.length
+      ? data.imageDataUrls
+      : data.imageDataUrl
+        ? [data.imageDataUrl]
+        : [];
     try {
       const { output } = await generateText({
         model,
@@ -39,13 +52,13 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
             content: [
               {
                 type: "text",
-                text: `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel).
+                text: `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
 
 Retorne JSON estrito no formato:
 - supplier: nome/razão social do emitente (string ou null)
 - tax_id: CNPJ do emitente (apenas dígitos, sem pontos/barra) ou null
 - purchased_at: data de emissão em ISO 8601 (YYYY-MM-DDTHH:mm:ss) ou null
-- items: array de linhas de produto, para cada uma:
+- items: array de linhas de produto (de TODAS as páginas), para cada uma:
   - raw_text: descrição EXATA como aparece na nota (inclua marca, tamanho, embalagem)
   - quantity: quantidade numérica (use ponto decimal)
   - unit: unidade como aparece (un, UN, KG, kg, L, LT, ML, PT, PCT, CX, FD, DZ, etc.)
@@ -57,9 +70,10 @@ Regras:
 - Ignore linhas de desconto, subtotal geral, frete, tributos.
 - Se a nota mostrar "2 x 3,50 = 7,00", quantity=2, unit_price=3.50, total=7.00.
 - Se unidade não aparecer, use "un".
-- Números com vírgula na nota devem virar ponto no JSON.`,
+- Números com vírgula na nota devem virar ponto no JSON.
+- Não repita itens que aparecem em mais de uma página (por exemplo continuação).`,
               },
-              { type: "image", image: data.imageDataUrl },
+              ...urls.map((u) => ({ type: "image" as const, image: u })),
             ],
           },
         ],
@@ -77,6 +91,7 @@ Regras:
       throw e;
     }
   });
+
 
 // -------- Suggest ingredient matches --------
 function normalizeText(s: string): string {
@@ -181,7 +196,8 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
         supplier_name: z.string().nullable(),
         supplier_tax_id: z.string().nullable(),
         purchased_at: z.string(),
-        invoice_image_path: z.string().nullable(),
+        invoice_image_path: z.string().nullable().optional(),
+        invoice_image_paths: z.array(z.string()).nullable().optional(),
         items: z
           .array(
             z.object({
@@ -248,6 +264,13 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
       }
     }
 
+    const paths = data.invoice_image_paths?.length
+      ? data.invoice_image_paths
+      : data.invoice_image_path
+        ? [data.invoice_image_path]
+        : [];
+    const firstPath = paths[0] ?? null;
+
     // Insert purchase rows (triggers update stock + last_cost).
     const rows = data.items.map((it) => ({
       restaurant_id: restaurantId,
@@ -260,10 +283,12 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
       total_cost: Number((it.quantity_nota * it.unit_cost_nota).toFixed(2)),
       supplier: supplierName,
       purchased_at: data.purchased_at,
-      invoice_image_path: data.invoice_image_path,
+      invoice_image_path: firstPath,
+      invoice_image_paths: paths.length ? paths : null,
       source: "photo",
       created_by: userId,
     }));
+
     const { data: insertedPurchases, error } = await supabase
       .from("purchases")
       .insert(rows)
