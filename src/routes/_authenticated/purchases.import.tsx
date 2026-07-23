@@ -346,11 +346,17 @@ function ImportPurchase() {
               )}
             </div>
             {preview && (
-              <img
-                src={preview}
-                alt="Prévia"
-                className="mt-3 max-h-80 rounded-lg border"
-              />
+              <button
+                type="button"
+                onClick={() => setZoomOpen(true)}
+                title="Clique para ampliar"
+                className="mt-3 group relative block overflow-hidden rounded-lg border transition hover:ring-2 hover:ring-primary"
+              >
+                <img src={preview} alt="Prévia" className="max-h-80 w-auto" />
+                <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                  <ZoomIn className="h-3 w-3" /> Ampliar
+                </span>
+              </button>
             )}
           </div>
           <Button
