@@ -253,19 +253,23 @@ function ImportPurchase() {
     }
     setSaving(true);
     try {
-      // 1. Upload image (reuse existing path when coming from an order receipt).
-      let invoicePath: string | null = existingInvoicePath;
-      if (!invoicePath && file) {
+      // 1. Upload images (reuse existing paths when coming from an order receipt).
+      let invoicePaths: string[] = existingInvoicePaths;
+      if (invoicePaths.length === 0 && files.length) {
         const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
         if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
-        const { error: upErr } = await supabase.storage.from("purchase-invoices").upload(path, file, {
-          contentType: file.type || "image/jpeg",
-          upsert: false,
-        });
-        if (upErr) throw new Error(`Falha no upload da imagem: ${upErr.message}`);
-        invoicePath = path;
+        const uploaded: string[] = [];
+        for (const f of files) {
+          const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+          const { error: upErr } = await supabase.storage.from("purchase-invoices").upload(path, f, {
+            contentType: f.type || "image/jpeg",
+            upsert: false,
+          });
+          if (upErr) throw new Error(`Falha no upload da imagem: ${upErr.message}`);
+          uploaded.push(path);
+        }
+        invoicePaths = uploaded;
       }
 
       // 2. Persist
@@ -274,7 +278,8 @@ function ImportPurchase() {
           supplier_name: supplierName.trim() || null,
           supplier_tax_id: supplierTaxId.trim() || null,
           purchased_at: new Date(purchasedAt).toISOString(),
-          invoice_image_path: invoicePath,
+          invoice_image_path: invoicePaths[0] ?? null,
+          invoice_image_paths: invoicePaths.length ? invoicePaths : null,
           items: items.map((it) => ({
             ingredient_id: it.ingredient_id,
             raw_text: it.raw_text,
@@ -288,16 +293,17 @@ function ImportPurchase() {
       });
 
       // 3. If linked to a receipt, mark the pending orders as imported.
-      if (existingInvoicePath) {
+      if (existingInvoicePaths.length) {
         await (supabase as any)
           .from("purchase_orders")
           .update({
             import_status: "imported",
             imported_purchase_ids: result?.purchase_ids ?? null,
           })
-          .eq("receipt_image_path", existingInvoicePath)
+          .eq("receipt_image_path", existingInvoicePaths[0])
           .eq("import_status", "pending");
       }
+
 
       toast.success("Compra registrada! Estoque atualizado.");
       qc.invalidateQueries({ queryKey: ["purchases"] });
