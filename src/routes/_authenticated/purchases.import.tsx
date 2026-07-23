@@ -398,7 +398,22 @@ function ImportPurchase() {
           </div>
 
           <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-            <h2 className="mb-3 font-semibold">Itens extraídos ({items.length})</h2>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="font-semibold">Itens extraídos ({items.length})</h2>
+              {preview && (
+                <button
+                  type="button"
+                  onClick={() => setZoomOpen(true)}
+                  title="Ver nota"
+                  className="group relative shrink-0 overflow-hidden rounded-md border transition hover:ring-2 hover:ring-primary"
+                >
+                  <img src={preview} alt="Nota" className="h-14 w-14 object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                    <ZoomIn className="h-4 w-4 text-white" />
+                  </span>
+                </button>
+              )}
+            </div>
             <div className="space-y-3">
               {items.map((it, idx) => {
                 const ing = options.find((o) => o.id === it.ingredient_id);
