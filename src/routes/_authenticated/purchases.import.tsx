@@ -16,7 +16,8 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/searchable-select";
-import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle, ZoomIn } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   parseInvoiceImage,
