@@ -16,7 +16,8 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/searchable-select";
-import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle, ZoomIn } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   parseInvoiceImage,
@@ -53,6 +54,7 @@ function ImportPurchase() {
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const [supplierName, setSupplierName] = useState("");
   const [supplierTaxId, setSupplierTaxId] = useState("");
   const [purchasedAt, setPurchasedAt] = useState(() => {
@@ -344,11 +346,17 @@ function ImportPurchase() {
               )}
             </div>
             {preview && (
-              <img
-                src={preview}
-                alt="Prévia"
-                className="mt-3 max-h-80 rounded-lg border"
-              />
+              <button
+                type="button"
+                onClick={() => setZoomOpen(true)}
+                title="Clique para ampliar"
+                className="mt-3 group relative block overflow-hidden rounded-lg border transition hover:ring-2 hover:ring-primary"
+              >
+                <img src={preview} alt="Prévia" className="max-h-80 w-auto" />
+                <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                  <ZoomIn className="h-3 w-3" /> Ampliar
+                </span>
+              </button>
             )}
           </div>
           <Button
@@ -390,7 +398,22 @@ function ImportPurchase() {
           </div>
 
           <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-            <h2 className="mb-3 font-semibold">Itens extraídos ({items.length})</h2>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="font-semibold">Itens extraídos ({items.length})</h2>
+              {preview && (
+                <button
+                  type="button"
+                  onClick={() => setZoomOpen(true)}
+                  title="Ver nota"
+                  className="group relative shrink-0 overflow-hidden rounded-md border transition hover:ring-2 hover:ring-primary"
+                >
+                  <img src={preview} alt="Nota" className="h-14 w-14 object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                    <ZoomIn className="h-4 w-4 text-white" />
+                  </span>
+                </button>
+              )}
+            </div>
             <div className="space-y-3">
               {items.map((it, idx) => {
                 const ing = options.find((o) => o.id === it.ingredient_id);
@@ -523,6 +546,16 @@ function ImportPurchase() {
           
         </div>
       )}
+
+      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+        <DialogContent className="max-w-5xl p-2">
+          {preview && (
+            <div className="max-h-[85vh] overflow-auto">
+              <img src={preview} alt="Nota ampliada" className="mx-auto w-auto max-w-full" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
