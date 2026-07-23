@@ -447,19 +447,28 @@ function ImportPurchase() {
           <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-semibold">Itens extraídos ({items.length})</h2>
-              {preview && (
-                <button
-                  type="button"
-                  onClick={() => setZoomOpen(true)}
-                  title="Ver nota"
-                  className="group relative shrink-0 overflow-hidden rounded-md border transition hover:ring-2 hover:ring-primary"
-                >
-                  <img src={preview} alt="Nota" className="h-14 w-14 object-cover" />
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
-                    <ZoomIn className="h-4 w-4 text-white" />
-                  </span>
-                </button>
+              {previews.length > 0 && (
+                <div className="flex shrink-0 items-center gap-1">
+                  {previews.map((src, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => { setZoomIndex(i); setZoomOpen(true); }}
+                      title={`Ver página ${i + 1}`}
+                      className="group relative overflow-hidden rounded-md border transition hover:ring-2 hover:ring-primary"
+                    >
+                      <img src={src} alt={`Página ${i + 1}`} className="h-14 w-14 object-cover" />
+                      <span className="absolute right-0 top-0 rounded-bl bg-black/60 px-1 text-[10px] text-white">
+                        {i + 1}
+                      </span>
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                        <ZoomIn className="h-4 w-4 text-white" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
+
             </div>
             <div className="space-y-3">
               {items.map((it, idx) => {
