@@ -63,8 +63,9 @@ function OrdersPage() {
     { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
   ]);
   const [receiveTarget, setReceiveTarget] = useState<null | { supplier: string; items: OrderRow[] }>(null);
-  const [receiveFile, setReceiveFile] = useState<File | null>(null);
-  const [receivePreview, setReceivePreview] = useState<string | null>(null);
+  const [receiveFiles, setReceiveFiles] = useState<File[]>([]);
+  const [receivePreviews, setReceivePreviews] = useState<string[]>([]);
+
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiving, setReceiving] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
