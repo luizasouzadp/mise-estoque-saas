@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Images, ImageOff, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, Images, ImageOff, Download, Loader2, Files } from "lucide-react";
 import JSZip from "jszip";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,7 @@ type NoteRow = {
   supplier: string | null;
   total_cost: number;
   invoice_image_path: string;
+  all_paths: string[];
 };
 
 const MONTH_LABEL = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
@@ -32,28 +33,34 @@ function NotesArchive() {
     queryKey: ["purchase-notes"],
     queryFn: async () => {
       const [purchasesRes, ordersRes] = await Promise.all([
-        supabase
+        (supabase as any)
           .from("purchases")
-          .select("id, purchased_at, supplier, total_cost, invoice_image_path")
+          .select("id, purchased_at, supplier, total_cost, invoice_image_path, invoice_image_paths")
           .not("invoice_image_path", "is", null)
           .order("purchased_at", { ascending: false }),
         (supabase as any)
           .from("purchase_orders")
-          .select("id, received_at, supplier_name, receipt_image_path")
+          .select("id, received_at, supplier_name, receipt_image_path, receipt_image_paths")
           .not("receipt_image_path", "is", null)
           .order("received_at", { ascending: false }),
       ]);
       if (purchasesRes.error) throw purchasesRes.error;
       if (ordersRes.error) throw ordersRes.error;
 
-      const purchaseRows = (purchasesRes.data ?? []) as NoteRow[];
-      // Paths already in `purchases` — dedupe orders that were already imported.
+      const purchaseRows: NoteRow[] = (purchasesRes.data ?? []).map((p: any) => ({
+        id: p.id,
+        purchased_at: p.purchased_at,
+        supplier: p.supplier,
+        total_cost: Number(p.total_cost ?? 0),
+        invoice_image_path: p.invoice_image_path,
+        all_paths: p.invoice_image_paths?.length ? p.invoice_image_paths : [p.invoice_image_path],
+      }));
       const known = new Set(purchaseRows.map((p) => p.invoice_image_path));
 
       const orderRows: NoteRow[] = [];
       const seenOrderPath = new Set<string>();
       for (const o of (ordersRes.data ?? []) as Array<{
-        id: string; received_at: string | null; supplier_name: string | null; receipt_image_path: string;
+        id: string; received_at: string | null; supplier_name: string | null; receipt_image_path: string; receipt_image_paths: string[] | null;
       }>) {
         if (known.has(o.receipt_image_path)) continue;
         if (seenOrderPath.has(o.receipt_image_path)) continue;
@@ -64,6 +71,7 @@ function NotesArchive() {
           supplier: o.supplier_name,
           total_cost: 0,
           invoice_image_path: o.receipt_image_path,
+          all_paths: o.receipt_image_paths?.length ? o.receipt_image_paths : [o.receipt_image_path],
         });
       }
       return [...purchaseRows, ...orderRows].sort((a, b) =>
@@ -72,7 +80,6 @@ function NotesArchive() {
     },
   });
 
-  // Group unique invoice paths by month (one purchase can share a note with multiple line items).
   const groups = useMemo(() => {
     if (!data) return [] as Array<{ key: string; label: string; notes: NoteRow[] }>;
     const seen = new Set<string>();
@@ -94,7 +101,7 @@ function NotesArchive() {
   const [urls, setUrls] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!data) return;
-    const paths = Array.from(new Set(data.map((d) => d.invoice_image_path)));
+    const paths = Array.from(new Set(data.flatMap((d) => d.all_paths)));
     const missing = paths.filter((p) => !urls[p]);
     if (missing.length === 0) return;
     (async () => {
@@ -113,6 +120,7 @@ function NotesArchive() {
   }, [data, urls]);
 
   const [preview, setPreview] = useState<NoteRow | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [exporting, setExporting] = useState<string | null>(null);
 
   async function exportMonth(g: { key: string; label: string; notes: NoteRow[] }) {
@@ -122,18 +130,22 @@ function NotesArchive() {
       const folder = zip.folder(g.label) ?? zip;
       const used = new Map<string, number>();
       for (const n of g.notes) {
-        const { data: blob, error } = await supabase.storage
-          .from("purchase-invoices")
-          .download(n.invoice_image_path);
-        if (error || !blob) continue;
-        const ext = n.invoice_image_path.split(".").pop()?.toLowerCase() || "jpg";
         const date = new Date(n.purchased_at).toISOString().slice(0, 10);
         const supplier = (n.supplier ?? "sem-fornecedor").replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 40);
         let base = `${date}_${supplier}`;
         const count = (used.get(base) ?? 0) + 1;
         used.set(base, count);
         if (count > 1) base = `${base}_${count}`;
-        folder.file(`${base}.${ext}`, blob);
+        for (let i = 0; i < n.all_paths.length; i++) {
+          const p = n.all_paths[i];
+          const { data: blob, error } = await supabase.storage
+            .from("purchase-invoices")
+            .download(p);
+          if (error || !blob) continue;
+          const ext = p.split(".").pop()?.toLowerCase() || "jpg";
+          const suffix = n.all_paths.length > 1 ? `_p${i + 1}` : "";
+          folder.file(`${base}${suffix}.${ext}`, blob);
+        }
       }
       const out = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(out);
@@ -197,16 +209,21 @@ function NotesArchive() {
                     <button
                       key={n.id}
                       type="button"
-                      onClick={() => setPreview(n)}
+                      onClick={() => { setPreview(n); setPreviewIndex(0); }}
                       className="group overflow-hidden rounded-xl border bg-card text-left shadow-[var(--shadow-soft)] transition hover:shadow-md"
                     >
-                      <div className="aspect-square w-full bg-muted">
+                      <div className="relative aspect-square w-full bg-muted">
                         {url ? (
                           <img src={url} alt="Nota" className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                             <ImageOff className="h-6 w-6" />
                           </div>
+                        )}
+                        {n.all_paths.length > 1 && (
+                          <span className="absolute right-1 top-1 inline-flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                            <Files className="h-3 w-3" /> {n.all_paths.length}
+                          </span>
                         )}
                       </div>
                       <div className="p-2 text-xs">
@@ -230,18 +247,37 @@ function NotesArchive() {
           <DialogHeader>
             <DialogTitle>
               {preview?.supplier ?? "Nota"} — {preview ? new Date(preview.purchased_at).toLocaleDateString("pt-BR") : ""}
+              {preview && preview.all_paths.length > 1 ? ` · página ${previewIndex + 1}/${preview.all_paths.length}` : ""}
             </DialogTitle>
           </DialogHeader>
-          {preview && urls[preview.invoice_image_path] && (
+          {preview && urls[preview.all_paths[previewIndex] ?? preview.invoice_image_path] && (
             <img
-              src={urls[preview.invoice_image_path]}
+              src={urls[preview.all_paths[previewIndex] ?? preview.invoice_image_path]}
               alt="Nota ampliada"
-              className="max-h-[75vh] w-full rounded-lg object-contain"
+              className="max-h-[70vh] w-full rounded-lg object-contain"
             />
+          )}
+          {preview && preview.all_paths.length > 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {preview.all_paths.map((p, i) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPreviewIndex(i)}
+                  className={`rounded border overflow-hidden ${i === previewIndex ? "ring-2 ring-primary" : ""}`}
+                >
+                  {urls[p] ? (
+                    <img src={urls[p]} alt={`Página ${i + 1}`} className="h-14 w-14 object-cover" />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center bg-muted text-muted-foreground text-xs">{i + 1}</div>
+                  )}
+                </button>
+              ))}
+            </div>
           )}
           {preview && (
             <a
-              href={urls[preview.invoice_image_path]}
+              href={urls[preview.all_paths[previewIndex] ?? preview.invoice_image_path]}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-muted-foreground underline"
