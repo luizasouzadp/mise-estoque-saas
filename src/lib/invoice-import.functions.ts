@@ -196,7 +196,8 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
         supplier_name: z.string().nullable(),
         supplier_tax_id: z.string().nullable(),
         purchased_at: z.string(),
-        invoice_image_path: z.string().nullable(),
+        invoice_image_path: z.string().nullable().optional(),
+        invoice_image_paths: z.array(z.string()).nullable().optional(),
         items: z
           .array(
             z.object({
@@ -263,6 +264,13 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
       }
     }
 
+    const paths = data.invoice_image_paths?.length
+      ? data.invoice_image_paths
+      : data.invoice_image_path
+        ? [data.invoice_image_path]
+        : [];
+    const firstPath = paths[0] ?? null;
+
     // Insert purchase rows (triggers update stock + last_cost).
     const rows = data.items.map((it) => ({
       restaurant_id: restaurantId,
@@ -275,10 +283,12 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
       total_cost: Number((it.quantity_nota * it.unit_cost_nota).toFixed(2)),
       supplier: supplierName,
       purchased_at: data.purchased_at,
-      invoice_image_path: data.invoice_image_path,
+      invoice_image_path: firstPath,
+      invoice_image_paths: paths.length ? paths : null,
       source: "photo",
       created_by: userId,
     }));
+
     const { data: insertedPurchases, error } = await supabase
       .from("purchases")
       .insert(rows)
