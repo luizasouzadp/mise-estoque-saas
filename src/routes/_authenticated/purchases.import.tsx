@@ -546,6 +546,16 @@ function ImportPurchase() {
           
         </div>
       )}
+
+      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+        <DialogContent className="max-w-5xl p-2">
+          {preview && (
+            <div className="max-h-[85vh] overflow-auto">
+              <img src={preview} alt="Nota ampliada" className="mx-auto w-auto max-w-full" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
