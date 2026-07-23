@@ -55,6 +55,9 @@ function NewPurchase() {
     return new Date(d.getTime() - tz).toISOString().slice(0, 10);
   });
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   async function addSupplier() {
     const name = newSupplierName.trim();
