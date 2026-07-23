@@ -54,6 +54,7 @@ function ImportPurchase() {
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const [supplierName, setSupplierName] = useState("");
   const [supplierTaxId, setSupplierTaxId] = useState("");
   const [purchasedAt, setPurchasedAt] = useState(() => {
