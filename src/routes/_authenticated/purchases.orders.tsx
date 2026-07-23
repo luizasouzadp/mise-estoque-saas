@@ -162,35 +162,54 @@ function OrdersPage() {
 
   function openReceive(supplier: string, items: OrderRow[]) {
     setReceiveTarget({ supplier, items });
-    setReceiveFile(null);
-    setReceivePreview(null);
+    setReceiveFiles([]);
+    setReceivePreviews([]);
     setReceiveNotes("");
   }
 
-  function onPickReceiptFile(f: File) {
-    setReceiveFile(f);
-    const r = new FileReader();
-    r.onload = () => setReceivePreview(String(r.result));
-    r.readAsDataURL(f);
+  async function addReceiptFiles(list: File[]) {
+    if (!list.length) return;
+    const urls = await Promise.all(
+      list.map(
+        (f) =>
+          new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }),
+      ),
+    );
+    setReceiveFiles((prev) => [...prev, ...list]);
+    setReceivePreviews((prev) => [...prev, ...urls]);
+  }
+
+  function removeReceiptAt(idx: number) {
+    setReceiveFiles((prev) => prev.filter((_, i) => i !== idx));
+    setReceivePreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function confirmReceive() {
     if (!receiveTarget) return;
-    if (!receiveFile) return toast.error("Anexe a foto da nota");
+    if (receiveFiles.length === 0) return toast.error("Anexe ao menos uma foto da nota");
     setReceiving(true);
     try {
       const { data: prof } = await supabase
         .from("profiles").select("restaurant_id").maybeSingle();
       if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
-      const ext = (receiveFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
-      const { error: upErr } = await supabase.storage
-        .from("purchase-invoices")
-        .upload(path, receiveFile, {
-          contentType: receiveFile.type || "image/jpeg",
-          upsert: false,
-        });
-      if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+      const uploadedPaths: string[] = [];
+      for (const f of receiveFiles) {
+        const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const { error: upErr } = await supabase.storage
+          .from("purchase-invoices")
+          .upload(path, f, {
+            contentType: f.type || "image/jpeg",
+            upsert: false,
+          });
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        uploadedPaths.push(path);
+      }
 
       const ids = receiveTarget.items.map((i) => i.id);
       const { error } = await (supabase as any)
@@ -198,12 +217,14 @@ function OrdersPage() {
         .update({
           status: "received",
           received_at: new Date().toISOString(),
-          receipt_image_path: path,
+          receipt_image_path: uploadedPaths[0],
+          receipt_image_paths: uploadedPaths,
           receipt_notes: receiveNotes.trim() || null,
           import_status: "pending",
         })
         .in("id", ids);
       if (error) throw new Error(error.message);
+
 
       toast.success("Recebimento registrado. Nota disponível em Compras.");
       setReceiveTarget(null);
