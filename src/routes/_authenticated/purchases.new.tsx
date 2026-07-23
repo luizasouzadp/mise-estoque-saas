@@ -246,6 +246,60 @@ function NewPurchase() {
             </Button>
           </div>
 
+          <div className="space-y-2 rounded-lg border bg-background/50 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2"><Paperclip className="h-4 w-4" /> Anexos da nota (fotos ou PDF)</Label>
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Plus className="mr-1 h-4 w-4" /> Adicionar
+              </Button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const list = Array.from(e.target.files ?? []);
+                if (!list.length) return;
+                setAttachments((prev) => [...prev, ...list]);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+            {attachments.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Opcional. Adicione várias páginas se a nota tiver mais de uma folha.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {attachments.map((f, i) => {
+                  const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+                  const url = !isPdf ? URL.createObjectURL(f) : null;
+                  return (
+                    <div key={i} className="relative rounded-md border bg-card p-2">
+                      {isPdf ? (
+                        <div className="flex h-24 items-center justify-center gap-2 text-muted-foreground">
+                          <FileText className="h-6 w-6" />
+                          <span className="text-xs truncate max-w-[10rem]">{f.name}</span>
+                        </div>
+                      ) : (
+                        <img src={url!} alt={f.name} className="h-24 w-full rounded object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        aria-label="Remover anexo"
+                        className="absolute -top-2 -right-2 rounded-full bg-background border p-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+
+
 
           <div className="flex items-center justify-between rounded-lg bg-secondary p-4">
             <span className="text-sm text-secondary-foreground">Total da compra</span>
