@@ -138,21 +138,29 @@ function ImportPurchase() {
     });
   }
 
-  function onPickFile(f: File) {
-    setFile(f);
-    fileToDataUrl(f).then(setPreview);
+  async function addFiles(newFiles: File[]) {
+    if (!newFiles.length) return;
+    const urls = await Promise.all(newFiles.map(fileToDataUrl));
+    setFiles((prev) => [...prev, ...newFiles]);
+    setPreviews((prev) => [...prev, ...urls]);
+  }
+
+  function removeFileAt(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+    setPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
   const parseMut = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Escolha uma foto da nota primeiro.");
-      const dataUrl = await fileToDataUrl(file);
-      const parsed = await parseFn({ data: { imageDataUrl: dataUrl } });
+      if (!files.length) throw new Error("Escolha ao menos uma foto da nota.");
+      const dataUrls = await Promise.all(files.map(fileToDataUrl));
+      const parsed = await parseFn({ data: { imageDataUrls: dataUrls } });
       const suggested = await suggestFn({
         data: { raw_texts: parsed.items.map((i) => i.raw_text) },
       });
       return { parsed, suggested };
     },
+
     onSuccess: ({ parsed, suggested }) => {
       setSupplierName(parsed.supplier ?? "");
       setSupplierTaxId(parsed.tax_id ?? "");
