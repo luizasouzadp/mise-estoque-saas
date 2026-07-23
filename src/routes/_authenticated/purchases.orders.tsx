@@ -650,7 +650,7 @@ function OrdersPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Foto da nota fiscal *</Label>
+              <Label>Fotos da nota fiscal * (adicione várias páginas se necessário)</Label>
               <input
                 ref={receiveCameraRef}
                 type="file"
@@ -658,8 +658,8 @@ function OrdersPage() {
                 capture="environment"
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onPickReceiptFile(f);
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addReceiptFiles(list);
                   e.target.value = "";
                 }}
               />
@@ -667,10 +667,11 @@ function OrdersPage() {
                 ref={receiveGalleryRef}
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onPickReceiptFile(f);
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addReceiptFiles(list);
                   e.target.value = "";
                 }}
               />
@@ -682,8 +683,25 @@ function OrdersPage() {
                   <ImageIcon className="mr-2 h-4 w-4" /> Da galeria
                 </Button>
               </div>
-              {receivePreview && (
-                <img src={receivePreview} alt="Prévia da nota" className="mt-2 max-h-56 rounded-md border object-contain" />
+              {receivePreviews.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {receivePreviews.map((src, i) => (
+                    <div key={i} className="relative overflow-hidden rounded-md border">
+                      <img src={src} alt={`Página ${i + 1}`} className="h-24 w-full object-cover" />
+                      <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                        {i + 1}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Remover página"
+                        className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeReceiptAt(i)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -703,9 +721,10 @@ function OrdersPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
-            <Button onClick={confirmReceive} disabled={receiving || !receiveFile}>
+            <Button onClick={confirmReceive} disabled={receiving || receiveFiles.length === 0}>
               {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
             </Button>
+
           </DialogFooter>
         </DialogContent>
       </Dialog>
