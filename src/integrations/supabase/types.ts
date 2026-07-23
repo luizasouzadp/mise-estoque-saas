@@ -879,6 +879,7 @@ export type Database = {
           notes: string | null
           quantity: number
           receipt_image_path: string | null
+          receipt_image_paths: string[] | null
           receipt_notes: string | null
           received_at: string | null
           restaurant_id: string
@@ -899,6 +900,7 @@ export type Database = {
           notes?: string | null
           quantity: number
           receipt_image_path?: string | null
+          receipt_image_paths?: string[] | null
           receipt_notes?: string | null
           received_at?: string | null
           restaurant_id: string
@@ -919,6 +921,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           receipt_image_path?: string | null
+          receipt_image_paths?: string[] | null
           receipt_notes?: string | null
           received_at?: string | null
           restaurant_id?: string
@@ -959,6 +962,7 @@ export type Database = {
           id: string
           ingredient_id: string
           invoice_image_path: string | null
+          invoice_image_paths: string[] | null
           purchased_at: string
           quantity: number
           restaurant_id: string
@@ -973,6 +977,7 @@ export type Database = {
           id?: string
           ingredient_id: string
           invoice_image_path?: string | null
+          invoice_image_paths?: string[] | null
           purchased_at?: string
           quantity: number
           restaurant_id: string
@@ -987,6 +992,7 @@ export type Database = {
           id?: string
           ingredient_id?: string
           invoice_image_path?: string | null
+          invoice_image_paths?: string[] | null
           purchased_at?: string
           quantity?: number
           restaurant_id?: string
