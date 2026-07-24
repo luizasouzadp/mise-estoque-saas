@@ -56,12 +56,15 @@ function GroupsPage() {
   }
 
   async function removeGroup(id: string) {
+    await supabase.from("inventory_items").delete().eq("group_id", id);
+    await supabase.from("inventory_groups").delete().eq("group_id", id);
     await supabase.from("ingredient_group_members").delete().eq("group_id", id);
     const { error } = await supabase.from("ingredient_groups").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Grupo excluído");
     qc.invalidateQueries({ queryKey: ["groups"] });
     qc.invalidateQueries({ queryKey: ["group-member-counts"] });
+    qc.invalidateQueries({ queryKey: ["inventory"] });
   }
 
   return (
