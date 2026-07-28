@@ -141,9 +141,15 @@ function IngredientsList() {
         </div>
       </div>
 
-      <div className="mt-6 relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Buscar por nome ou categoria..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Buscar por nome ou categoria..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <label className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+          Mostrar inativos{inactiveCount > 0 && <span className="text-xs text-muted-foreground">({inactiveCount})</span>}
+        </label>
       </div>
 
       <div className="mt-6">
