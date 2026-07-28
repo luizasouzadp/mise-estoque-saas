@@ -282,7 +282,7 @@ function ProductionsPage() {
   }
 
   async function persistOne(q: QueuedProduction, restaurantId: string): Promise<string | null> {
-    const { data: mirror, error: mirrorErr } = await supabase
+    let { data: mirror, error: mirrorErr } = await supabase
       .from("ingredients")
       .select("id")
       .eq("source_recipe_id", q.recipeId)
@@ -290,6 +290,20 @@ function ProductionsPage() {
     if (mirrorErr) {
       console.error("[productions] mirror lookup error", mirrorErr);
       return `Erro buscando insumo da ficha: ${mirrorErr.message}`;
+    }
+    if (!mirror) {
+      // Fallback: revincula insumo órfão de mesmo nome (evita duplicidade)
+      const { data: byName } = await supabase
+        .from("ingredients")
+        .select("id")
+        .eq("restaurant_id", restaurantId)
+        .ilike("name", q.recipeName)
+        .is("source_recipe_id", null)
+        .maybeSingle();
+      if (byName) {
+        await supabase.from("ingredients").update({ source_recipe_id: q.recipeId }).eq("id", byName.id);
+        mirror = { id: byName.id };
+      }
     }
     if (!mirror) return `Ficha "${q.recipeName}" não tem insumo de estoque vinculado.`;
 
