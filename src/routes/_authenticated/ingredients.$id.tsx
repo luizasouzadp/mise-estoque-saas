@@ -116,6 +116,7 @@ function IngredientDetail() {
       setMinStock(Number(data.min_stock).toFixed(3));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
+      setIsActive((data as { is_active?: boolean }).is_active ?? true);
       setSupplierIds(new Set((data as { supplierIds?: Set<string> }).supplierIds ?? []));
       setPrimarySupplierId((data as { primarySupplierId?: string | null }).primarySupplierId ?? null);
     }
