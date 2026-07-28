@@ -157,8 +157,8 @@ function IngredientDetail() {
     setSaving(true);
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
-      name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
-    }).eq("id", id);
+      name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv, is_active: isActive,
+    } as never).eq("id", id);
     if (error) {
       setSaving(false);
       return toast.error(error.message);
