@@ -599,6 +599,13 @@ function IngredientDetail() {
           </div>
           <Switch id="cmv" checked={composesCmv} onCheckedChange={setComposesCmv} />
         </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label htmlFor="active">Insumo ativo?</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Desative para ocultar da lista principal, listas de compras e inventários. O histórico é preservado.</p>
+          </div>
+          <Switch id="active" checked={isActive} onCheckedChange={setIsActive} />
+        </div>
         <div>
           <Label>Grupos de contagem</Label>
           <p className="text-xs text-muted-foreground">O insumo pode pertencer a vários grupos. As contagens serão somadas no inventário.</p>
