@@ -92,6 +92,7 @@ function IngredientDetail() {
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
+  const [isActive, setIsActive] = useState(true);
   const [supplierIds, setSupplierIds] = useState<Set<string>>(new Set());
   const [primarySupplierId, setPrimarySupplierId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
