@@ -44,6 +44,7 @@ function parseNum(v: unknown): number {
 
 function IngredientsList() {
   const [q, setQ] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,16 +54,19 @@ function IngredientsList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ingredients")
-        .select("id, name, unit, category, current_stock, avg_cost, min_stock")
+        .select("id, name, unit, category, current_stock, avg_cost, min_stock, is_active")
         .order("name");
       if (error) throw error;
-      return data;
+      return data as Array<{ id: string; name: string; unit: string; category: string | null; current_stock: number; avg_cost: number; min_stock: number; is_active: boolean | null }>;
     },
   });
 
-  const filtered = (data ?? []).filter((i) =>
-    !q || i.name.toLowerCase().includes(q.toLowerCase()) || (i.category ?? "").toLowerCase().includes(q.toLowerCase()),
-  );
+  const filtered = (data ?? []).filter((i) => {
+    if (!showInactive && i.is_active === false) return false;
+    if (!q) return true;
+    return i.name.toLowerCase().includes(q.toLowerCase()) || (i.category ?? "").toLowerCase().includes(q.toLowerCase());
+  });
+  const inactiveCount = (data ?? []).filter((i) => i.is_active === false).length;
 
   async function handleImport(file: File) {
     setImporting(true);
