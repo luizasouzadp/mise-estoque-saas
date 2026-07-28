@@ -16,11 +16,29 @@ export async function syncRecipeStockIngredient(args: {
   const { recipeId, restaurantId, isStocked, name, unit } = args;
 
   // Busca insumo existente vinculado
-  const { data: existing } = await supabase
+  let { data: existing } = await supabase
     .from("ingredients")
     .select("id")
     .eq("source_recipe_id", recipeId)
     .maybeSingle();
+
+  // Fallback: revincula insumo órfão de mesmo nome no mesmo restaurante
+  if (!existing) {
+    const { data: orphan } = await supabase
+      .from("ingredients")
+      .select("id")
+      .eq("restaurant_id", restaurantId)
+      .ilike("name", name)
+      .is("source_recipe_id", null)
+      .maybeSingle();
+    if (orphan) {
+      await supabase
+        .from("ingredients")
+        .update({ source_recipe_id: recipeId })
+        .eq("id", orphan.id);
+      existing = orphan;
+    }
+  }
 
   if (isStocked) {
     // Calcula custo unitário atual da ficha
