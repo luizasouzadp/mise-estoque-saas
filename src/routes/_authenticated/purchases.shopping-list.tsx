@@ -141,16 +141,20 @@ function ShoppingListPage() {
     queryFn: async () => {
       const [{ data, error }, prepRes] = await Promise.all([
         supabase.rpc("projected_stock_status"),
-        supabase.from("ingredients").select("id, source_recipe_id"),
+        supabase.from("ingredients").select("id, source_recipe_id, is_active"),
       ]);
       if (error) throw error;
       const preps = new Set(
         ((prepRes.data ?? []) as { id: string; source_recipe_id: string | null }[])
           .filter((i) => i.source_recipe_id).map((i) => i.id),
       );
+      const inactive = new Set(
+        ((prepRes.data ?? []) as { id: string; is_active: boolean | null }[])
+          .filter((i) => i.is_active === false).map((i) => i.id),
+      );
       const rows = ((data ?? []) as unknown[]) as ProjectedRow[];
       const order = { zerado: 0, abaixo_minimo: 1, proximo_minimo: 2, ok: 3 };
-      return rows.filter((r) => !preps.has(r.ingredient_id)).sort((a, b) => order[a.status] - order[b.status]);
+      return rows.filter((r) => !preps.has(r.ingredient_id) && !inactive.has(r.ingredient_id)).sort((a, b) => order[a.status] - order[b.status]);
     },
   });
 
