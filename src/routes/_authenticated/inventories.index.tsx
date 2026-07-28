@@ -126,10 +126,10 @@ function BulkStockDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ingredients")
-        .select("id, name, unit, current_stock")
+        .select("id, name, unit, current_stock, is_active")
         .order("name");
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).filter((i) => (i as { is_active?: boolean | null }).is_active !== false);
     },
     enabled: open,
   });

@@ -44,6 +44,7 @@ function parseNum(v: unknown): number {
 
 function IngredientsList() {
   const [q, setQ] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,16 +54,19 @@ function IngredientsList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ingredients")
-        .select("id, name, unit, category, current_stock, avg_cost, min_stock")
+        .select("id, name, unit, category, current_stock, avg_cost, min_stock, is_active")
         .order("name");
       if (error) throw error;
-      return data;
+      return data as Array<{ id: string; name: string; unit: string; category: string | null; current_stock: number; avg_cost: number; min_stock: number; is_active: boolean | null }>;
     },
   });
 
-  const filtered = (data ?? []).filter((i) =>
-    !q || i.name.toLowerCase().includes(q.toLowerCase()) || (i.category ?? "").toLowerCase().includes(q.toLowerCase()),
-  );
+  const filtered = (data ?? []).filter((i) => {
+    if (!showInactive && i.is_active === false) return false;
+    if (!q) return true;
+    return i.name.toLowerCase().includes(q.toLowerCase()) || (i.category ?? "").toLowerCase().includes(q.toLowerCase());
+  });
+  const inactiveCount = (data ?? []).filter((i) => i.is_active === false).length;
 
   async function handleImport(file: File) {
     setImporting(true);
@@ -137,9 +141,15 @@ function IngredientsList() {
         </div>
       </div>
 
-      <div className="mt-6 relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Buscar por nome ou categoria..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Buscar por nome ou categoria..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <label className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+          Mostrar inativos{inactiveCount > 0 && <span className="text-xs text-muted-foreground">({inactiveCount})</span>}
+        </label>
       </div>
 
       <div className="mt-6">
@@ -155,19 +165,22 @@ function IngredientsList() {
               const out = cur <= 0;
               const low = !out && min > 0 && cur <= min;
               const pct = min > 0 ? Math.min(100, (cur / min) * 100) : 100;
+              const inactive = i.is_active === false;
               return (
                 <Link
                   key={i.id}
                   to="/ingredients/$id"
                   params={{ id: i.id }}
-                  className="group rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] transition hover:border-primary"
+                  className={`group rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] transition hover:border-primary ${inactive ? "opacity-60" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-semibold group-hover:text-primary">{i.name}</h3>
                       {i.category && <p className="text-xs text-muted-foreground">{i.category}</p>}
                     </div>
-                    {out ? (
+                    {inactive ? (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">inativo</span>
+                    ) : out ? (
                       <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">sem estoque</span>
                     ) : low ? (
                       <span className="rounded-full bg-[color:var(--color-warning)]/15 px-2 py-0.5 text-xs font-medium text-[color:var(--color-warning)]">baixo</span>

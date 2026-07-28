@@ -92,6 +92,7 @@ function IngredientDetail() {
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
+  const [isActive, setIsActive] = useState(true);
   const [supplierIds, setSupplierIds] = useState<Set<string>>(new Set());
   const [primarySupplierId, setPrimarySupplierId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -115,6 +116,7 @@ function IngredientDetail() {
       setMinStock(Number(data.min_stock).toFixed(3));
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
+      setIsActive((data as { is_active?: boolean }).is_active ?? true);
       setSupplierIds(new Set((data as { supplierIds?: Set<string> }).supplierIds ?? []));
       setPrimarySupplierId((data as { primarySupplierId?: string | null }).primarySupplierId ?? null);
     }
@@ -155,8 +157,8 @@ function IngredientDetail() {
     setSaving(true);
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
-      name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv,
-    }).eq("id", id);
+      name: normalizeName(name), category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv, is_active: isActive,
+    } as never).eq("id", id);
     if (error) {
       setSaving(false);
       return toast.error(error.message);
@@ -596,6 +598,13 @@ function IngredientDetail() {
             <p className="mt-1 text-xs text-muted-foreground">Se ativo, este insumo entra no cálculo do CMV.</p>
           </div>
           <Switch id="cmv" checked={composesCmv} onCheckedChange={setComposesCmv} />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label htmlFor="active">Insumo ativo?</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Desative para ocultar da lista principal, listas de compras e inventários. O histórico é preservado.</p>
+          </div>
+          <Switch id="active" checked={isActive} onCheckedChange={setIsActive} />
         </div>
         <div>
           <Label>Grupos de contagem</Label>
