@@ -333,6 +333,7 @@ export type Database = {
           default_supplier_id: string | null
           group_id: string | null
           id: string
+          is_active: boolean
           last_cost: number
           min_stock: number
           name: string
@@ -350,6 +351,7 @@ export type Database = {
           default_supplier_id?: string | null
           group_id?: string | null
           id?: string
+          is_active?: boolean
           last_cost?: number
           min_stock?: number
           name: string
@@ -367,6 +369,7 @@ export type Database = {
           default_supplier_id?: string | null
           group_id?: string | null
           id?: string
+          is_active?: boolean
           last_cost?: number
           min_stock?: number
           name?: string
