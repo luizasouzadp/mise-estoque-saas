@@ -165,19 +165,22 @@ function IngredientsList() {
               const out = cur <= 0;
               const low = !out && min > 0 && cur <= min;
               const pct = min > 0 ? Math.min(100, (cur / min) * 100) : 100;
+              const inactive = i.is_active === false;
               return (
                 <Link
                   key={i.id}
                   to="/ingredients/$id"
                   params={{ id: i.id }}
-                  className="group rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] transition hover:border-primary"
+                  className={`group rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] transition hover:border-primary ${inactive ? "opacity-60" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-semibold group-hover:text-primary">{i.name}</h3>
                       {i.category && <p className="text-xs text-muted-foreground">{i.category}</p>}
                     </div>
-                    {out ? (
+                    {inactive ? (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">inativo</span>
+                    ) : out ? (
                       <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">sem estoque</span>
                     ) : low ? (
                       <span className="rounded-full bg-[color:var(--color-warning)]/15 px-2 py-0.5 text-xs font-medium text-[color:var(--color-warning)]">baixo</span>
