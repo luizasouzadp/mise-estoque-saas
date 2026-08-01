@@ -1,10 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { generateText, Output, NoObjectGeneratedError } from "ai";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 
-// -------- Parse invoice image via Gemini vision --------
+// -------- Parse invoice image via Google Gemini (chave própria do usuário) --------
 const ItemSchema = z.object({
   raw_text: z.string(),
   quantity: z.number().nullable(),
@@ -16,8 +14,66 @@ const ParsedInvoice = z.object({
   supplier: z.string().nullable(),
   tax_id: z.string().nullable(),
   purchased_at: z.string().nullable(),
+  invoice_total: z.number().nullable().optional(),
   items: z.array(ItemSchema),
 });
+
+const GEMINI_MODEL = "gemini-2.0-flash";
+
+const PROMPT = `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
+
+Retorne JSON estrito no formato:
+- supplier: nome/razão social do emitente (string ou null)
+- tax_id: CNPJ do emitente (apenas dígitos, sem pontos/barra) ou null
+- purchased_at: data de emissão em ISO 8601 (YYYY-MM-DDTHH:mm:ss) ou null
+- invoice_total: valor total da nota em R$ (numérico) ou null
+- items: array de linhas de produto (de TODAS as páginas), para cada uma:
+  - raw_text: descrição EXATA como aparece na nota (inclua marca, tamanho, embalagem)
+  - quantity: quantidade numérica (use ponto decimal)
+  - unit: unidade como aparece (un, UN, KG, kg, L, LT, ML, PT, PCT, CX, FD, DZ, etc.)
+  - unit_price: preço unitário em R$ (numérico, ponto decimal)
+  - total: subtotal da linha em R$ (numérico)
+
+Regras:
+- Não invente linhas. Só retorne o que estiver visível.
+- Ignore linhas de desconto, subtotal geral, frete, tributos.
+- Se a nota mostrar "2 x 3,50 = 7,00", quantity=2, unit_price=3.50, total=7.00.
+- Se unidade não aparecer, use "un".
+- Números com vírgula na nota devem virar ponto no JSON.
+- Não repita itens que aparecem em mais de uma página (por exemplo continuação).`;
+
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    supplier: { type: "STRING", nullable: true },
+    tax_id: { type: "STRING", nullable: true },
+    purchased_at: { type: "STRING", nullable: true },
+    invoice_total: { type: "NUMBER", nullable: true },
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          raw_text: { type: "STRING" },
+          quantity: { type: "NUMBER", nullable: true },
+          unit: { type: "STRING", nullable: true },
+          unit_price: { type: "NUMBER", nullable: true },
+          total: { type: "NUMBER", nullable: true },
+        },
+        required: ["raw_text"],
+      },
+    },
+  },
+  required: ["items"],
+} as const;
+
+function dataUrlToInlinePart(url: string) {
+  const match = /^data:([^;,]+);base64,(.*)$/s.exec(url.trim());
+  if (!match) {
+    throw new Error("Formato de imagem inválido. Reenvie a foto da nota.");
+  }
+  return { inlineData: { mimeType: match[1], data: match[2] } };
+}
 
 export const parseInvoiceImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -33,64 +89,109 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY não configurada");
-    const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-2.5-pro");
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "Chave da API do Google (GEMINI_API_KEY) não configurada. Adicione o secret nas configurações do projeto.",
+      );
+    }
+
     const urls: string[] = data.imageDataUrls?.length
       ? data.imageDataUrls
       : data.imageDataUrl
         ? [data.imageDataUrl]
         : [];
+
+    const parts = [{ text: PROMPT }, ...urls.map(dataUrlToInlinePart)];
+
+    let res: Response;
     try {
-      const { output } = await generateText({
-        model,
-        output: Output.object({ schema: ParsedInvoice }),
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
-
-Retorne JSON estrito no formato:
-- supplier: nome/razão social do emitente (string ou null)
-- tax_id: CNPJ do emitente (apenas dígitos, sem pontos/barra) ou null
-- purchased_at: data de emissão em ISO 8601 (YYYY-MM-DDTHH:mm:ss) ou null
-- items: array de linhas de produto (de TODAS as páginas), para cada uma:
-  - raw_text: descrição EXATA como aparece na nota (inclua marca, tamanho, embalagem)
-  - quantity: quantidade numérica (use ponto decimal)
-  - unit: unidade como aparece (un, UN, KG, kg, L, LT, ML, PT, PCT, CX, FD, DZ, etc.)
-  - unit_price: preço unitário em R$ (numérico, ponto decimal)
-  - total: subtotal da linha em R$ (numérico)
-
-Regras:
-- Não invente linhas. Só retorne o que estiver visível.
-- Ignore linhas de desconto, subtotal geral, frete, tributos.
-- Se a nota mostrar "2 x 3,50 = 7,00", quantity=2, unit_price=3.50, total=7.00.
-- Se unidade não aparecer, use "un".
-- Números com vírgula na nota devem virar ponto no JSON.
-- Não repita itens que aparecem em mais de uma página (por exemplo continuação).`,
-              },
-              ...urls.map((u) => ({ type: "image" as const, image: u })),
-            ],
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
           },
-        ],
-      });
-      return output;
-    } catch (e) {
-      if (NoObjectGeneratedError.isInstance(e)) {
+          body: JSON.stringify({
+            contents: [{ role: "user", parts }],
+            generationConfig: {
+              temperature: 0,
+              responseMimeType: "application/json",
+              responseSchema: RESPONSE_SCHEMA,
+            },
+          }),
+        },
+      );
+    } catch {
+      throw new Error("Não foi possível conectar à API do Google. Tente novamente.");
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[Gemini] ${res.status}: ${body.slice(0, 800)}`);
+      if (res.status === 400 && /API key not valid/i.test(body)) {
+        throw new Error("Chave da API do Google inválida. Verifique o secret GEMINI_API_KEY.");
+      }
+      if (res.status === 401 || res.status === 403) {
         throw new Error(
-          "Não consegui ler a nota. Tente uma foto mais nítida ou reenquadre.",
+          "Acesso negado pela API do Google. Confira se a chave é válida e tem a API Generative Language habilitada.",
         );
       }
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("429")) throw new Error("Muitas leituras em sequência. Aguarde alguns segundos.");
-      if (msg.includes("402")) throw new Error("Créditos de IA esgotados. Recarregue em Configurações.");
-      throw e;
+      if (res.status === 429) {
+        throw new Error("Limite de uso do Google atingido. Aguarde alguns segundos e tente de novo.");
+      }
+      if (res.status === 402 || /billing|quota/i.test(body)) {
+        throw new Error("Cota/faturamento da sua conta Google impediu a leitura. Verifique no Google AI Studio.");
+      }
+      throw new Error(`Falha ao ler a nota na API do Google (${res.status}).`);
     }
+
+    const json = (await res.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+        finishReason?: string;
+      }>;
+      promptFeedback?: { blockReason?: string };
+    };
+
+    if (json.promptFeedback?.blockReason) {
+      throw new Error("A imagem foi bloqueada pela API do Google. Envie outra foto da nota.");
+    }
+
+    const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    if (!text.trim()) {
+      throw new Error("Não consegui ler a nota. Tente uma foto mais nítida ou reenquadre.");
+    }
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start === -1 || end <= start) {
+        throw new Error("Não consegui interpretar a nota. Tente uma foto mais nítida.");
+      }
+      try {
+        raw = JSON.parse(text.slice(start, end + 1));
+      } catch {
+        throw new Error("Não consegui interpretar a nota. Tente uma foto mais nítida.");
+      }
+    }
+
+    const parsed = ParsedInvoice.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[Gemini] resposta fora do schema:", parsed.error.message);
+      throw new Error("Não consegui ler a nota. Tente uma foto mais nítida ou reenquadre.");
+    }
+    if (!parsed.data.items.length) {
+      throw new Error("Nenhum item foi identificado na nota. Tente uma foto mais nítida.");
+    }
+    return parsed.data;
   });
+
 
 
 // -------- Suggest ingredient matches --------
