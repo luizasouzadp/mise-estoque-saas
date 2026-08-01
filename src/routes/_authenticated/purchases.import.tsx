@@ -58,6 +58,7 @@ function ImportPurchase() {
   const [zoomIndex, setZoomIndex] = useState(0);
   const [supplierName, setSupplierName] = useState("");
   const [supplierTaxId, setSupplierTaxId] = useState("");
+  const [notaTotal, setNotaTotal] = useState<number | null>(null);
   const [purchasedAt, setPurchasedAt] = useState(() => {
     const d = new Date();
     const tz = d.getTimezoneOffset() * 60000;
