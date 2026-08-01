@@ -164,6 +164,7 @@ function ImportPurchase() {
     onSuccess: ({ parsed, suggested }) => {
       setSupplierName(parsed.supplier ?? "");
       setSupplierTaxId(parsed.tax_id ?? "");
+      setNotaTotal(typeof parsed.invoice_total === "number" ? parsed.invoice_total : null);
       // Data da compra = dia do lançamento (agora), ignorando a data da nota.
       setIngredientOptions(suggested.ingredients);
       const am = new Map<string, number>();
