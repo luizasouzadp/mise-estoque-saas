@@ -591,9 +591,22 @@ function ImportPurchase() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg bg-secondary p-4">
-            <span className="text-sm text-secondary-foreground">Total da compra</span>
-            <span className="font-display text-2xl">R$ {totalCompra.toFixed(2)}</span>
+          <div className="rounded-lg bg-secondary p-4">
+            {notaTotal !== null && (
+              <div className="mb-2 flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="text-sm text-secondary-foreground">Total lido na nota</span>
+                <span className="text-sm font-medium">R$ {notaTotal.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-secondary-foreground">Total da compra</span>
+              <span className="font-display text-2xl">R$ {totalCompra.toFixed(2)}</span>
+            </div>
+            {notaTotal !== null && Math.abs(notaTotal - totalCompra) > 0.05 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Diferença de R$ {Math.abs(notaTotal - totalCompra).toFixed(2)} em relação ao total da nota — confira os itens.
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">
