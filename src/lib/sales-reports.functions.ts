@@ -1,8 +1,61 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { generateText } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+
+const GEMINI_MODEL = "gemini-flash-latest";
+
+async function callGemini(apiKey: string, prompt: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4 },
+        }),
+      },
+    );
+  } catch {
+    throw new Error("Não foi possível conectar à API do Google. Tente novamente.");
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[Gemini/insights] ${res.status}: ${body.slice(0, 800)}`);
+    if (res.status === 400 && /API key not valid/i.test(body)) {
+      throw new Error("Chave da API do Google inválida. Verifique o secret GEMINI_API_KEY.");
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Acesso negado pela API do Google. Confira a chave e a API Generative Language habilitada.");
+    }
+    if (res.status === 429) {
+      if (/limit:\s*0/.test(body)) {
+        throw new Error(
+          "Sua chave do Google está com cota ZERO para este modelo. Ative o faturamento no projeto Google Cloud da chave ou gere uma nova chave no Google AI Studio.",
+        );
+      }
+      throw new Error("Limite de uso do Google atingido. Aguarde alguns segundos e tente de novo.");
+    }
+    if (res.status === 404) {
+      throw new Error("O modelo de IA do Google não está disponível para esta chave. Gere uma nova chave no Google AI Studio.");
+    }
+    throw new Error(`Falha ao gerar a análise na API do Google (${res.status}).`);
+  }
+
+  const json = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    promptFeedback?: { blockReason?: string };
+  };
+  if (json.promptFeedback?.blockReason) {
+    throw new Error("A solicitação foi bloqueada pela API do Google.");
+  }
+  const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  if (!text.trim()) throw new Error("A IA não retornou nenhuma análise. Tente novamente.");
+  return text;
+}
 
 const SalesRowSchema = z.object({
   product_code: z.string().trim().min(1),
