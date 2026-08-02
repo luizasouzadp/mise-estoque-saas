@@ -303,11 +303,7 @@ Seja direto, prático e use números reais. Não invente dados. Dados:
 ${JSON.stringify(payload, null, 2)}
 \`\`\``;
 
-    const gateway = createLovableAiGatewayProvider(key);
-    const { text } = await generateText({
-      model: gateway("google/gemini-2.5-flash"),
-      prompt,
-    });
+    const text = await callGemini(key, prompt);
 
     const { error } = await supabase.from("sales_reports").update({ ai_insights: text }).eq("id", data.report_id);
     if (error) throw new Error(error.message);
