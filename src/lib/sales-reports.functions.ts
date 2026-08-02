@@ -212,8 +212,12 @@ export const generateSalesInsights = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InsightsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY ausente");
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      throw new Error(
+        "Chave da API do Google (GEMINI_API_KEY) não configurada. Adicione o secret nas configurações do projeto.",
+      );
+    }
 
     const { data: report, error: rErr } = await supabase
       .from("sales_reports")
