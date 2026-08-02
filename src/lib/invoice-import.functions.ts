@@ -18,7 +18,7 @@ const ParsedInvoice = z.object({
   items: z.array(ItemSchema),
 });
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-flash-latest";
 
 const PROMPT = `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
 
@@ -149,6 +149,9 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
       }
       if (res.status === 402 || /billing|quota/i.test(body)) {
         throw new Error("Cota/faturamento da sua conta Google impediu a leitura. Verifique no Google AI Studio.");
+      }
+      if (res.status === 404) {
+        throw new Error("O modelo de IA do Google não está disponível para esta chave. Gere uma nova chave no Google AI Studio.");
       }
       throw new Error(`Falha ao ler a nota na API do Google (${res.status}).`);
     }
