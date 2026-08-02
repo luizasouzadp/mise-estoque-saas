@@ -18,7 +18,7 @@ const ParsedInvoice = z.object({
   items: z.array(ItemSchema),
 });
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 const PROMPT = `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
 
@@ -140,6 +140,11 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
         );
       }
       if (res.status === 429) {
+        if (/limit:\s*0/.test(body)) {
+          throw new Error(
+            "Sua chave do Google está com cota ZERO para este modelo (limite gratuito não liberado no projeto Google da chave). Ative o faturamento (billing) no projeto Google Cloud dessa chave ou gere uma nova chave no Google AI Studio em um projeto com nível gratuito habilitado.",
+          );
+        }
         throw new Error("Limite de uso do Google atingido. Aguarde alguns segundos e tente de novo.");
       }
       if (res.status === 402 || /billing|quota/i.test(body)) {
