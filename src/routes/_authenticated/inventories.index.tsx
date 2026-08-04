@@ -57,7 +57,7 @@ function InventoriesList() {
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-8">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex items-center gap-3">
           <ClipboardList className="h-6 w-6 text-primary" />
           <div>
@@ -65,10 +65,10 @@ function InventoriesList() {
             <p className="text-sm text-muted-foreground">Cada inventário tem um link único de contagem.</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setBulkOpen(true)}><RefreshCw className="mr-2 h-4 w-4" /> Atualizar estoque</Button>
-          <Button variant="outline" onClick={() => nav({ to: "/groups" })}><FolderTree className="mr-2 h-4 w-4" /> Gerenciar grupos</Button>
-          <Button onClick={() => nav({ to: "/inventories/new" })}><Plus className="mr-2 h-4 w-4" /> Novo</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setBulkOpen(true)}><RefreshCw className="mr-2 h-4 w-4" /> Atualizar estoque</Button>
+          <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => nav({ to: "/groups" })}><FolderTree className="mr-2 h-4 w-4" /> Gerenciar grupos</Button>
+          <Button className="flex-1 sm:flex-none" onClick={() => nav({ to: "/inventories/new" })}><Plus className="mr-2 h-4 w-4" /> Novo</Button>
         </div>
       </div>
 
