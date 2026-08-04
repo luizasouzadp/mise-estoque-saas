@@ -10,6 +10,8 @@ import {
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { registerServiceWorker } from "@/lib/pwa";
+import { InstallAppPrompt } from "@/components/InstallAppPrompt";
 
 import appCss from "../styles.css?url";
 
@@ -83,9 +85,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4319c6dd-d09f-465f-997c-f0123a0950cb/id-preview-56e07133--b83e3f5a-55db-4acc-bbc2-a9ac7006cf1b.lovable.app-1779244404444.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#1c4d3f" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Estoque" },
+      { name: "application-name", content: "Mise Estoque" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
@@ -129,10 +140,14 @@ function AuthSync() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    void registerServiceWorker();
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <AuthSync />
       <Outlet />
+      <InstallAppPrompt />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );

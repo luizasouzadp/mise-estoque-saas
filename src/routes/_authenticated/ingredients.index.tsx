@@ -116,12 +116,12 @@ function IngredientsList() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h1 className="font-display text-3xl">Insumos</h1>
           <p className="text-sm text-muted-foreground">Catálogo do seu restaurante.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             ref={fileRef}
             type="file"
@@ -132,10 +132,10 @@ function IngredientsList() {
               if (f) handleImport(f);
             }}
           />
-          <Button variant="outline" disabled={importing} onClick={() => setImportDialogOpen(true)}>
+          <Button variant="outline" className="flex-1 sm:flex-none" disabled={importing} onClick={() => setImportDialogOpen(true)}>
             <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar Excel"}
           </Button>
-          <Button asChild>
+          <Button asChild className="flex-1 sm:flex-none">
             <Link to="/ingredients/new"><Plus className="mr-2 h-4 w-4" /> Novo insumo</Link>
           </Button>
         </div>
