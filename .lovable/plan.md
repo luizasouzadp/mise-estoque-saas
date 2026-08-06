@@ -14,9 +14,15 @@ Criar um novo tipo de usuário ("Recebimento") que só enxerga a página de **En
 - Vê o card "Notas aguardando entrada" na aba de Compras, agora somando as notas de encomendas **e** as notas avulsas enviadas pelo recebimento.
 - Ao clicar, abre a leitura da nota por foto já com as imagens carregadas, confere e dá a entrada de fato. A nota sai da fila.
 
-## Como criar o usuário
+## Configurações de usuários na página inicial
 
-Na tela de Produção já existe a gestão de chefs (criar usuário/senha, listar, resetar senha, excluir). A mesma tela ganha uma segunda seção **"Usuários de recebimento"** com as mesmas ações. Login é feito por nome de usuário e senha, igual ao chef.
+A página **Início** ganha uma área de **Configurações de usuários**, reunindo em um só lugar:
+- **Chefs** — criar (usuário/senha), listar, resetar senha, excluir (sai da tela de Produção e passa para cá).
+- **Usuários de recebimento** — mesmas ações, para o novo papel.
+- **Contatos salvos** — os contatos de WhatsApp já cadastrados (criar, editar, excluir).
+
+Visível apenas para donos/gerentes.
+
 
 ## Detalhes técnicos
 
@@ -33,6 +39,7 @@ Na tela de Produção já existe a gestão de chefs (criar usuário/senha, lista
 - `src/routes/_authenticated/purchases.orders.tsx`: novo botão "Enviar nota avulsa" (fornecedor + fotos/PDF + observação → `pending_invoices`); esconder ações de criação/edição de encomenda para receiver se necessário, mantendo confirmar recebimento.
 - `src/routes/_authenticated/purchases.index.tsx`: card de pendências passa a unir `purchase_orders` com `import_status = 'pending'` e `pending_invoices` com `status = 'pending'`.
 - `src/routes/_authenticated/purchases.import.tsx`: aceitar origem `pending_invoice` (carregar imagens do registro) e, ao concluir a entrada, marcar como `imported`.
+- `src/routes/_authenticated/dashboard.tsx`: nova seção "Configurações de usuários" (abas: Chefs / Recebimento / Contatos), reaproveitando o componente de gestão de chefs hoje em `productions.index.tsx` e o CRUD de `whatsapp_contacts`.
 
 **Server functions**
 - `src/lib/chefs.functions.ts` generalizado para criar/listar/excluir/resetar senha também para o papel `receiver` (mesmo padrão de e-mail sintético, sufixo próprio), mantendo a checagem `is_manager_or_owner`.
