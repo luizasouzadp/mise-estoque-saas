@@ -18,6 +18,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowLeft, PackageCheck, Send, Trash2, X, Pencil, Plus, CheckCircle2, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
+import { useUserRoles } from "@/hooks/use-roles";
+
 
 export const Route = createFileRoute("/_authenticated/purchases/orders")({
   component: OrdersPage,
@@ -52,7 +54,17 @@ function formatBR(s: string | null | undefined) {
 
 function OrdersPage() {
   const qc = useQueryClient();
+  const { isReceiver } = useUserRoles();
+  const [looseOpen, setLooseOpen] = useState(false);
+  const [looseSupplier, setLooseSupplier] = useState("");
+  const [looseNotes, setLooseNotes] = useState("");
+  const [looseFiles, setLooseFiles] = useState<File[]>([]);
+  const [loosePreviews, setLoosePreviews] = useState<string[]>([]);
+  const [looseSaving, setLooseSaving] = useState(false);
+  const looseCameraRef = useRef<HTMLInputElement | null>(null);
+  const looseGalleryRef = useRef<HTMLInputElement | null>(null);
   const [waTarget, setWaTarget] = useState<null | { supplier: string; message: string }>(null);
+
   const [editing, setEditing] = useState<OrderRow | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editExpected, setEditExpected] = useState("");
@@ -244,7 +256,70 @@ function OrdersPage() {
     }
   }
 
+  function openLoose() {
+    setLooseSupplier("");
+    setLooseNotes("");
+    setLooseFiles([]);
+    setLoosePreviews([]);
+    setLooseOpen(true);
+  }
+
+  async function addLooseFiles(list: File[]) {
+    if (!list.length) return;
+    const urls = await Promise.all(
+      list.map(
+        (f) =>
+          new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }),
+      ),
+    );
+    setLooseFiles((prev) => [...prev, ...list]);
+    setLoosePreviews((prev) => [...prev, ...urls]);
+  }
+
+  async function saveLooseInvoice() {
+    if (looseFiles.length === 0) return toast.error("Anexe ao menos uma foto da nota");
+    setLooseSaving(true);
+    try {
+      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const paths: string[] = [];
+      for (const f of looseFiles) {
+        const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const { error: upErr } = await supabase.storage
+          .from("purchase-invoices")
+          .upload(path, f, { contentType: f.type || "image/jpeg", upsert: false });
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        paths.push(path);
+      }
+      const { data: userRes } = await supabase.auth.getUser();
+      const { error } = await (supabase as any).from("pending_invoices").insert({
+        restaurant_id: prof.restaurant_id,
+        supplier_name: looseSupplier.trim() || null,
+        notes: looseNotes.trim() || null,
+        image_paths: paths,
+        status: "pending",
+        created_by: userRes.user?.id ?? null,
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Nota enviada. Ficará pendente de entrada em Compras.");
+      setLooseOpen(false);
+      qc.invalidateQueries({ queryKey: ["pending-invoices"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLooseSaving(false);
+    }
+  }
+
   function resetNewOrder() {
+
     setNewSupplierText("");
     setNewExpected("");
     setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
@@ -377,9 +452,11 @@ function OrdersPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
       <div>
-        <Link to="/purchases" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="mr-1 h-4 w-4" /> Voltar às compras
-        </Link>
+        {!isReceiver && (
+          <Link to="/purchases" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
+            <ArrowLeft className="mr-1 h-4 w-4" /> Voltar às compras
+          </Link>
+        )}
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl flex items-center gap-2">
@@ -390,11 +467,17 @@ function OrdersPage() {
               para os contatos cadastrados.
             </p>
           </div>
-          <Button onClick={() => setNewOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Nova encomenda
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={openLoose}>
+              <Camera className="mr-1 h-4 w-4" /> Nota avulsa
+            </Button>
+            <Button onClick={() => setNewOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" /> Nova encomenda
+            </Button>
+          </div>
         </div>
       </div>
+
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
@@ -500,7 +583,106 @@ function OrdersPage() {
         </div>
       )}
 
+      {/* Nota avulsa */}
+      <Dialog open={looseOpen} onOpenChange={(o) => !o && !looseSaving && setLooseOpen(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nota avulsa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Para mercadorias recebidas sem encomenda lançada. A nota fica pendente para o
+              responsável dar entrada no estoque.
+            </p>
+            <div className="grid gap-2">
+              <Label>Fornecedor (opcional)</Label>
+              <Input
+                value={looseSupplier}
+                onChange={(e) => setLooseSupplier(e.target.value)}
+                placeholder="Nome do fornecedor"
+                list="loose-suppliers"
+              />
+              <datalist id="loose-suppliers">
+                {(suppliers ?? []).map((s) => <option key={s.id} value={s.name} />)}
+              </datalist>
+            </div>
+            <div className="grid gap-2">
+              <Label>Fotos da nota * (adicione várias páginas se necessário)</Label>
+              <input
+                ref={looseCameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addLooseFiles(list);
+                  e.target.value = "";
+                }}
+              />
+              <input
+                ref={looseGalleryRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addLooseFiles(list);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => looseCameraRef.current?.click()}>
+                  <Camera className="mr-2 h-4 w-4" /> Tirar foto
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => looseGalleryRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" /> Da galeria
+                </Button>
+              </div>
+              {loosePreviews.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {loosePreviews.map((src, i) => (
+                    <div key={i} className="relative overflow-hidden rounded-md border">
+                      <img src={src} alt={`Página ${i + 1}`} className="h-24 w-full object-cover" />
+                      <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">{i + 1}</span>
+                      <button
+                        type="button"
+                        aria-label="Remover página"
+                        className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          setLooseFiles((prev) => prev.filter((_, j) => j !== i));
+                          setLoosePreviews((prev) => prev.filter((_, j) => j !== i));
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label>Observações / avarias</Label>
+              <Textarea
+                rows={3}
+                value={looseNotes}
+                onChange={(e) => setLooseNotes(e.target.value)}
+                placeholder="Ex.: caixa amassada, faltou 1 unidade…"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setLooseOpen(false)} disabled={looseSaving}>Cancelar</Button>
+            <Button onClick={saveLooseInvoice} disabled={looseSaving || looseFiles.length === 0}>
+              {looseSaving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Enviar nota"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* WhatsApp picker */}
+
       <Dialog open={waTarget != null} onOpenChange={(o) => !o && setWaTarget(null)}>
         <DialogContent>
           <DialogHeader>

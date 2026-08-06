@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Package, AlertTriangle, Receipt, Plus, Wallet, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UserSettings } from "@/components/UserSettings";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -82,7 +84,12 @@ function Dashboard() {
         <QuickCard title="Cadastrar insumo" desc="Adicione um item ao catálogo." to="/ingredients/new" />
         <QuickCard title="Registrar compra" desc="Atualize estoque e custo médio." to="/purchases/new" />
       </div>
+
+      <div className="mt-8">
+        <UserSettings />
+      </div>
     </div>
+
   );
 }
 

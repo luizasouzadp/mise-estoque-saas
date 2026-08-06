@@ -6,20 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ChefHat } from "lucide-react";
-import { isChefUser } from "@/lib/roles";
+import { restrictedRoleOf, homePathForRole } from "@/lib/roles";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    next: typeof s.next === "string" && s.next.startsWith("/") ? s.next : "",
+  validateSearch: (s: Record<string, unknown>): { next?: string } => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") ? s.next : undefined,
   }),
+
   beforeLoad: async ({ search }) => {
     if (typeof window === "undefined") return;
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
     if (search.next) throw redirect({ href: search.next });
-    const chef = await isChefUser();
-    throw redirect({ to: chef ? "/productions" : "/dashboard" });
+    const role = await restrictedRoleOf();
+    throw redirect({ to: homePathForRole(role) });
   },
+
   component: LoginPage,
 });
 
