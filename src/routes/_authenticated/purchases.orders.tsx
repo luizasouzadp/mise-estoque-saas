@@ -256,7 +256,70 @@ function OrdersPage() {
     }
   }
 
+  function openLoose() {
+    setLooseSupplier("");
+    setLooseNotes("");
+    setLooseFiles([]);
+    setLoosePreviews([]);
+    setLooseOpen(true);
+  }
+
+  async function addLooseFiles(list: File[]) {
+    if (!list.length) return;
+    const urls = await Promise.all(
+      list.map(
+        (f) =>
+          new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }),
+      ),
+    );
+    setLooseFiles((prev) => [...prev, ...list]);
+    setLoosePreviews((prev) => [...prev, ...urls]);
+  }
+
+  async function saveLooseInvoice() {
+    if (looseFiles.length === 0) return toast.error("Anexe ao menos uma foto da nota");
+    setLooseSaving(true);
+    try {
+      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const paths: string[] = [];
+      for (const f of looseFiles) {
+        const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const { error: upErr } = await supabase.storage
+          .from("purchase-invoices")
+          .upload(path, f, { contentType: f.type || "image/jpeg", upsert: false });
+        if (upErr) throw new Error(`Falha no upload: ${upErr.message}`);
+        paths.push(path);
+      }
+      const { data: userRes } = await supabase.auth.getUser();
+      const { error } = await (supabase as any).from("pending_invoices").insert({
+        restaurant_id: prof.restaurant_id,
+        supplier_name: looseSupplier.trim() || null,
+        notes: looseNotes.trim() || null,
+        image_paths: paths,
+        status: "pending",
+        created_by: userRes.user?.id ?? null,
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Nota enviada. Ficará pendente de entrada em Compras.");
+      setLooseOpen(false);
+      qc.invalidateQueries({ queryKey: ["pending-invoices"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLooseSaving(false);
+    }
+  }
+
   function resetNewOrder() {
+
     setNewSupplierText("");
     setNewExpected("");
     setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
