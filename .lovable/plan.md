@@ -14,9 +14,15 @@ Criar um novo tipo de usuário ("Recebimento") que só enxerga a página de **En
 - Vê o card "Notas aguardando entrada" na aba de Compras, agora somando as notas de encomendas **e** as notas avulsas enviadas pelo recebimento.
 - Ao clicar, abre a leitura da nota por foto já com as imagens carregadas, confere e dá a entrada de fato. A nota sai da fila.
 
-## Como criar o usuário
+## Configurações de usuários na página inicial
 
-Na tela de Produção já existe a gestão de chefs (criar usuário/senha, listar, resetar senha, excluir). A mesma tela ganha uma segunda seção **"Usuários de recebimento"** com as mesmas ações. Login é feito por nome de usuário e senha, igual ao chef.
+A página **Início** ganha uma área de **Configurações de usuários**, reunindo em um só lugar:
+- **Chefs** — criar (usuário/senha), listar, resetar senha, excluir (sai da tela de Produção e passa para cá).
+- **Usuários de recebimento** — mesmas ações, para o novo papel.
+- **Contatos salvos** — os contatos de WhatsApp já cadastrados (criar, editar, excluir).
+
+Visível apenas para donos/gerentes.
+
 
 ## Detalhes técnicos
 
