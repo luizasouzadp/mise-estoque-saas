@@ -52,7 +52,17 @@ function formatBR(s: string | null | undefined) {
 
 function OrdersPage() {
   const qc = useQueryClient();
+  const { isReceiver } = useUserRoles();
+  const [looseOpen, setLooseOpen] = useState(false);
+  const [looseSupplier, setLooseSupplier] = useState("");
+  const [looseNotes, setLooseNotes] = useState("");
+  const [looseFiles, setLooseFiles] = useState<File[]>([]);
+  const [loosePreviews, setLoosePreviews] = useState<string[]>([]);
+  const [looseSaving, setLooseSaving] = useState(false);
+  const looseCameraRef = useRef<HTMLInputElement | null>(null);
+  const looseGalleryRef = useRef<HTMLInputElement | null>(null);
   const [waTarget, setWaTarget] = useState<null | { supplier: string; message: string }>(null);
+
   const [editing, setEditing] = useState<OrderRow | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editExpected, setEditExpected] = useState("");
