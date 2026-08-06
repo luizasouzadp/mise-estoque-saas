@@ -583,7 +583,106 @@ function OrdersPage() {
         </div>
       )}
 
+      {/* Nota avulsa */}
+      <Dialog open={looseOpen} onOpenChange={(o) => !o && !looseSaving && setLooseOpen(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nota avulsa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Para mercadorias recebidas sem encomenda lançada. A nota fica pendente para o
+              responsável dar entrada no estoque.
+            </p>
+            <div className="grid gap-2">
+              <Label>Fornecedor (opcional)</Label>
+              <Input
+                value={looseSupplier}
+                onChange={(e) => setLooseSupplier(e.target.value)}
+                placeholder="Nome do fornecedor"
+                list="loose-suppliers"
+              />
+              <datalist id="loose-suppliers">
+                {(suppliers ?? []).map((s) => <option key={s.id} value={s.name} />)}
+              </datalist>
+            </div>
+            <div className="grid gap-2">
+              <Label>Fotos da nota * (adicione várias páginas se necessário)</Label>
+              <input
+                ref={looseCameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addLooseFiles(list);
+                  e.target.value = "";
+                }}
+              />
+              <input
+                ref={looseGalleryRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const list = Array.from(e.target.files ?? []);
+                  if (list.length) void addLooseFiles(list);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => looseCameraRef.current?.click()}>
+                  <Camera className="mr-2 h-4 w-4" /> Tirar foto
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => looseGalleryRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" /> Da galeria
+                </Button>
+              </div>
+              {loosePreviews.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {loosePreviews.map((src, i) => (
+                    <div key={i} className="relative overflow-hidden rounded-md border">
+                      <img src={src} alt={`Página ${i + 1}`} className="h-24 w-full object-cover" />
+                      <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">{i + 1}</span>
+                      <button
+                        type="button"
+                        aria-label="Remover página"
+                        className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          setLooseFiles((prev) => prev.filter((_, j) => j !== i));
+                          setLoosePreviews((prev) => prev.filter((_, j) => j !== i));
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label>Observações / avarias</Label>
+              <Textarea
+                rows={3}
+                value={looseNotes}
+                onChange={(e) => setLooseNotes(e.target.value)}
+                placeholder="Ex.: caixa amassada, faltou 1 unidade…"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setLooseOpen(false)} disabled={looseSaving}>Cancelar</Button>
+            <Button onClick={saveLooseInvoice} disabled={looseSaving || looseFiles.length === 0}>
+              {looseSaving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Enviar nota"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* WhatsApp picker */}
+
       <Dialog open={waTarget != null} onOpenChange={(o) => !o && setWaTarget(null)}>
         <DialogContent>
           <DialogHeader>
