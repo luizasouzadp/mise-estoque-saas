@@ -700,6 +700,50 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_invoices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          image_paths: string[]
+          notes: string | null
+          restaurant_id: string
+          status: string
+          supplier_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_paths?: string[]
+          notes?: string | null
+          restaurant_id: string
+          status?: string
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_paths?: string[]
+          notes?: string | null
+          restaurant_id?: string
+          status?: string
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_invoices_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_items: {
         Row: {
           created_at: string
@@ -1500,7 +1544,7 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      app_role: "owner" | "manager" | "staff" | "chef"
+      app_role: "owner" | "manager" | "staff" | "chef" | "receiver"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1628,7 +1672,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["owner", "manager", "staff", "chef"],
+      app_role: ["owner", "manager", "staff", "chef", "receiver"],
     },
   },
 } as const
