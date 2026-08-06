@@ -22,16 +22,24 @@ const allNavItems = [
 export function AppShell() {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isChef, loading } = useUserRoles();
+  const { isChef, isReceiver, loading } = useUserRoles();
 
-  const navItems = isChef ? allNavItems.filter((n) => n.to === "/productions") : allNavItems;
+  const navItems = isChef
+    ? allNavItems.filter((n) => n.to === "/productions")
+    : isReceiver
+      ? ([{ to: "/purchases/orders", label: "Encomendas", icon: Truck }] as const)
+      : allNavItems;
 
   useEffect(() => {
     if (loading) return;
     if (isChef && !pathname.startsWith("/productions")) {
       router.navigate({ to: "/productions" });
     }
-  }, [isChef, loading, pathname, router]);
+    if (isReceiver && !pathname.startsWith("/purchases/orders")) {
+      router.navigate({ to: "/purchases/orders" });
+    }
+  }, [isChef, isReceiver, loading, pathname, router]);
+
 
   async function logout() {
     await supabase.auth.signOut();
