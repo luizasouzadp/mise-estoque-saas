@@ -97,7 +97,7 @@ function PurchasesList() {
       path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[]; pendingId: string | null;
     }>;
     const map = new Map<string, { path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[] }>();
-    for (const p of pending) {
+    for (const p of pending ?? []) {
       const g = map.get(p.receipt_image_path);
       if (g) {
         g.count += 1;
