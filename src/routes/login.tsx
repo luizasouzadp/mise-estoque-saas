@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ChefHat } from "lucide-react";
-import { isChefUser } from "@/lib/roles";
+import { restrictedRoleOf, homePathForRole } from "@/lib/roles";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>): { next?: string } => ({
