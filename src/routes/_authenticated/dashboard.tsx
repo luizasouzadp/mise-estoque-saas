@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Package, AlertTriangle, Receipt, Plus, Wallet, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UserSettings } from "@/components/UserSettings";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
