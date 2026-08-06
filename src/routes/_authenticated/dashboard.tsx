@@ -82,7 +82,12 @@ function Dashboard() {
         <QuickCard title="Cadastrar insumo" desc="Adicione um item ao catálogo." to="/ingredients/new" />
         <QuickCard title="Registrar compra" desc="Atualize estoque e custo médio." to="/purchases/new" />
       </div>
+
+      <div className="mt-8">
+        <UserSettings />
+      </div>
     </div>
+
   );
 }
 
