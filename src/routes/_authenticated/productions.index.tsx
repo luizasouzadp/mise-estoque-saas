@@ -22,10 +22,8 @@ import {
 } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ChefHat, Filter, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { ChefHat, Filter, Pencil, Plus, Trash2, X } from "lucide-react";
 import { compatibleUnits, convert } from "@/lib/units";
-import { createChef, listChefs, deleteChef, resetChefPassword } from "@/lib/chefs.functions";
-import { useUserRoles } from "@/hooks/use-roles";
 
 export const Route = createFileRoute("/_authenticated/productions/")({
   component: ProductionsPage,
@@ -470,7 +468,6 @@ function ProductionsPage() {
           <p className="text-sm text-muted-foreground">Lance o que foi produzido na cozinha</p>
         </div>
         <div className="flex gap-2">
-          <AddChefButton />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={openNew}><Plus className="h-4 w-4" /> Nova produção</Button>
@@ -746,147 +743,3 @@ function ProductionsPage() {
   );
 }
 
-function AddChefButton() {
-  const { isChef, loading } = useUserRoles();
-  const [open, setOpen] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [chefs, setChefs] = useState<{ id: string; username: string; email: string }[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
-  const [resetFor, setResetFor] = useState<string | null>(null);
-  const [newPwd, setNewPwd] = useState("");
-  const create = useServerFn(createChef);
-  const listFn = useServerFn(listChefs);
-  const delFn = useServerFn(deleteChef);
-  const resetFn = useServerFn(resetChefPassword);
-
-  async function refresh() {
-    setLoadingList(true);
-    try {
-      const data = await listFn();
-      setChefs(data);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao listar chefs");
-    } finally {
-      setLoadingList(false);
-    }
-  }
-
-  useEffect(() => {
-    if (open) refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  if (loading || isChef) return null;
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!/^[a-zA-Z0-9_.-]{3,40}$/.test(username)) return toast.error("Usuário inválido (3-40 caracteres, letras/números/_.-)");
-    if (password.length < 6) return toast.error("Senha deve ter ao menos 6 caracteres");
-    setBusy(true);
-    try {
-      await create({ data: { username, password } });
-      toast.success(`Chef "${username}" criado.`);
-      setUsername(""); setPassword("");
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao criar chef");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Apagar o chef "${name}"? Esta ação não pode ser desfeita.`)) return;
-    try {
-      await delFn({ data: { chefId: id } });
-      toast.success("Chef apagado");
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao apagar");
-    }
-  }
-
-  async function handleReset(id: string) {
-    if (newPwd.length < 6) return toast.error("Senha deve ter ao menos 6 caracteres");
-    try {
-      await resetFn({ data: { chefId: id, password: newPwd } });
-      toast.success("Senha redefinida");
-      setResetFor(null); setNewPwd("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao redefinir senha");
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline"><UserPlus className="h-4 w-4" /> Gerenciar chefs</Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Chefs de cozinha</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div>
-            <div className="text-sm font-medium mb-2">Chefs cadastrados</div>
-            {loadingList ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
-            ) : chefs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum chef cadastrado.</p>
-            ) : (
-              <div className="space-y-2">
-                {chefs.map((c) => (
-                  <div key={c.id} className="rounded-md border p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{c.username}</div>
-                        <div className="text-xs text-muted-foreground truncate">Login: {c.username}</div>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button type="button" size="sm" variant="outline" onClick={() => { setResetFor(resetFor === c.id ? null : c.id); setNewPwd(""); }}>
-                          Redefinir senha
-                        </Button>
-                        <Button type="button" size="sm" variant="destructive" onClick={() => handleDelete(c.id, c.username)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    {resetFor === c.id && (
-                      <div className="flex gap-2">
-                        <Input type="text" placeholder="Nova senha (mín. 6)" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} />
-                        <Button type="button" size="sm" onClick={() => handleReset(c.id)}>Salvar</Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="mt-2 text-xs text-muted-foreground">Por segurança, a senha não pode ser exibida. Use "Redefinir senha" para definir uma nova.</p>
-          </div>
-
-          <div className="border-t pt-4">
-            <div className="text-sm font-medium mb-2">Cadastrar novo chef</div>
-            <form onSubmit={submit} className="space-y-3">
-              <div>
-                <Label>Nome de usuário</Label>
-                <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ex: chef.joao" autoComplete="off" />
-                <p className="mt-1 text-xs text-muted-foreground">O chef entrará digitando este usuário no login.</p>
-              </div>
-              <div>
-                <Label>Senha</Label>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>Fechar</Button>
-                <Button type="submit" disabled={busy}>{busy ? "Criando..." : "Criar chef"}</Button>
-              </DialogFooter>
-            </form>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
