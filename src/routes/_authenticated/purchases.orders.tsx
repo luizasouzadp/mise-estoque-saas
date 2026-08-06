@@ -377,9 +377,11 @@ function OrdersPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
       <div>
-        <Link to="/purchases" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="mr-1 h-4 w-4" /> Voltar às compras
-        </Link>
+        {!isReceiver && (
+          <Link to="/purchases" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
+            <ArrowLeft className="mr-1 h-4 w-4" /> Voltar às compras
+          </Link>
+        )}
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl flex items-center gap-2">
@@ -390,11 +392,17 @@ function OrdersPage() {
               para os contatos cadastrados.
             </p>
           </div>
-          <Button onClick={() => setNewOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Nova encomenda
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={openLoose}>
+              <Camera className="mr-1 h-4 w-4" /> Nota avulsa
+            </Button>
+            <Button onClick={() => setNewOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" /> Nova encomenda
+            </Button>
+          </div>
         </div>
       </div>
+
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
