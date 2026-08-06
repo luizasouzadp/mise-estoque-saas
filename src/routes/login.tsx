@@ -18,9 +18,10 @@ export const Route = createFileRoute("/login")({
     const { data } = await supabase.auth.getSession();
     if (!data.session) return;
     if (search.next) throw redirect({ href: search.next });
-    const chef = await isChefUser();
-    throw redirect({ to: chef ? "/productions" : "/dashboard" });
+    const role = await restrictedRoleOf();
+    throw redirect({ to: homePathForRole(role) });
   },
+
   component: LoginPage,
 });
 
