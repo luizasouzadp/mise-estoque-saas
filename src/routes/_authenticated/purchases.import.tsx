@@ -27,7 +27,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/purchases/import")({
   validateSearch: (search: Record<string, unknown>) =>
-    z.object({ fromOrderReceipt: z.string().optional() }).parse(search),
+    z.object({ fromOrderReceipt: z.string().optional(), pendingInvoiceId: z.string().optional() }).parse(search),
   component: ImportPurchase,
 });
 
@@ -48,6 +48,7 @@ function ImportPurchase() {
   const qc = useQueryClient();
   const search = Route.useSearch();
   const fromOrderReceipt = search.fromOrderReceipt;
+  const pendingInvoiceId = search.pendingInvoiceId;
   const parseFn = useServerFn(parseInvoiceImage);
   const suggestFn = useServerFn(suggestIngredientMatches);
   const saveFn = useServerFn(saveImportedPurchase);
@@ -75,21 +76,33 @@ function ImportPurchase() {
 
   // If arriving from an order receipt, download all receipt images and prefill.
   useEffect(() => {
-    if (!fromOrderReceipt || existingInvoicePaths.length) return;
+    if ((!fromOrderReceipt && !pendingInvoiceId) || existingInvoicePaths.length) return;
     let cancelled = false;
     (async () => {
       setAutoLoading(true);
       try {
         // Look up the order(s) that reference this receipt path to get all pages.
-        const { data: ord } = await (supabase as any)
-          .from("purchase_orders")
-          .select("supplier_name, receipt_image_paths, receipt_image_path")
-          .eq("receipt_image_path", fromOrderReceipt)
-          .limit(1)
-          .maybeSingle();
-        const paths: string[] = (ord?.receipt_image_paths?.length
-          ? ord.receipt_image_paths
-          : [fromOrderReceipt]) as string[];
+        let ord: { supplier_name: string | null } | null = null;
+        let paths: string[] = [];
+        if (pendingInvoiceId) {
+          const { data: pi } = await (supabase as any)
+            .from("pending_invoices")
+            .select("supplier_name, image_paths")
+            .eq("id", pendingInvoiceId)
+            .maybeSingle();
+          ord = pi ? { supplier_name: pi.supplier_name } : null;
+          paths = (pi?.image_paths ?? []) as string[];
+        } else {
+          const { data: o } = await (supabase as any)
+            .from("purchase_orders")
+            .select("supplier_name, receipt_image_paths, receipt_image_path")
+            .eq("receipt_image_path", fromOrderReceipt)
+            .limit(1)
+            .maybeSingle();
+          ord = o;
+          paths = (o?.receipt_image_paths?.length ? o.receipt_image_paths : [fromOrderReceipt]) as string[];
+        }
+        if (!paths.length) throw new Error("Nota não encontrada");
         const loadedFiles: File[] = [];
         const loadedPreviews: string[] = [];
         for (const p of paths) {
@@ -119,7 +132,7 @@ function ImportPurchase() {
       }
     })();
     return () => { cancelled = true; };
-  }, [fromOrderReceipt, existingInvoicePaths.length]);
+  }, [fromOrderReceipt, pendingInvoiceId, existingInvoicePaths.length]);
 
 
   const { data: ingredientsData } = useQuery({
@@ -295,7 +308,13 @@ function ImportPurchase() {
       });
 
       // 3. If linked to a receipt, mark the pending orders as imported.
-      if (existingInvoicePaths.length) {
+      if (pendingInvoiceId) {
+        await (supabase as any)
+          .from("pending_invoices")
+          .update({ status: "imported" })
+          .eq("id", pendingInvoiceId);
+        qc.invalidateQueries({ queryKey: ["pending-invoices"] });
+      } else if (existingInvoicePaths.length) {
         await (supabase as any)
           .from("purchase_orders")
           .update({
