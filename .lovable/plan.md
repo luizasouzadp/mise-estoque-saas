@@ -39,6 +39,7 @@ Visível apenas para donos/gerentes.
 - `src/routes/_authenticated/purchases.orders.tsx`: novo botão "Enviar nota avulsa" (fornecedor + fotos/PDF + observação → `pending_invoices`); esconder ações de criação/edição de encomenda para receiver se necessário, mantendo confirmar recebimento.
 - `src/routes/_authenticated/purchases.index.tsx`: card de pendências passa a unir `purchase_orders` com `import_status = 'pending'` e `pending_invoices` com `status = 'pending'`.
 - `src/routes/_authenticated/purchases.import.tsx`: aceitar origem `pending_invoice` (carregar imagens do registro) e, ao concluir a entrada, marcar como `imported`.
+- `src/routes/_authenticated/dashboard.tsx`: nova seção "Configurações de usuários" (abas: Chefs / Recebimento / Contatos), reaproveitando o componente de gestão de chefs hoje em `productions.index.tsx` e o CRUD de `whatsapp_contacts`.
 
 **Server functions**
 - `src/lib/chefs.functions.ts` generalizado para criar/listar/excluir/resetar senha também para o papel `receiver` (mesmo padrão de e-mail sintético, sufixo próprio), mantendo a checagem `is_manager_or_owner`.
