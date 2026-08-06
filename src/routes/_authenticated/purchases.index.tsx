@@ -73,9 +73,28 @@ function PurchasesList() {
     },
   });
 
+  const { data: looseInvoices } = useQuery({
+    queryKey: ["pending-invoices"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pending_invoices")
+        .select("id, supplier_name, notes, image_paths, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string;
+        supplier_name: string | null;
+        notes: string | null;
+        image_paths: string[];
+        created_at: string;
+      }>;
+    },
+  });
+
   const pendingGroups = useMemo(() => {
-    if (!pending) return [] as Array<{
-      path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[];
+    if (!pending && !looseInvoices) return [] as Array<{
+      path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[]; pendingId: string | null;
     }>;
     const map = new Map<string, { path: string; supplier: string | null; notes: string | null; received_at: string | null; count: number; ids: string[] }>();
     for (const p of pending) {
@@ -95,8 +114,22 @@ function PurchasesList() {
         });
       }
     }
-    return Array.from(map.values());
-  }, [pending]);
+    const out = Array.from(map.values()).map((g) => ({ ...g, pendingId: null as string | null }));
+    for (const li of looseInvoices ?? []) {
+      const path = li.image_paths?.[0];
+      if (!path) continue;
+      out.push({
+        path,
+        supplier: li.supplier_name,
+        notes: li.notes,
+        received_at: li.created_at,
+        count: li.image_paths.length,
+        ids: [li.id],
+        pendingId: li.id,
+      });
+    }
+    return out;
+  }, [pending, looseInvoices]);
 
   const [pendingUrls, setPendingUrls] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -117,8 +150,17 @@ function PurchasesList() {
     })();
   }, [pendingGroups, pendingUrls]);
 
-  async function skipPending(ids: string[]) {
+  async function skipPending(ids: string[], pendingId: string | null) {
     if (!confirm("Ignorar esta pendência? A nota permanecerá arquivada, mas nenhuma entrada será cobrada.")) return;
+    if (pendingId) {
+      const { error } = await (supabase as any)
+        .from("pending_invoices")
+        .update({ status: "skipped" })
+        .eq("id", pendingId);
+      if (error) return toast.error(error.message);
+      qc.invalidateQueries({ queryKey: ["pending-invoices"] });
+      return;
+    }
     const { error } = await (supabase as any)
       .from("purchase_orders")
       .update({ import_status: "skipped" })
@@ -264,7 +306,7 @@ function PurchasesList() {
               <FileWarning className="h-5 w-5" />
               <h2 className="font-semibold">Notas aguardando entrada</h2>
               <span className="text-xs opacity-70">
-                Encomendas recebidas com nota anexada — dê entrada dos itens.
+                Notas recebidas aguardando entrada dos itens.
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -295,12 +337,17 @@ function PurchasesList() {
                         <Button
                           size="sm"
                           onClick={() =>
-                            nav({ to: "/purchases/import", search: { fromOrderReceipt: g.path } })
+                            nav({
+                              to: "/purchases/import",
+                              search: g.pendingId
+                                ? { pendingInvoiceId: g.pendingId }
+                                : { fromOrderReceipt: g.path },
+                            })
                           }
                         >
                           Dar entrada <ArrowRight className="ml-1 h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => skipPending(g.ids)}>
+                        <Button size="sm" variant="ghost" onClick={() => skipPending(g.ids, g.pendingId)}>
                           Ignorar
                         </Button>
                       </div>
