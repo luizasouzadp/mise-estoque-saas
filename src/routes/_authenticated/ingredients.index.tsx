@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,8 +13,34 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Search, Package, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/searchable-select";
+import {
+  Plus,
+  Search,
+  Package,
+  Upload,
+  FileSpreadsheet,
+  AlertCircle,
+  Download,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  History,
+  X,
+} from "lucide-react";
 import { normalizeName } from "@/lib/utils";
+import {
+  loadStockHistory,
+  parseLocal,
+  stockAt,
+  sourceLabel,
+  type UnifiedMove,
+} from "@/lib/stock-history";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,
@@ -42,31 +68,184 @@ function parseNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+const brl = (n: number) =>
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
+
 function IngredientsList() {
   const [q, setQ] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [category, setCategory] = useState("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [refDate, setRefDate] = useState("");
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
+
   const { data, isLoading } = useQuery({
-    queryKey: ["ingredients"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ingredients")
-        .select("id, name, unit, category, current_stock, avg_cost, min_stock, is_active")
-        .order("name");
-      if (error) throw error;
-      return data as Array<{ id: string; name: string; unit: string; category: string | null; current_stock: number; avg_cost: number; min_stock: number; is_active: boolean | null }>;
-    },
+    queryKey: ["ingredients", "history"],
+    queryFn: loadStockHistory,
   });
 
-  const filtered = (data ?? []).filter((i) => {
-    if (!showInactive && i.is_active === false) return false;
-    if (!q) return true;
-    return i.name.toLowerCase().includes(q.toLowerCase()) || (i.category ?? "").toLowerCase().includes(q.toLowerCase());
-  });
-  const inactiveCount = (data ?? []).filter((i) => i.is_active === false).length;
+  const ingredients = useMemo(() => data?.ingredients ?? [], [data]);
+  const moves = useMemo(() => data?.moves ?? [], [data]);
+
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(ingredients.map((i) => i.category).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [ingredients],
+  );
+
+  const cutoff = useMemo(() => (refDate ? parseLocal(refDate, true) : null), [refDate]);
+
+  const stockMap = useMemo(() => {
+    if (!cutoff) return null;
+    return stockAt(ingredients, moves, cutoff);
+  }, [cutoff, ingredients, moves]);
+
+  const stockOf = (id: string, current: number) =>
+    stockMap ? (stockMap.get(id) ?? 0) : Number(current);
+
+  const filtered = useMemo(
+    () =>
+      ingredients.filter((i) => {
+        if (!showInactive && i.is_active === false) return false;
+        if (category !== "all" && (i.category ?? "Sem categoria") !== category) return false;
+        if (!q) return true;
+        const term = q.toLowerCase();
+        return (
+          i.name.toLowerCase().includes(term) || (i.category ?? "").toLowerCase().includes(term)
+        );
+      }),
+    [ingredients, showInactive, category, q],
+  );
+
+  const inactiveCount = ingredients.filter((i) => i.is_active === false).length;
+
+  const filteredIds = useMemo(() => new Set(filtered.map((i) => i.id)), [filtered]);
+
+  const periodMoves = useMemo<UnifiedMove[]>(() => {
+    const start = from ? parseLocal(from) : null;
+    const end = to ? parseLocal(to, true) : null;
+    return moves.filter((m) => {
+      if (!filteredIds.has(m.ingredient_id)) return false;
+      const d = new Date(m.occurred_at);
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      if (!start && !end && cutoff && d > cutoff) return false;
+      return true;
+    });
+  }, [moves, filteredIds, from, to, cutoff]);
+
+  const summary = useMemo(() => {
+    let value = 0;
+    let below = 0;
+    let zeroed = 0;
+    for (const i of filtered) {
+      const stock = stockOf(i.id, i.current_stock);
+      value += stock * Number(i.avg_cost ?? 0);
+      if (stock <= 0) zeroed++;
+      else if (Number(i.min_stock ?? 0) > 0 && stock <= Number(i.min_stock)) below++;
+    }
+    let inQty = 0,
+      inVal = 0,
+      inCount = 0,
+      outQty = 0,
+      outVal = 0,
+      outCount = 0;
+    for (const m of periodMoves) {
+      if (m.type === "in") {
+        inQty += m.quantity;
+        inVal += m.value;
+        inCount++;
+      } else {
+        outQty += m.quantity;
+        outVal += m.value;
+        outCount++;
+      }
+    }
+    return { items: filtered.length, value, below, zeroed, inQty, inVal, inCount, outQty, outVal, outCount };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, periodMoves, stockMap]);
+
+  const hasFilters = category !== "all" || !!from || !!to || !!refDate || !!q;
+
+  function clearFilters() {
+    setCategory("all");
+    setFrom("");
+    setTo("");
+    setRefDate("");
+    setQ("");
+  }
+
+  function handleExport() {
+    const ingMap = new Map(ingredients.map((i) => [i.id, i]));
+    const wb = XLSX.utils.book_new();
+
+    const itemsSheet = filtered.map((i) => {
+      const stock = stockOf(i.id, i.current_stock);
+      const min = Number(i.min_stock ?? 0);
+      return {
+        Insumo: i.name,
+        Categoria: i.category ?? "",
+        Unidade: i.unit,
+        Estoque: Number(stock.toFixed(3)),
+        "Custo médio": Number(Number(i.avg_cost ?? 0).toFixed(4)),
+        "Valor total": Number((stock * Number(i.avg_cost ?? 0)).toFixed(2)),
+        "Estoque mínimo": min,
+        Situação:
+          i.is_active === false
+            ? "Inativo"
+            : stock <= 0
+              ? "Sem estoque"
+              : min > 0 && stock <= min
+                ? "Baixo"
+                : "OK",
+      };
+    });
+
+    const movesSheet = periodMoves.map((m) => {
+      const ing = ingMap.get(m.ingredient_id);
+      return {
+        Data: new Date(m.occurred_at).toLocaleString("pt-BR"),
+        Insumo: ing?.name ?? "",
+        Categoria: ing?.category ?? "",
+        Tipo: m.type === "in" ? "Entrada" : "Saída",
+        Origem: sourceLabel[m.source],
+        Motivo: m.reason,
+        Quantidade: Number(m.quantity.toFixed(3)),
+        Unidade: ing?.unit ?? "",
+        Valor: Number(m.value.toFixed(2)),
+      };
+    });
+
+    const summarySheet = [
+      { Indicador: "Categoria", Valor: category === "all" ? "Todas" : category },
+      { Indicador: "Data de referência", Valor: refDate || "Hoje" },
+      { Indicador: "Período", Valor: from || to ? `${from || "início"} a ${to || "hoje"}` : "Todo o histórico" },
+      { Indicador: "Busca", Valor: q || "-" },
+      { Indicador: "Itens", Valor: summary.items },
+      { Indicador: "Valor em estoque (R$)", Valor: Number(summary.value.toFixed(2)) },
+      { Indicador: "Entradas (lançamentos)", Valor: summary.inCount },
+      { Indicador: "Entradas (quantidade)", Valor: Number(summary.inQty.toFixed(3)) },
+      { Indicador: "Entradas (R$)", Valor: Number(summary.inVal.toFixed(2)) },
+      { Indicador: "Saídas (lançamentos)", Valor: summary.outCount },
+      { Indicador: "Saídas (quantidade)", Valor: Number(summary.outQty.toFixed(3)) },
+      { Indicador: "Saídas (R$)", Valor: Number(summary.outVal.toFixed(2)) },
+      { Indicador: "Abaixo do mínimo", Valor: summary.below },
+      { Indicador: "Zerados", Valor: summary.zeroed },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summarySheet), "Resumo");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(itemsSheet), "Insumos");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(movesSheet), "Entradas e saidas");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `estoque-${stamp}.xlsx`);
+    toast.success("Exportação gerada");
+  }
 
   async function handleImport(file: File) {
     setImporting(true);
@@ -132,6 +311,9 @@ function IngredientsList() {
               if (f) handleImport(f);
             }}
           />
+          <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleExport} disabled={isLoading}>
+            <Download className="mr-2 h-4 w-4" /> Exportar
+          </Button>
           <Button variant="outline" className="flex-1 sm:flex-none" disabled={importing} onClick={() => setImportDialogOpen(true)}>
             <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar Excel"}
           </Button>
@@ -141,7 +323,85 @@ function IngredientsList() {
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* Resumo */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <div className="text-xs text-muted-foreground">Itens</div>
+          <div className="font-display text-2xl">{summary.items}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {summary.below} abaixo do mínimo · {summary.zeroed} zerados
+          </div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <div className="text-xs text-muted-foreground">
+            Valor em estoque {refDate && <span className="text-primary">· em {refDate.split("-").reverse().join("/")}</span>}
+          </div>
+          <div className="font-display text-2xl">{brl(summary.value)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">estoque × custo médio</div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ArrowDownCircle className="h-3.5 w-3.5 text-primary" /> Entradas
+          </div>
+          <div className="font-display text-2xl text-primary">{brl(summary.inVal)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {summary.inCount} lançamentos · {summary.inQty.toFixed(2)} un
+          </div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ArrowUpCircle className="h-3.5 w-3.5 text-destructive" /> Saídas
+          </div>
+          <div className="font-display text-2xl text-destructive">{brl(summary.outVal)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {summary.outCount} lançamentos · {summary.outQty.toFixed(2)} un
+          </div>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="mt-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">Categoria</label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">Estoque na data</label>
+            <Input type="date" value={refDate} onChange={(e) => setRefDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">Movimentos de</label>
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">até</label>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        </div>
+        {hasFilters && (
+          <div className="mt-3 flex items-center justify-between gap-2">
+            {refDate ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                <History className="h-3.5 w-3.5" /> Visão histórica de {refDate.split("-").reverse().join("/")}
+              </span>
+            ) : <span />}
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <X className="mr-1 h-3.5 w-3.5" /> Limpar filtros
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar por nome ou categoria..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -160,7 +420,7 @@ function IngredientsList() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((i) => {
-              const cur = Number(i.current_stock);
+              const cur = stockOf(i.id, i.current_stock);
               const min = Number(i.min_stock);
               const out = cur <= 0;
               const low = !out && min > 0 && cur <= min;
