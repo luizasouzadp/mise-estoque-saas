@@ -153,7 +153,6 @@ function IngredientsList() {
 
 
   function handleExport() {
-    const ingMap = new Map(ingredients.map((i) => [i.id, i]));
     const wb = XLSX.utils.book_new();
 
     const itemsSheet = filtered.map((i) => {
@@ -178,41 +177,19 @@ function IngredientsList() {
       };
     });
 
-    const movesSheet = periodMoves.map((m) => {
-      const ing = ingMap.get(m.ingredient_id);
-      return {
-        Data: new Date(m.occurred_at).toLocaleString("pt-BR"),
-        Insumo: ing?.name ?? "",
-        Categoria: ing?.category ?? "",
-        Tipo: m.type === "in" ? "Entrada" : "Saída",
-        Origem: sourceLabel[m.source],
-        Motivo: m.reason,
-        Quantidade: Number(m.quantity.toFixed(3)),
-        Unidade: ing?.unit ?? "",
-        Valor: Number(m.value.toFixed(2)),
-      };
-    });
-
     const summarySheet = [
-      { Indicador: "Categoria", Valor: category === "all" ? "Todas" : category },
+      { Indicador: "Categorias", Valor: selectedCats.length ? selectedCats.join(", ") : "Todas" },
       { Indicador: "Data de referência", Valor: refDate || "Hoje" },
-      { Indicador: "Período", Valor: from || to ? `${from || "início"} a ${to || "hoje"}` : "Todo o histórico" },
       { Indicador: "Busca", Valor: q || "-" },
       { Indicador: "Itens", Valor: summary.items },
       { Indicador: "Valor em estoque (R$)", Valor: Number(summary.value.toFixed(2)) },
-      { Indicador: "Entradas (lançamentos)", Valor: summary.inCount },
-      { Indicador: "Entradas (quantidade)", Valor: Number(summary.inQty.toFixed(3)) },
-      { Indicador: "Entradas (R$)", Valor: Number(summary.inVal.toFixed(2)) },
-      { Indicador: "Saídas (lançamentos)", Valor: summary.outCount },
-      { Indicador: "Saídas (quantidade)", Valor: Number(summary.outQty.toFixed(3)) },
-      { Indicador: "Saídas (R$)", Valor: Number(summary.outVal.toFixed(2)) },
       { Indicador: "Abaixo do mínimo", Valor: summary.below },
       { Indicador: "Zerados", Valor: summary.zeroed },
     ];
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summarySheet), "Resumo");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(itemsSheet), "Insumos");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(movesSheet), "Entradas e saidas");
+
     const stamp = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `estoque-${stamp}.xlsx`);
     toast.success("Exportação gerada");
