@@ -324,14 +324,7 @@ function IngredientsList() {
       </div>
 
       {/* Resumo */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-          <div className="text-xs text-muted-foreground">Itens</div>
-          <div className="font-display text-2xl">{summary.items}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {summary.below} abaixo do mínimo · {summary.zeroed} zerados
-          </div>
-        </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
           <div className="text-xs text-muted-foreground">
             Valor em estoque {refDate && <span className="text-primary">· em {refDate.split("-").reverse().join("/")}</span>}
@@ -340,51 +333,47 @@ function IngredientsList() {
           <div className="mt-1 text-xs text-muted-foreground">estoque × custo médio</div>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ArrowDownCircle className="h-3.5 w-3.5 text-primary" /> Entradas
-          </div>
-          <div className="font-display text-2xl text-primary">{brl(summary.inVal)}</div>
+          <div className="text-xs text-muted-foreground">Itens</div>
+          <div className="font-display text-2xl">{summary.items}</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {summary.inCount} lançamentos · {summary.inQty.toFixed(2)} un
-          </div>
-        </div>
-        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ArrowUpCircle className="h-3.5 w-3.5 text-destructive" /> Saídas
-          </div>
-          <div className="font-display text-2xl text-destructive">{brl(summary.outVal)}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {summary.outCount} lançamentos · {summary.outQty.toFixed(2)} un
+            {summary.below} abaixo do mínimo · {summary.zeroed} zerados
           </div>
         </div>
       </div>
 
       {/* Filtros */}
       <div className="mt-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Categoria</label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="mb-1 block text-xs text-muted-foreground">
+              Categorias {selectedCats.length > 0 && <span className="text-primary">({selectedCats.length} selecionadas)</span>}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedCats([])}
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${selectedCats.length === 0 ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                Todas
+              </button>
+              {categories.map((c) => {
+                const on = selectedCats.includes(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleCat(c)}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${on ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div>
+          <div className="sm:w-48">
             <label className="mb-1 block text-xs text-muted-foreground">Estoque na data</label>
             <Input type="date" value={refDate} onChange={(e) => setRefDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Movimentos de</label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">até</label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         </div>
         {hasFilters && (
@@ -400,6 +389,7 @@ function IngredientsList() {
           </div>
         )}
       </div>
+
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
