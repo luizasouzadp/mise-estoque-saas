@@ -74,10 +74,9 @@ const brl = (n: number) =>
 function IngredientsList() {
   const [q, setQ] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const [category, setCategory] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [refDate, setRefDate] = useState("");
+
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
