@@ -112,32 +112,18 @@ function IngredientsList() {
     () =>
       ingredients.filter((i) => {
         if (!showInactive && i.is_active === false) return false;
-        if (category !== "all" && (i.category ?? "Sem categoria") !== category) return false;
+        if (selectedCats.length > 0 && !selectedCats.includes(i.category ?? "Sem categoria"))
+          return false;
         if (!q) return true;
         const term = q.toLowerCase();
         return (
           i.name.toLowerCase().includes(term) || (i.category ?? "").toLowerCase().includes(term)
         );
       }),
-    [ingredients, showInactive, category, q],
+    [ingredients, showInactive, selectedCats, q],
   );
 
   const inactiveCount = ingredients.filter((i) => i.is_active === false).length;
-
-  const filteredIds = useMemo(() => new Set(filtered.map((i) => i.id)), [filtered]);
-
-  const periodMoves = useMemo<UnifiedMove[]>(() => {
-    const start = from ? parseLocal(from) : null;
-    const end = to ? parseLocal(to, true) : null;
-    return moves.filter((m) => {
-      if (!filteredIds.has(m.ingredient_id)) return false;
-      const d = new Date(m.occurred_at);
-      if (start && d < start) return false;
-      if (end && d > end) return false;
-      if (!start && !end && cutoff && d > cutoff) return false;
-      return true;
-    });
-  }, [moves, filteredIds, from, to, cutoff]);
 
   const summary = useMemo(() => {
     let value = 0;
@@ -149,36 +135,22 @@ function IngredientsList() {
       if (stock <= 0) zeroed++;
       else if (Number(i.min_stock ?? 0) > 0 && stock <= Number(i.min_stock)) below++;
     }
-    let inQty = 0,
-      inVal = 0,
-      inCount = 0,
-      outQty = 0,
-      outVal = 0,
-      outCount = 0;
-    for (const m of periodMoves) {
-      if (m.type === "in") {
-        inQty += m.quantity;
-        inVal += m.value;
-        inCount++;
-      } else {
-        outQty += m.quantity;
-        outVal += m.value;
-        outCount++;
-      }
-    }
-    return { items: filtered.length, value, below, zeroed, inQty, inVal, inCount, outQty, outVal, outCount };
+    return { items: filtered.length, value, below, zeroed };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, periodMoves, stockMap]);
+  }, [filtered, stockMap]);
 
-  const hasFilters = category !== "all" || !!from || !!to || !!refDate || !!q;
+  const hasFilters = selectedCats.length > 0 || !!refDate || !!q;
+
+  function toggleCat(c: string) {
+    setSelectedCats((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  }
 
   function clearFilters() {
-    setCategory("all");
-    setFrom("");
-    setTo("");
+    setSelectedCats([]);
     setRefDate("");
     setQ("");
   }
+
 
   function handleExport() {
     const ingMap = new Map(ingredients.map((i) => [i.id, i]));
