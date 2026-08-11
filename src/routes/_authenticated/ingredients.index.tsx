@@ -14,13 +14,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/searchable-select";
-import {
   Plus,
   Search,
   Package,
@@ -28,19 +21,11 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Download,
-  ArrowDownCircle,
-  ArrowUpCircle,
   History,
   X,
 } from "lucide-react";
 import { normalizeName } from "@/lib/utils";
-import {
-  loadStockHistory,
-  parseLocal,
-  stockAt,
-  sourceLabel,
-  type UnifiedMove,
-} from "@/lib/stock-history";
+import { loadStockHistory, parseLocal, stockAt } from "@/lib/stock-history";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,
