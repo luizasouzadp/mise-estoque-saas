@@ -14,13 +14,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/searchable-select";
-import {
   Plus,
   Search,
   Package,
@@ -28,19 +21,11 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Download,
-  ArrowDownCircle,
-  ArrowUpCircle,
   History,
   X,
 } from "lucide-react";
 import { normalizeName } from "@/lib/utils";
-import {
-  loadStockHistory,
-  parseLocal,
-  stockAt,
-  sourceLabel,
-  type UnifiedMove,
-} from "@/lib/stock-history";
+import { loadStockHistory, parseLocal, stockAt } from "@/lib/stock-history";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
   component: IngredientsList,
@@ -74,10 +59,9 @@ const brl = (n: number) =>
 function IngredientsList() {
   const [q, setQ] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const [category, setCategory] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [refDate, setRefDate] = useState("");
+
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -113,32 +97,18 @@ function IngredientsList() {
     () =>
       ingredients.filter((i) => {
         if (!showInactive && i.is_active === false) return false;
-        if (category !== "all" && (i.category ?? "Sem categoria") !== category) return false;
+        if (selectedCats.length > 0 && !selectedCats.includes(i.category ?? "Sem categoria"))
+          return false;
         if (!q) return true;
         const term = q.toLowerCase();
         return (
           i.name.toLowerCase().includes(term) || (i.category ?? "").toLowerCase().includes(term)
         );
       }),
-    [ingredients, showInactive, category, q],
+    [ingredients, showInactive, selectedCats, q],
   );
 
   const inactiveCount = ingredients.filter((i) => i.is_active === false).length;
-
-  const filteredIds = useMemo(() => new Set(filtered.map((i) => i.id)), [filtered]);
-
-  const periodMoves = useMemo<UnifiedMove[]>(() => {
-    const start = from ? parseLocal(from) : null;
-    const end = to ? parseLocal(to, true) : null;
-    return moves.filter((m) => {
-      if (!filteredIds.has(m.ingredient_id)) return false;
-      const d = new Date(m.occurred_at);
-      if (start && d < start) return false;
-      if (end && d > end) return false;
-      if (!start && !end && cutoff && d > cutoff) return false;
-      return true;
-    });
-  }, [moves, filteredIds, from, to, cutoff]);
 
   const summary = useMemo(() => {
     let value = 0;
@@ -150,39 +120,24 @@ function IngredientsList() {
       if (stock <= 0) zeroed++;
       else if (Number(i.min_stock ?? 0) > 0 && stock <= Number(i.min_stock)) below++;
     }
-    let inQty = 0,
-      inVal = 0,
-      inCount = 0,
-      outQty = 0,
-      outVal = 0,
-      outCount = 0;
-    for (const m of periodMoves) {
-      if (m.type === "in") {
-        inQty += m.quantity;
-        inVal += m.value;
-        inCount++;
-      } else {
-        outQty += m.quantity;
-        outVal += m.value;
-        outCount++;
-      }
-    }
-    return { items: filtered.length, value, below, zeroed, inQty, inVal, inCount, outQty, outVal, outCount };
+    return { items: filtered.length, value, below, zeroed };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, periodMoves, stockMap]);
+  }, [filtered, stockMap]);
 
-  const hasFilters = category !== "all" || !!from || !!to || !!refDate || !!q;
+  const hasFilters = selectedCats.length > 0 || !!refDate || !!q;
+
+  function toggleCat(c: string) {
+    setSelectedCats((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  }
 
   function clearFilters() {
-    setCategory("all");
-    setFrom("");
-    setTo("");
+    setSelectedCats([]);
     setRefDate("");
     setQ("");
   }
 
+
   function handleExport() {
-    const ingMap = new Map(ingredients.map((i) => [i.id, i]));
     const wb = XLSX.utils.book_new();
 
     const itemsSheet = filtered.map((i) => {
@@ -207,41 +162,19 @@ function IngredientsList() {
       };
     });
 
-    const movesSheet = periodMoves.map((m) => {
-      const ing = ingMap.get(m.ingredient_id);
-      return {
-        Data: new Date(m.occurred_at).toLocaleString("pt-BR"),
-        Insumo: ing?.name ?? "",
-        Categoria: ing?.category ?? "",
-        Tipo: m.type === "in" ? "Entrada" : "Saída",
-        Origem: sourceLabel[m.source],
-        Motivo: m.reason,
-        Quantidade: Number(m.quantity.toFixed(3)),
-        Unidade: ing?.unit ?? "",
-        Valor: Number(m.value.toFixed(2)),
-      };
-    });
-
     const summarySheet = [
-      { Indicador: "Categoria", Valor: category === "all" ? "Todas" : category },
+      { Indicador: "Categorias", Valor: selectedCats.length ? selectedCats.join(", ") : "Todas" },
       { Indicador: "Data de referência", Valor: refDate || "Hoje" },
-      { Indicador: "Período", Valor: from || to ? `${from || "início"} a ${to || "hoje"}` : "Todo o histórico" },
       { Indicador: "Busca", Valor: q || "-" },
       { Indicador: "Itens", Valor: summary.items },
       { Indicador: "Valor em estoque (R$)", Valor: Number(summary.value.toFixed(2)) },
-      { Indicador: "Entradas (lançamentos)", Valor: summary.inCount },
-      { Indicador: "Entradas (quantidade)", Valor: Number(summary.inQty.toFixed(3)) },
-      { Indicador: "Entradas (R$)", Valor: Number(summary.inVal.toFixed(2)) },
-      { Indicador: "Saídas (lançamentos)", Valor: summary.outCount },
-      { Indicador: "Saídas (quantidade)", Valor: Number(summary.outQty.toFixed(3)) },
-      { Indicador: "Saídas (R$)", Valor: Number(summary.outVal.toFixed(2)) },
       { Indicador: "Abaixo do mínimo", Valor: summary.below },
       { Indicador: "Zerados", Valor: summary.zeroed },
     ];
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summarySheet), "Resumo");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(itemsSheet), "Insumos");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(movesSheet), "Entradas e saidas");
+
     const stamp = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `estoque-${stamp}.xlsx`);
     toast.success("Exportação gerada");
@@ -324,14 +257,7 @@ function IngredientsList() {
       </div>
 
       {/* Resumo */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-          <div className="text-xs text-muted-foreground">Itens</div>
-          <div className="font-display text-2xl">{summary.items}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {summary.below} abaixo do mínimo · {summary.zeroed} zerados
-          </div>
-        </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
           <div className="text-xs text-muted-foreground">
             Valor em estoque {refDate && <span className="text-primary">· em {refDate.split("-").reverse().join("/")}</span>}
@@ -340,51 +266,47 @@ function IngredientsList() {
           <div className="mt-1 text-xs text-muted-foreground">estoque × custo médio</div>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ArrowDownCircle className="h-3.5 w-3.5 text-primary" /> Entradas
-          </div>
-          <div className="font-display text-2xl text-primary">{brl(summary.inVal)}</div>
+          <div className="text-xs text-muted-foreground">Itens</div>
+          <div className="font-display text-2xl">{summary.items}</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {summary.inCount} lançamentos · {summary.inQty.toFixed(2)} un
-          </div>
-        </div>
-        <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ArrowUpCircle className="h-3.5 w-3.5 text-destructive" /> Saídas
-          </div>
-          <div className="font-display text-2xl text-destructive">{brl(summary.outVal)}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {summary.outCount} lançamentos · {summary.outQty.toFixed(2)} un
+            {summary.below} abaixo do mínimo · {summary.zeroed} zerados
           </div>
         </div>
       </div>
 
       {/* Filtros */}
       <div className="mt-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Categoria</label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="mb-1 block text-xs text-muted-foreground">
+              Categorias {selectedCats.length > 0 && <span className="text-primary">({selectedCats.length} selecionadas)</span>}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedCats([])}
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${selectedCats.length === 0 ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                Todas
+              </button>
+              {categories.map((c) => {
+                const on = selectedCats.includes(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleCat(c)}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${on ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div>
+          <div className="sm:w-48">
             <label className="mb-1 block text-xs text-muted-foreground">Estoque na data</label>
             <Input type="date" value={refDate} onChange={(e) => setRefDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Movimentos de</label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">até</label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         </div>
         {hasFilters && (
@@ -400,6 +322,7 @@ function IngredientsList() {
           </div>
         )}
       </div>
+
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
