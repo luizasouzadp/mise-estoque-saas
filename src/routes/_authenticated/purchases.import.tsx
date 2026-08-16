@@ -632,7 +632,11 @@ function ImportPurchase() {
                 );
               })}
             </div>
+            <Button type="button" variant="outline" className="mt-3 w-full" onClick={addManualItem}>
+              <Plus className="mr-2 h-4 w-4" /> Adicionar item manualmente
+            </Button>
           </div>
+
 
           <div className="rounded-lg bg-secondary p-4">
             {notaTotal !== null && (
