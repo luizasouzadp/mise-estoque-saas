@@ -530,14 +530,20 @@ function ImportPurchase() {
                 return (
                   <div key={it.key} className="rounded-lg border bg-background/50 p-3 space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground">Item {idx + 1} · Texto da nota</p>
-                        <p className="font-medium text-sm break-words">{it.raw_text}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">Item {idx + 1} · Descrição</p>
+                        <Input
+                          value={it.raw_text}
+                          onChange={(e) => updateItem(it.key, { raw_text: e.target.value })}
+                          placeholder="Descrição do item na nota"
+                          className="mt-1 h-8 text-sm"
+                        />
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => removeItem(it.key)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+
 
                     <div>
                       <Label className="text-xs">Insumo</Label>
