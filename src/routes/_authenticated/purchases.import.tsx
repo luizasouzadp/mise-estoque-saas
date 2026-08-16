@@ -444,18 +444,24 @@ function ImportPurchase() {
               </div>
             )}
           </div>
-          <Button
-            type="button"
-            onClick={() => parseMut.mutate()}
-            disabled={files.length === 0 || parseMut.isPending}
-            className="w-full sm:w-auto"
-          >
-            {parseMut.isPending ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Lendo nota…</>
-            ) : (
-              <><Sparkles className="mr-2 h-4 w-4" /> Ler nota com IA</>
-            )}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              onClick={() => parseMut.mutate()}
+              disabled={files.length === 0 || parseMut.isPending}
+              className="w-full sm:w-auto"
+            >
+              {parseMut.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Lendo nota…</>
+              ) : (
+                <><Sparkles className="mr-2 h-4 w-4" /> Ler nota com IA</>
+              )}
+            </Button>
+            <Button type="button" variant="outline" onClick={addManualItem} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" /> Adicionar itens manualmente
+            </Button>
+          </div>
+
           {parseMut.isError && (
             <p className="text-sm text-destructive">{(parseMut.error as Error).message}</p>
           )}
