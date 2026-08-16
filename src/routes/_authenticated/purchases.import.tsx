@@ -228,6 +228,24 @@ function ImportPurchase() {
   function removeItem(key: string) {
     setItems((prev) => prev.filter((it) => it.key !== key));
   }
+  function addManualItem() {
+    if (!ingredientOptions.length && ingredientsData?.length) setIngredientOptions(ingredientsData);
+    setItems((prev) => [
+      ...prev,
+      {
+        key: crypto.randomUUID(),
+        raw_text: "",
+        ingredient_id: "",
+        quantity_nota: "1",
+        unit_nota: "un",
+        unit_cost_nota: "0",
+        factor: "1",
+        suggestions: [],
+        learn_alias: false,
+      },
+    ]);
+  }
+
 
   // When user changes ingredient or unit, auto-fill factor from alias map if known.
   function onIngredientChange(item: ReviewItem, newId: string) {
