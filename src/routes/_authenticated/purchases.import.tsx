@@ -255,7 +255,12 @@ function ImportPurchase() {
       const ing = options.find((o) => o.id === newId);
       factor = ing && ing.unit.toUpperCase() === item.unit_nota.toUpperCase() ? 1 : Number(item.factor) || 1;
     }
-    updateItem(item.key, { ingredient_id: newId, factor: String(factor) });
+    const ing = options.find((o) => o.id === newId);
+    updateItem(item.key, {
+      ingredient_id: newId,
+      factor: String(factor),
+      ...(item.raw_text.trim() ? {} : { raw_text: ing?.name ?? "", unit_nota: ing?.unit ?? item.unit_nota }),
+    });
   }
   function onUnitNotaChange(item: ReviewItem, newUnit: string) {
     const aliasFactor = aliasMap.get(`${item.ingredient_id}::${newUnit.toUpperCase()}`);
@@ -491,7 +496,7 @@ function ImportPurchase() {
 
           <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="font-semibold">Itens extraídos ({items.length})</h2>
+              <h2 className="font-semibold">Itens da nota ({items.length})</h2>
               {previews.length > 0 && (
                 <div className="flex shrink-0 items-center gap-1">
                   {previews.map((src, i) => (
