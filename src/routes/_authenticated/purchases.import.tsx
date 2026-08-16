@@ -255,12 +255,14 @@ function ImportPurchase() {
       const ing = options.find((o) => o.id === newId);
       factor = ing && ing.unit.toUpperCase() === item.unit_nota.toUpperCase() ? 1 : Number(item.factor) || 1;
     }
-    const ing = options.find((o) => o.id === newId);
+    const picked = options.find((o) => o.id === newId);
+    const isBlank = !item.raw_text.trim();
     updateItem(item.key, {
       ingredient_id: newId,
-      factor: String(factor),
-      ...(item.raw_text.trim() ? {} : { raw_text: ing?.name ?? "", unit_nota: ing?.unit ?? item.unit_nota }),
+      factor: isBlank ? "1" : String(factor),
+      ...(isBlank ? { raw_text: picked?.name ?? "", unit_nota: picked?.unit ?? item.unit_nota } : {}),
     });
+
   }
   function onUnitNotaChange(item: ReviewItem, newUnit: string) {
     const aliasFactor = aliasMap.get(`${item.ingredient_id}::${newUnit.toUpperCase()}`);
