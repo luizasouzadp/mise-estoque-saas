@@ -16,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/searchable-select";
-import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle, ZoomIn } from "lucide-react";
+import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle, ZoomIn, Plus } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
@@ -228,6 +228,24 @@ function ImportPurchase() {
   function removeItem(key: string) {
     setItems((prev) => prev.filter((it) => it.key !== key));
   }
+  function addManualItem() {
+    if (!ingredientOptions.length && ingredientsData?.length) setIngredientOptions(ingredientsData);
+    setItems((prev) => [
+      ...prev,
+      {
+        key: crypto.randomUUID(),
+        raw_text: "",
+        ingredient_id: "",
+        quantity_nota: "1",
+        unit_nota: "un",
+        unit_cost_nota: "0",
+        factor: "1",
+        suggestions: [],
+        learn_alias: false,
+      },
+    ]);
+  }
+
 
   // When user changes ingredient or unit, auto-fill factor from alias map if known.
   function onIngredientChange(item: ReviewItem, newId: string) {
@@ -237,7 +255,14 @@ function ImportPurchase() {
       const ing = options.find((o) => o.id === newId);
       factor = ing && ing.unit.toUpperCase() === item.unit_nota.toUpperCase() ? 1 : Number(item.factor) || 1;
     }
-    updateItem(item.key, { ingredient_id: newId, factor: String(factor) });
+    const picked = options.find((o) => o.id === newId);
+    const isBlank = !item.raw_text.trim();
+    updateItem(item.key, {
+      ingredient_id: newId,
+      factor: isBlank ? "1" : String(factor),
+      ...(isBlank ? { raw_text: picked?.name ?? "", unit_nota: picked?.unit ?? item.unit_nota } : {}),
+    });
+
   }
   function onUnitNotaChange(item: ReviewItem, newUnit: string) {
     const aliasFactor = aliasMap.get(`${item.ingredient_id}::${newUnit.toUpperCase()}`);
@@ -426,18 +451,24 @@ function ImportPurchase() {
               </div>
             )}
           </div>
-          <Button
-            type="button"
-            onClick={() => parseMut.mutate()}
-            disabled={files.length === 0 || parseMut.isPending}
-            className="w-full sm:w-auto"
-          >
-            {parseMut.isPending ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Lendo nota…</>
-            ) : (
-              <><Sparkles className="mr-2 h-4 w-4" /> Ler nota com IA</>
-            )}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              onClick={() => parseMut.mutate()}
+              disabled={files.length === 0 || parseMut.isPending}
+              className="w-full sm:w-auto"
+            >
+              {parseMut.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Lendo nota…</>
+              ) : (
+                <><Sparkles className="mr-2 h-4 w-4" /> Ler nota com IA</>
+              )}
+            </Button>
+            <Button type="button" variant="outline" onClick={addManualItem} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" /> Adicionar itens manualmente
+            </Button>
+          </div>
+
           {parseMut.isError && (
             <p className="text-sm text-destructive">{(parseMut.error as Error).message}</p>
           )}
@@ -467,7 +498,7 @@ function ImportPurchase() {
 
           <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="font-semibold">Itens extraídos ({items.length})</h2>
+              <h2 className="font-semibold">Itens da nota ({items.length})</h2>
               {previews.length > 0 && (
                 <div className="flex shrink-0 items-center gap-1">
                   {previews.map((src, i) => (
@@ -506,14 +537,20 @@ function ImportPurchase() {
                 return (
                   <div key={it.key} className="rounded-lg border bg-background/50 p-3 space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground">Item {idx + 1} · Texto da nota</p>
-                        <p className="font-medium text-sm break-words">{it.raw_text}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">Item {idx + 1} · Descrição</p>
+                        <Input
+                          value={it.raw_text}
+                          onChange={(e) => updateItem(it.key, { raw_text: e.target.value })}
+                          placeholder="Descrição do item na nota"
+                          className="mt-1 h-8 text-sm"
+                        />
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => removeItem(it.key)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+
 
                     <div>
                       <Label className="text-xs">Insumo</Label>
@@ -608,7 +645,11 @@ function ImportPurchase() {
                 );
               })}
             </div>
+            <Button type="button" variant="outline" className="mt-3 w-full" onClick={addManualItem}>
+              <Plus className="mr-2 h-4 w-4" /> Adicionar item manualmente
+            </Button>
           </div>
+
 
           <div className="rounded-lg bg-secondary p-4">
             {notaTotal !== null && (
