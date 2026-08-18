@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/purchases/orders")({
 });
 
 type SupplierOpt = { id: string; name: string };
-type IngredientOpt = { id: string; name: string; unit: string };
+type IngredientOpt = { id: string; name: string; unit: string; last_cost?: number; avg_cost?: number };
 type NewOrderLine = { ingredient_id: string; quantity: string; expected_at: string; notes: string };
 
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
@@ -135,7 +135,7 @@ function OrdersPage() {
   const { data: ingredients } = useQuery<IngredientOpt[]>({
     queryKey: ["ingredients-min"],
     queryFn: async () => {
-      const { data } = await supabase.from("ingredients").select("id, name, unit").order("name");
+      const { data } = await supabase.from("ingredients").select("id, name, unit, last_cost, avg_cost").order("name");
       return (data ?? []) as IngredientOpt[];
     },
   });
@@ -179,6 +179,87 @@ function OrdersPage() {
     setReceiveFiles([]);
     setReceivePreviews([]);
     setReceiveNotes("");
+    setReceiveMode("nota");
+    const map: Record<string, { qty: string; cost: string }> = {};
+    for (const it of items) {
+      const ing = (ingredients ?? []).find((g) => g.id === it.ingredient_id);
+      const cost = Number(ing?.last_cost || ing?.avg_cost || 0);
+      map[it.id] = {
+        qty: String(Number(it.quantity)).replace(".", ","),
+        cost: cost ? String(cost).replace(".", ",") : "",
+      };
+    }
+    setManualLines(map);
+  }
+
+  function parseNum(v: string) {
+    const n = Number(String(v).replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  async function confirmReceiveWithoutInvoice() {
+    if (!receiveTarget) return;
+    const rowsInput = receiveTarget.items.map((it) => ({
+      it,
+      qty: parseNum(manualLines[it.id]?.qty ?? ""),
+      cost: parseNum(manualLines[it.id]?.cost ?? ""),
+    }));
+    if (rowsInput.some((r) => !Number.isFinite(r.qty) || r.qty <= 0)) {
+      return toast.error("Informe a quantidade recebida de todos os itens");
+    }
+    if (rowsInput.some((r) => !Number.isFinite(r.cost) || r.cost < 0)) {
+      return toast.error("Informe o custo unitário de todos os itens");
+    }
+    setReceiving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+
+      const purchasedAt = new Date().toISOString();
+      const purchaseRows = rowsInput.map((r) => ({
+        restaurant_id: prof.restaurant_id,
+        ingredient_id: r.it.ingredient_id,
+        quantity: r.qty,
+        unit_cost: r.cost,
+        total_cost: Number((r.qty * r.cost).toFixed(2)),
+        supplier: receiveTarget.supplier === "Sem fornecedor" ? null : receiveTarget.supplier,
+        purchased_at: purchasedAt,
+        created_by: u.user?.id ?? null,
+      }));
+      const { error: pErr } = await supabase.from("purchases").insert(purchaseRows as any);
+      if (pErr) throw new Error(pErr.message);
+
+      const ids = receiveTarget.items.map((i) => i.id);
+      const { error } = await (supabase as any)
+        .from("purchase_orders")
+        .update({
+          status: "received",
+          received_at: purchasedAt,
+          receipt_notes: receiveNotes.trim() || "Recebido sem nota (conferência manual)",
+          import_status: "imported",
+        })
+        .in("id", ids);
+      if (error) throw new Error(error.message);
+
+      toast.success("Recebimento confirmado e estoque atualizado.");
+      setReceiveTarget(null);
+      setSelected((s) => {
+        const next = { ...s };
+        for (const id of ids) delete next[id];
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+      qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReceiving(false);
+    }
   }
 
   async function addReceiptFiles(list: File[]) {
