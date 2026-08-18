@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/purchases/orders")({
 });
 
 type SupplierOpt = { id: string; name: string };
-type IngredientOpt = { id: string; name: string; unit: string };
+type IngredientOpt = { id: string; name: string; unit: string; last_cost?: number; avg_cost?: number };
 type NewOrderLine = { ingredient_id: string; quantity: string; expected_at: string; notes: string };
 
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
@@ -79,6 +79,8 @@ function OrdersPage() {
   const [receivePreviews, setReceivePreviews] = useState<string[]>([]);
 
   const [receiveNotes, setReceiveNotes] = useState("");
+  const [receiveMode, setReceiveMode] = useState<"nota" | "sem_nota">("nota");
+  const [manualLines, setManualLines] = useState<Record<string, { qty: string; cost: string }>>({});
   const [receiving, setReceiving] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [addTarget, setAddTarget] = useState<null | { supplier: string; supplier_id: string | null; supplier_name: string | null; expected_at: string | null }>(null);
@@ -133,7 +135,7 @@ function OrdersPage() {
   const { data: ingredients } = useQuery<IngredientOpt[]>({
     queryKey: ["ingredients-min"],
     queryFn: async () => {
-      const { data } = await supabase.from("ingredients").select("id, name, unit").order("name");
+      const { data } = await supabase.from("ingredients").select("id, name, unit, last_cost, avg_cost").order("name");
       return (data ?? []) as IngredientOpt[];
     },
   });
@@ -177,6 +179,87 @@ function OrdersPage() {
     setReceiveFiles([]);
     setReceivePreviews([]);
     setReceiveNotes("");
+    setReceiveMode("nota");
+    const map: Record<string, { qty: string; cost: string }> = {};
+    for (const it of items) {
+      const ing = (ingredients ?? []).find((g) => g.id === it.ingredient_id);
+      const cost = Number(ing?.last_cost || ing?.avg_cost || 0);
+      map[it.id] = {
+        qty: String(Number(it.quantity)).replace(".", ","),
+        cost: cost ? String(cost).replace(".", ",") : "",
+      };
+    }
+    setManualLines(map);
+  }
+
+  function parseNum(v: string) {
+    const n = Number(String(v).replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  async function confirmReceiveWithoutInvoice() {
+    if (!receiveTarget) return;
+    const rowsInput = receiveTarget.items.map((it) => ({
+      it,
+      qty: parseNum(manualLines[it.id]?.qty ?? ""),
+      cost: parseNum(manualLines[it.id]?.cost ?? ""),
+    }));
+    if (rowsInput.some((r) => !Number.isFinite(r.qty) || r.qty <= 0)) {
+      return toast.error("Informe a quantidade recebida de todos os itens");
+    }
+    if (rowsInput.some((r) => !Number.isFinite(r.cost) || r.cost < 0)) {
+      return toast.error("Informe o custo unitário de todos os itens");
+    }
+    setReceiving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+
+      const purchasedAt = new Date().toISOString();
+      const purchaseRows = rowsInput.map((r) => ({
+        restaurant_id: prof.restaurant_id,
+        ingredient_id: r.it.ingredient_id,
+        quantity: r.qty,
+        unit_cost: r.cost,
+        total_cost: Number((r.qty * r.cost).toFixed(2)),
+        supplier: receiveTarget.supplier === "Sem fornecedor" ? null : receiveTarget.supplier,
+        purchased_at: purchasedAt,
+        created_by: u.user?.id ?? null,
+      }));
+      const { error: pErr } = await supabase.from("purchases").insert(purchaseRows as any);
+      if (pErr) throw new Error(pErr.message);
+
+      const ids = receiveTarget.items.map((i) => i.id);
+      const { error } = await (supabase as any)
+        .from("purchase_orders")
+        .update({
+          status: "received",
+          received_at: purchasedAt,
+          receipt_notes: receiveNotes.trim() || "Recebido sem nota (conferência manual)",
+          import_status: "imported",
+        })
+        .in("id", ids);
+      if (error) throw new Error(error.message);
+
+      toast.success("Recebimento confirmado e estoque atualizado.");
+      setReceiveTarget(null);
+      setSelected((s) => {
+        const next = { ...s };
+        for (const id of ids) delete next[id];
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["purchase-orders"] });
+      qc.invalidateQueries({ queryKey: ["purchase-orders-pending-ings"] });
+      qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["purchase-notes"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReceiving(false);
+    }
   }
 
   async function addReceiptFiles(list: File[]) {
@@ -820,6 +903,28 @@ function OrdersPage() {
             <DialogTitle>Confirmar recebimento — {receiveTarget?.supplier}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {!isReceiver && (
+              <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={receiveMode === "nota" ? "default" : "ghost"}
+                  onClick={() => setReceiveMode("nota")}
+                >
+                  Com nota
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={receiveMode === "sem_nota" ? "default" : "ghost"}
+                  onClick={() => setReceiveMode("sem_nota")}
+                >
+                  Sem nota
+                </Button>
+              </div>
+            )}
+
+            {receiveMode === "nota" ? (
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
               <p className="mb-1 font-medium">{receiveTarget?.items.length} item(ns) sendo recebidos</p>
               <ul className="max-h-32 space-y-0.5 overflow-y-auto text-xs text-muted-foreground">
@@ -830,8 +935,44 @@ function OrdersPage() {
                 ))}
               </ul>
             </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Confira cada item da encomenda, ajuste quantidade e custo unitário. A entrada no estoque é feita direto, sem nota.
+                </p>
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {receiveTarget?.items.map((it) => (
+                    <div key={it.id} className="rounded-md border p-2">
+                      <p className="text-sm font-medium">{it.ingredient?.name ?? "—"}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Qtd recebida ({it.unit})</Label>
+                          <Input
+                            inputMode="decimal"
+                            value={manualLines[it.id]?.qty ?? ""}
+                            onChange={(e) =>
+                              setManualLines((m) => ({ ...m, [it.id]: { qty: e.target.value, cost: m[it.id]?.cost ?? "" } }))
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Custo unitário (R$)</Label>
+                          <Input
+                            inputMode="decimal"
+                            value={manualLines[it.id]?.cost ?? ""}
+                            onChange={(e) =>
+                              setManualLines((m) => ({ ...m, [it.id]: { qty: m[it.id]?.qty ?? "", cost: e.target.value } }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" hidden={receiveMode !== "nota"}>
               <Label>Fotos da nota fiscal * (adicione várias páginas se necessário)</Label>
               <input
                 ref={receiveCameraRef}
@@ -898,12 +1039,17 @@ function OrdersPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              A nota entrará no arquivo mensal e aparecerá como pendência em Compras para dar entrada dos itens.
+              {receiveMode === "nota"
+                ? "A nota entrará no arquivo mensal e aparecerá como pendência em Compras para dar entrada dos itens."
+                : "Os itens conferidos entram direto no estoque como compra, sem nota anexada."}
             </p>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
-            <Button onClick={confirmReceive} disabled={receiving || receiveFiles.length === 0}>
+            <Button
+              onClick={receiveMode === "nota" ? confirmReceive : confirmReceiveWithoutInvoice}
+              disabled={receiving || (receiveMode === "nota" && receiveFiles.length === 0)}
+            >
               {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
             </Button>
 
