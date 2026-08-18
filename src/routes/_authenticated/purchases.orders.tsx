@@ -79,6 +79,8 @@ function OrdersPage() {
   const [receivePreviews, setReceivePreviews] = useState<string[]>([]);
 
   const [receiveNotes, setReceiveNotes] = useState("");
+  const [receiveMode, setReceiveMode] = useState<"nota" | "sem_nota">("nota");
+  const [manualLines, setManualLines] = useState<Record<string, { qty: string; cost: string }>>({});
   const [receiving, setReceiving] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [addTarget, setAddTarget] = useState<null | { supplier: string; supplier_id: string | null; supplier_name: string | null; expected_at: string | null }>(null);
