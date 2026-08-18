@@ -177,6 +177,7 @@ function OrdersPage() {
 
   function openReceive(supplier: string, items: OrderRow[]) {
     setReceiveTarget({ supplier, items });
+    setReceiveItems([...items]);
     setReceiveFiles([]);
     setReceivePreviews([]);
     setReceiveNotes("");
