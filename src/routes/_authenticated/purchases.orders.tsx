@@ -200,8 +200,8 @@ function OrdersPage() {
   }
 
   async function confirmReceiveWithoutInvoice() {
-    if (!receiveTarget) return;
-    const rowsInput = receiveTarget.items.map((it) => ({
+    if (!receiveTarget || receiveItems.length === 0) return;
+    const rowsInput = receiveItems.map((it) => ({
       it,
       qty: parseNum(manualLines[it.id]?.qty ?? ""),
       cost: parseNum(manualLines[it.id]?.cost ?? ""),
@@ -232,7 +232,7 @@ function OrdersPage() {
       const { error: pErr } = await supabase.from("purchases").insert(purchaseRows as any);
       if (pErr) throw new Error(pErr.message);
 
-      const ids = receiveTarget.items.map((i) => i.id);
+      const ids = receiveItems.map((i) => i.id);
       const { error } = await (supabase as any)
         .from("purchase_orders")
         .update({
