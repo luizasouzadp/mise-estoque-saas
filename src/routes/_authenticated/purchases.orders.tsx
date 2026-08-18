@@ -80,6 +80,7 @@ function OrdersPage() {
 
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiveMode, setReceiveMode] = useState<"nota" | "sem_nota">("nota");
+  const [receiveItems, setReceiveItems] = useState<OrderRow[]>([]);
   const [manualLines, setManualLines] = useState<Record<string, { qty: string; cost: string }>>({});
   const [receiving, setReceiving] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
