@@ -903,6 +903,28 @@ function OrdersPage() {
             <DialogTitle>Confirmar recebimento — {receiveTarget?.supplier}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {!isReceiver && (
+              <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={receiveMode === "nota" ? "default" : "ghost"}
+                  onClick={() => setReceiveMode("nota")}
+                >
+                  Com nota
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={receiveMode === "sem_nota" ? "default" : "ghost"}
+                  onClick={() => setReceiveMode("sem_nota")}
+                >
+                  Sem nota
+                </Button>
+              </div>
+            )}
+
+            {receiveMode === "nota" ? (
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
               <p className="mb-1 font-medium">{receiveTarget?.items.length} item(ns) sendo recebidos</p>
               <ul className="max-h-32 space-y-0.5 overflow-y-auto text-xs text-muted-foreground">
@@ -913,8 +935,44 @@ function OrdersPage() {
                 ))}
               </ul>
             </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Confira cada item da encomenda, ajuste quantidade e custo unitário. A entrada no estoque é feita direto, sem nota.
+                </p>
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {receiveTarget?.items.map((it) => (
+                    <div key={it.id} className="rounded-md border p-2">
+                      <p className="text-sm font-medium">{it.ingredient?.name ?? "—"}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Qtd recebida ({it.unit})</Label>
+                          <Input
+                            inputMode="decimal"
+                            value={manualLines[it.id]?.qty ?? ""}
+                            onChange={(e) =>
+                              setManualLines((m) => ({ ...m, [it.id]: { qty: e.target.value, cost: m[it.id]?.cost ?? "" } }))
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Custo unitário (R$)</Label>
+                          <Input
+                            inputMode="decimal"
+                            value={manualLines[it.id]?.cost ?? ""}
+                            onChange={(e) =>
+                              setManualLines((m) => ({ ...m, [it.id]: { qty: m[it.id]?.qty ?? "", cost: e.target.value } }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" hidden={receiveMode !== "nota"}>
               <Label>Fotos da nota fiscal * (adicione várias páginas se necessário)</Label>
               <input
                 ref={receiveCameraRef}
@@ -981,12 +1039,17 @@ function OrdersPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              A nota entrará no arquivo mensal e aparecerá como pendência em Compras para dar entrada dos itens.
+              {receiveMode === "nota"
+                ? "A nota entrará no arquivo mensal e aparecerá como pendência em Compras para dar entrada dos itens."
+                : "Os itens conferidos entram direto no estoque como compra, sem nota anexada."}
             </p>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
-            <Button onClick={confirmReceive} disabled={receiving || receiveFiles.length === 0}>
+            <Button
+              onClick={receiveMode === "nota" ? confirmReceive : confirmReceiveWithoutInvoice}
+              disabled={receiving || (receiveMode === "nota" && receiveFiles.length === 0)}
+            >
               {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
             </Button>
 
