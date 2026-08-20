@@ -199,6 +199,32 @@ function OrdersPage() {
     return Number.isFinite(n) ? n : NaN;
   }
 
+  function updateReceiveItemIngredient(id: string, ingredient_id: string) {
+    const ing = (ingredients ?? []).find((g) => g.id === ingredient_id);
+    if (!ing) return;
+    setReceiveItems((prev) =>
+      prev.map((it) =>
+        it.id === id
+          ? { ...it, ingredient_id: ing.id, unit: ing.unit, ingredient: { name: ing.name } }
+          : it,
+      ),
+    );
+    const cost = Number(ing.last_cost || ing.avg_cost || 0);
+    setManualLines((m) => ({
+      ...m,
+      [id]: { qty: m[id]?.qty ?? "", cost: cost ? String(cost).replace(".", ",") : m[id]?.cost ?? "" },
+    }));
+  }
+
+  function removeReceiveItem(id: string) {
+    setReceiveItems((prev) => prev.filter((it) => it.id !== id));
+    setManualLines((m) => {
+      const next = { ...m };
+      delete next[id];
+      return next;
+    });
+  }
+
   async function confirmReceiveWithoutInvoice() {
     if (!receiveTarget || receiveItems.length === 0) return;
     const rowsInput = receiveItems.map((it) => ({
