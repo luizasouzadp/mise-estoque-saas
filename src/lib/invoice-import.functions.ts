@@ -18,7 +18,8 @@ const ParsedInvoice = z.object({
   items: z.array(ItemSchema),
 });
 
-const GEMINI_MODEL = "gemini-flash-latest";
+const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"];
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const PROMPT = `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
 
@@ -104,33 +105,57 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
 
     const parts = [{ text: PROMPT }, ...urls.map(dataUrlToInlinePart)];
 
-    let res: Response;
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts }],
-            generationConfig: {
-              temperature: 0,
-              responseMimeType: "application/json",
-              responseSchema: RESPONSE_SCHEMA,
+    const requestBody = JSON.stringify({
+      contents: [{ role: "user", parts }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: "application/json",
+        responseSchema: RESPONSE_SCHEMA,
+      },
+    });
+
+    let res: Response | null = null;
+    let lastBody = "";
+    // Tenta cada modelo, com retentativas em sobrecarga (429/5xx).
+    outer: for (const model of GEMINI_MODELS) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-goog-api-key": apiKey,
+              },
+              body: requestBody,
             },
-          }),
-        },
-      );
-    } catch {
+          );
+        } catch {
+          res = null;
+          await sleep(1500 * (attempt + 1));
+          continue;
+        }
+        if (res.ok) break outer;
+        lastBody = await res.text().catch(() => "");
+        console.error(`[Gemini/${model}] ${res.status}: ${lastBody.slice(0, 500)}`);
+        const retryable = res.status === 429 || res.status >= 500;
+        if (!retryable) break outer;
+        if (attempt < 2) await sleep(1500 * (attempt + 1));
+      }
+    }
+
+    if (!res) {
       throw new Error("Não foi possível conectar à API do Google. Tente novamente.");
     }
 
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error(`[Gemini] ${res.status}: ${body.slice(0, 800)}`);
+      const body = lastBody;
+      if (res.status >= 500) {
+        throw new Error(
+          "A IA do Google está sobrecarregada no momento (erro 503). Aguarde alguns instantes e tente ler a nota novamente.",
+        );
+      }
       if (res.status === 400 && /API key not valid/i.test(body)) {
         throw new Error("Chave da API do Google inválida. Verifique o secret GEMINI_API_KEY.");
       }
