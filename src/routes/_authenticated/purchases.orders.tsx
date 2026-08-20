@@ -199,6 +199,32 @@ function OrdersPage() {
     return Number.isFinite(n) ? n : NaN;
   }
 
+  function updateReceiveItemIngredient(id: string, ingredient_id: string) {
+    const ing = (ingredients ?? []).find((g) => g.id === ingredient_id);
+    if (!ing) return;
+    setReceiveItems((prev) =>
+      prev.map((it) =>
+        it.id === id
+          ? { ...it, ingredient_id: ing.id, unit: ing.unit, ingredient: { name: ing.name } }
+          : it,
+      ),
+    );
+    const cost = Number(ing.last_cost || ing.avg_cost || 0);
+    setManualLines((m) => ({
+      ...m,
+      [id]: { qty: m[id]?.qty ?? "", cost: cost ? String(cost).replace(".", ",") : m[id]?.cost ?? "" },
+    }));
+  }
+
+  function removeReceiveItem(id: string) {
+    setReceiveItems((prev) => prev.filter((it) => it.id !== id));
+    setManualLines((m) => {
+      const next = { ...m };
+      delete next[id];
+      return next;
+    });
+  }
+
   async function confirmReceiveWithoutInvoice() {
     if (!receiveTarget || receiveItems.length === 0) return;
     const rowsInput = receiveItems.map((it) => ({
@@ -940,12 +966,35 @@ function OrdersPage() {
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  Confira cada item da encomenda, ajuste quantidade e custo unitário. A entrada no estoque é feita direto, sem nota.
+                  Confira cada item da encomenda, ajuste insumo, quantidade e custo unitário. Itens removidos não entram no estoque.
                 </p>
                 <div className="max-h-72 space-y-2 overflow-y-auto">
-                  {receiveTarget?.items.map((it) => (
+                  {receiveItems.map((it) => (
                     <div key={it.id} className="rounded-md border p-2">
-                      <p className="text-sm font-medium">{it.ingredient?.name ?? "—"}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <Label className="text-xs">Insumo</Label>
+                          <Select value={it.ingredient_id} onValueChange={(v) => updateReceiveItemIngredient(it.id, v)}>
+                            <SelectTrigger className="mt-1 h-8 w-full text-sm">
+                              <SelectValue placeholder="Selecione o insumo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(ingredients ?? []).map((i) => (
+                                <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="shrink-0 text-destructive"
+                          onClick={() => removeReceiveItem(it.id)}
+                          title="Remover item do recebimento"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <div className="grid gap-1">
                           <Label className="text-xs">Qtd recebida ({it.unit})</Label>
@@ -971,6 +1020,9 @@ function OrdersPage() {
                     </div>
                   ))}
                 </div>
+                {receiveItems.length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground">Nenhum item restante. Cancele ou troque para "Com nota".</p>
+                )}
               </div>
             )}
 
@@ -1050,7 +1102,11 @@ function OrdersPage() {
             <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
             <Button
               onClick={receiveMode === "nota" ? confirmReceive : confirmReceiveWithoutInvoice}
-              disabled={receiving || (receiveMode === "nota" && receiveFiles.length === 0)}
+              disabled={
+                receiving ||
+                (receiveMode === "nota" && receiveFiles.length === 0) ||
+                (receiveMode === "sem_nota" && receiveItems.length === 0)
+              }
             >
               {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
             </Button>
