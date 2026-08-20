@@ -1102,7 +1102,11 @@ function OrdersPage() {
             <Button variant="ghost" onClick={() => setReceiveTarget(null)} disabled={receiving}>Cancelar</Button>
             <Button
               onClick={receiveMode === "nota" ? confirmReceive : confirmReceiveWithoutInvoice}
-              disabled={receiving || (receiveMode === "nota" && receiveFiles.length === 0)}
+              disabled={
+                receiving ||
+                (receiveMode === "nota" && receiveFiles.length === 0) ||
+                (receiveMode === "sem_nota" && receiveItems.length === 0)
+              }
             >
               {receiving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando…</>) : "Confirmar recebimento"}
             </Button>
