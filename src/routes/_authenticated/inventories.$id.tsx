@@ -291,6 +291,23 @@ function InventoryDetail() {
     qc.invalidateQueries({ queryKey: ["inventory", id] });
   }
 
+  async function clearGroupCount(groupId: string) {
+    if (!confirm("Limpar todas as contagens deste grupo?")) return;
+    const groupItems = data?.items.filter((it) => it.group_id === groupId) ?? [];
+    if (groupItems.length === 0) return;
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ counted_qty: null })
+      .eq("inventory_id", id)
+      .in("group_id", [groupId]);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Contagens do grupo limpas");
+    qc.invalidateQueries({ queryKey: ["inventory", id] });
+  }
+
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-8">
       <Link to="/inventories" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
