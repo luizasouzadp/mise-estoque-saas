@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/searchable-select";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck, Pencil, Save, X, Plus, UserPlus } from "lucide-react";
+import { ArrowLeft, Copy, MessageCircle, CheckCircle2, Trash2, CheckCheck, Pencil, Save, X, Plus, UserPlus, Eraser } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/inventories/$id")({ component: InventoryDetail });
@@ -291,6 +291,23 @@ function InventoryDetail() {
     qc.invalidateQueries({ queryKey: ["inventory", id] });
   }
 
+  async function clearGroupCount(groupId: string) {
+    if (!confirm("Limpar todas as contagens deste grupo?")) return;
+    const groupItems = data?.items.filter((it) => it.group_id === groupId) ?? [];
+    if (groupItems.length === 0) return;
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ counted_qty: null })
+      .eq("inventory_id", id)
+      .in("group_id", [groupId]);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Contagens do grupo limpas");
+    qc.invalidateQueries({ queryKey: ["inventory", id] });
+  }
+
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-8">
       <Link to="/inventories" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -447,7 +464,18 @@ function InventoryDetail() {
             <div key={g.id} className="rounded-xl border bg-card shadow-[var(--shadow-soft)]">
               <div className="flex items-center justify-between border-b px-4 py-2">
                 <h3 className="font-semibold text-sm">{g.name}</h3>
-                <span className="text-xs text-muted-foreground">{groupItems.filter((i) => i.counted_qty != null).length}/{groupItems.length} contados</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{groupItems.filter((i) => i.counted_qty != null).length}/{groupItems.length} contados</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    disabled={!groupItems.some((i) => i.counted_qty != null)}
+                    onClick={() => clearGroupCount(g.id)}
+                  >
+                    <Eraser className="mr-1 h-3 w-3" /> Limpar
+                  </Button>
+                </div>
               </div>
               <div className="divide-y">
                 {groupItems.length === 0 ? (
