@@ -464,7 +464,18 @@ function InventoryDetail() {
             <div key={g.id} className="rounded-xl border bg-card shadow-[var(--shadow-soft)]">
               <div className="flex items-center justify-between border-b px-4 py-2">
                 <h3 className="font-semibold text-sm">{g.name}</h3>
-                <span className="text-xs text-muted-foreground">{groupItems.filter((i) => i.counted_qty != null).length}/{groupItems.length} contados</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{groupItems.filter((i) => i.counted_qty != null).length}/{groupItems.length} contados</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    disabled={!groupItems.some((i) => i.counted_qty != null)}
+                    onClick={() => clearGroupCount(g.id)}
+                  >
+                    <Eraser className="mr-1 h-3 w-3" /> Limpar
+                  </Button>
+                </div>
               </div>
               <div className="divide-y">
                 {groupItems.length === 0 ? (
