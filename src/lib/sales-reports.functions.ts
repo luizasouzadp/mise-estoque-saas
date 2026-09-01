@@ -2,36 +2,60 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const GEMINI_MODEL = "gemini-flash-latest";
+const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"];
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function callGemini(apiKey: string, prompt: string): Promise<string> {
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4 },
-        }),
-      },
-    );
-  } catch {
+  let res: Response | null = null;
+  let lastBody = "";
+  let lastStatus = 0;
+
+  outer: for (const model of GEMINI_MODELS) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.4 },
+            }),
+          },
+        );
+      } catch {
+        res = null;
+        await sleep(1500 * (attempt + 1));
+        continue;
+      }
+      if (res.ok) break outer;
+      lastBody = await res.text().catch(() => "");
+      lastStatus = res.status;
+      console.error(`[Gemini/insights/${model}] ${res.status}: ${lastBody.slice(0, 800)}`);
+      const retryable = res.status === 429 || res.status >= 500;
+      if (!retryable) break outer;
+      if (attempt < 2) await sleep(1500 * (attempt + 1));
+    }
+  }
+
+  if (!res) {
     throw new Error("Não foi possível conectar à API do Google. Tente novamente.");
   }
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error(`[Gemini/insights] ${res.status}: ${body.slice(0, 800)}`);
-    if (res.status === 400 && /API key not valid/i.test(body)) {
+    const body = lastBody;
+    const status = lastStatus;
+    if (status >= 500) {
+      throw new Error("A IA do Google está sobrecarregada no momento (erro 503). Aguarde alguns instantes e tente novamente.");
+    }
+    if (status === 400 && /API key not valid/i.test(body)) {
       throw new Error("Chave da API do Google inválida. Verifique o secret GEMINI_API_KEY.");
     }
-    if (res.status === 401 || res.status === 403) {
+    if (status === 401 || status === 403) {
       throw new Error("Acesso negado pela API do Google. Confira a chave e a API Generative Language habilitada.");
     }
-    if (res.status === 429) {
+    if (status === 429) {
       if (/limit:\s*0/.test(body)) {
         throw new Error(
           "Sua chave do Google está com cota ZERO para este modelo. Ative o faturamento no projeto Google Cloud da chave ou gere uma nova chave no Google AI Studio.",
@@ -39,10 +63,10 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
       }
       throw new Error("Limite de uso do Google atingido. Aguarde alguns segundos e tente de novo.");
     }
-    if (res.status === 404) {
+    if (status === 404) {
       throw new Error("O modelo de IA do Google não está disponível para esta chave. Gere uma nova chave no Google AI Studio.");
     }
-    throw new Error(`Falha ao gerar a análise na API do Google (${res.status}).`);
+    throw new Error(`Falha ao gerar a análise na API do Google (${status}).`);
   }
 
   const json = (await res.json()) as {

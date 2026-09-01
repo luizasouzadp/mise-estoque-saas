@@ -18,7 +18,7 @@ const ParsedInvoice = z.object({
   items: z.array(ItemSchema),
 });
 
-const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"];
+const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const PROMPT = `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
