@@ -433,11 +433,11 @@ function OrdersPage() {
 
     setNewSupplierText("");
     setNewExpected("");
-    setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+    setNewLines([{ ingredient_id: "", quantity: "", unit: "", expected_at: "", notes: "" }]);
   }
 
   function addNewLine() {
-    setNewLines((ls) => [...ls, { ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+    setNewLines((ls) => [...ls, { ingredient_id: "", quantity: "", unit: "", expected_at: "", notes: "" }]);
   }
   function updateNewLine(idx: number, patch: Partial<NewOrderLine>) {
     setNewLines((ls) => ls.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
@@ -463,7 +463,7 @@ function OrdersPage() {
           supplier_name: existing?.name ?? name,
           ingredient_id: ing.id,
           quantity: q,
-          unit: ing.unit,
+          unit: (l.unit ?? "").trim() || ing.unit,
           expected_at: newExpected || null,
           notes: l.notes || null,
           status: "pending" as const,
