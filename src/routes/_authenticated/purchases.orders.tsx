@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/purchases/orders")({
 
 type SupplierOpt = { id: string; name: string };
 type IngredientOpt = { id: string; name: string; unit: string; last_cost?: number; avg_cost?: number };
-type NewOrderLine = { ingredient_id: string; quantity: string; expected_at: string; notes: string };
+type NewOrderLine = { ingredient_id: string; quantity: string; unit: string; expected_at: string; notes: string };
 
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 
@@ -72,7 +72,7 @@ function OrdersPage() {
   const [newSupplierText, setNewSupplierText] = useState<string>("");
   const [newExpected, setNewExpected] = useState<string>("");
   const [newLines, setNewLines] = useState<NewOrderLine[]>([
-    { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
+    { ingredient_id: "", quantity: "", unit: "", expected_at: "", notes: "" },
   ]);
   const [receiveTarget, setReceiveTarget] = useState<null | { supplier: string; items: OrderRow[] }>(null);
   const [receiveFiles, setReceiveFiles] = useState<File[]>([]);
