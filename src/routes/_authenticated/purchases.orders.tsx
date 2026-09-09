@@ -1138,7 +1138,14 @@ function OrdersPage() {
           <div className="grid gap-3">
             <div className="grid gap-2">
               <Label>Insumo</Label>
-              <Select value={addIngredient} onValueChange={setAddIngredient}>
+              <Select
+                value={addIngredient}
+                onValueChange={(v) => {
+                  setAddIngredient(v);
+                  const ing = (ingredients ?? []).find((i) => i.id === v);
+                  setAddUnit(ing?.unit ?? "");
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Selecione o insumo" /></SelectTrigger>
                 <SelectContent>
                   {(ingredients ?? []).map((i) => (
@@ -1147,14 +1154,15 @@ function OrdersPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label>
-                Quantidade{(() => {
-                  const ing = (ingredients ?? []).find((i) => i.id === addIngredient);
-                  return ing ? ` (${ing.unit})` : "";
-                })()}
-              </Label>
-              <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} placeholder="0" />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Quantidade</Label>
+                <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} placeholder="0" />
+              </div>
+              <div className="grid gap-2">
+                <Label>Unidade (ex.: cx, fardo, kg)</Label>
+                <Input value={addUnit} onChange={(e) => setAddUnit(e.target.value)} placeholder="cx" maxLength={20} />
+              </div>
             </div>
             <div className="grid gap-2">
               <Label>Previsão de chegada</Label>
