@@ -87,6 +87,7 @@ function OrdersPage() {
   const [addTarget, setAddTarget] = useState<null | { supplier: string; supplier_id: string | null; supplier_name: string | null; expected_at: string | null }>(null);
   const [addIngredient, setAddIngredient] = useState("");
   const [addQty, setAddQty] = useState("");
+  const [addUnit, setAddUnit] = useState("");
   const [addExpected, setAddExpected] = useState("");
   const [addingItem, setAddingItem] = useState(false);
   const receiveCameraRef = useRef<HTMLInputElement | null>(null);
@@ -514,6 +515,7 @@ function OrdersPage() {
     });
     setAddIngredient("");
     setAddQty("");
+    setAddUnit("");
     setAddExpected(first?.expected_at ?? "");
   }
 
@@ -534,7 +536,7 @@ function OrdersPage() {
         supplier_name: addTarget.supplier_name,
         ingredient_id: ing.id,
         quantity: q,
-        unit: ing.unit,
+        unit: addUnit.trim() || ing.unit,
         expected_at: addExpected || null,
         status: "pending",
       });
