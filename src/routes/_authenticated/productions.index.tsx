@@ -132,7 +132,7 @@ function ProductionsPage() {
 
   async function load() {
     setLoading(true);
-    const [r, i, p, pi] = await Promise.all([
+    const [r, i, p] = await Promise.all([
       supabase.from("recipes").select("id, name, yield_qty, yield_unit, is_stocked").eq("is_stocked", true).order("name"),
       supabase.from("ingredients").select("id, name, unit").order("name"),
       supabase
@@ -140,12 +140,22 @@ function ProductionsPage() {
         .select("id, recipe_id, quantity_produced, produced_at, notes, recipes(name, yield_unit)")
         .order("produced_at", { ascending: false })
         .limit(500),
-      supabase.from("production_items").select("id, production_id, ingredient_name, quantity, unit"),
     ]);
     setRecipes((r.data ?? []) as Recipe[]);
     setIngredients((i.data ?? []) as Ingredient[]);
-    setProductions((p.data ?? []) as unknown as ProductionRow[]);
-    setItems((pi.data ?? []) as ProductionItemRow[]);
+    const prodRows = (p.data ?? []) as unknown as ProductionRow[];
+    setProductions(prodRows);
+    const ids = prodRows.map((x) => x.id);
+    let allItems: ProductionItemRow[] = [];
+    for (let s = 0; s < ids.length; s += 100) {
+      const { data: pi } = await supabase
+        .from("production_items")
+        .select("id, production_id, ingredient_name, quantity, unit")
+        .in("production_id", ids.slice(s, s + 100))
+        .limit(5000);
+      allItems = allItems.concat((pi ?? []) as ProductionItemRow[]);
+    }
+    setItems(allItems);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
