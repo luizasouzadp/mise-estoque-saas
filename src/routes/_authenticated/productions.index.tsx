@@ -132,7 +132,7 @@ function ProductionsPage() {
 
   async function load() {
     setLoading(true);
-    const [r, i, p, pi] = await Promise.all([
+    const [r, i, p] = await Promise.all([
       supabase.from("recipes").select("id, name, yield_qty, yield_unit, is_stocked").eq("is_stocked", true).order("name"),
       supabase.from("ingredients").select("id, name, unit").order("name"),
       supabase
