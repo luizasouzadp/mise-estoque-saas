@@ -894,8 +894,14 @@ function OrdersPage() {
                 {newLines.map((line, idx) => {
                   const ing = (ingredients ?? []).find((i) => i.id === line.ingredient_id);
                   return (
-                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_140px_auto]">
-                      <Select value={line.ingredient_id} onValueChange={(v) => updateNewLine(idx, { ingredient_id: v })}>
+                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_100px_130px_auto]">
+                      <Select
+                        value={line.ingredient_id}
+                        onValueChange={(v) => {
+                          const sel = (ingredients ?? []).find((i) => i.id === v);
+                          updateNewLine(idx, { ingredient_id: v, unit: sel?.unit ?? "" });
+                        }}
+                      >
                         <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
                         <SelectContent>
                           {(ingredients ?? []).map((i) => (
@@ -904,9 +910,15 @@ function OrdersPage() {
                         </SelectContent>
                       </Select>
                       <Input
-                        placeholder={`Qtd${ing ? ` (${ing.unit})` : ""}`}
+                        placeholder="Qtd"
                         value={line.quantity}
                         onChange={(e) => updateNewLine(idx, { quantity: e.target.value })}
+                      />
+                      <Input
+                        placeholder={ing ? ing.unit : "Unid. (ex.: cx)"}
+                        value={line.unit}
+                        onChange={(e) => updateNewLine(idx, { unit: e.target.value })}
+                        maxLength={20}
                       />
                       <Button size="icon" variant="ghost" onClick={() => removeNewLine(idx)} title="Remover">
                         <Trash2 className="h-4 w-4 text-destructive" />
