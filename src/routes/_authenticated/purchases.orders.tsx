@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/purchases/orders")({
 
 type SupplierOpt = { id: string; name: string };
 type IngredientOpt = { id: string; name: string; unit: string; last_cost?: number; avg_cost?: number };
-type NewOrderLine = { ingredient_id: string; quantity: string; expected_at: string; notes: string };
+type NewOrderLine = { ingredient_id: string; quantity: string; unit: string; expected_at: string; notes: string };
 
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 
@@ -72,7 +72,7 @@ function OrdersPage() {
   const [newSupplierText, setNewSupplierText] = useState<string>("");
   const [newExpected, setNewExpected] = useState<string>("");
   const [newLines, setNewLines] = useState<NewOrderLine[]>([
-    { ingredient_id: "", quantity: "", expected_at: "", notes: "" },
+    { ingredient_id: "", quantity: "", unit: "", expected_at: "", notes: "" },
   ]);
   const [receiveTarget, setReceiveTarget] = useState<null | { supplier: string; items: OrderRow[] }>(null);
   const [receiveFiles, setReceiveFiles] = useState<File[]>([]);
@@ -87,6 +87,7 @@ function OrdersPage() {
   const [addTarget, setAddTarget] = useState<null | { supplier: string; supplier_id: string | null; supplier_name: string | null; expected_at: string | null }>(null);
   const [addIngredient, setAddIngredient] = useState("");
   const [addQty, setAddQty] = useState("");
+  const [addUnit, setAddUnit] = useState("");
   const [addExpected, setAddExpected] = useState("");
   const [addingItem, setAddingItem] = useState(false);
   const receiveCameraRef = useRef<HTMLInputElement | null>(null);
@@ -433,11 +434,11 @@ function OrdersPage() {
 
     setNewSupplierText("");
     setNewExpected("");
-    setNewLines([{ ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+    setNewLines([{ ingredient_id: "", quantity: "", unit: "", expected_at: "", notes: "" }]);
   }
 
   function addNewLine() {
-    setNewLines((ls) => [...ls, { ingredient_id: "", quantity: "", expected_at: "", notes: "" }]);
+    setNewLines((ls) => [...ls, { ingredient_id: "", quantity: "", unit: "", expected_at: "", notes: "" }]);
   }
   function updateNewLine(idx: number, patch: Partial<NewOrderLine>) {
     setNewLines((ls) => ls.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
@@ -463,7 +464,7 @@ function OrdersPage() {
           supplier_name: existing?.name ?? name,
           ingredient_id: ing.id,
           quantity: q,
-          unit: ing.unit,
+          unit: (l.unit ?? "").trim() || ing.unit,
           expected_at: newExpected || null,
           notes: l.notes || null,
           status: "pending" as const,
@@ -514,6 +515,7 @@ function OrdersPage() {
     });
     setAddIngredient("");
     setAddQty("");
+    setAddUnit("");
     setAddExpected(first?.expected_at ?? "");
   }
 
@@ -534,7 +536,7 @@ function OrdersPage() {
         supplier_name: addTarget.supplier_name,
         ingredient_id: ing.id,
         quantity: q,
-        unit: ing.unit,
+        unit: addUnit.trim() || ing.unit,
         expected_at: addExpected || null,
         status: "pending",
       });
@@ -894,8 +896,14 @@ function OrdersPage() {
                 {newLines.map((line, idx) => {
                   const ing = (ingredients ?? []).find((i) => i.id === line.ingredient_id);
                   return (
-                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_140px_auto]">
-                      <Select value={line.ingredient_id} onValueChange={(v) => updateNewLine(idx, { ingredient_id: v })}>
+                    <div key={idx} className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-[1fr_100px_130px_auto]">
+                      <Select
+                        value={line.ingredient_id}
+                        onValueChange={(v) => {
+                          const sel = (ingredients ?? []).find((i) => i.id === v);
+                          updateNewLine(idx, { ingredient_id: v, unit: sel?.unit ?? "" });
+                        }}
+                      >
                         <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
                         <SelectContent>
                           {(ingredients ?? []).map((i) => (
@@ -904,9 +912,15 @@ function OrdersPage() {
                         </SelectContent>
                       </Select>
                       <Input
-                        placeholder={`Qtd${ing ? ` (${ing.unit})` : ""}`}
+                        placeholder="Qtd"
                         value={line.quantity}
                         onChange={(e) => updateNewLine(idx, { quantity: e.target.value })}
+                      />
+                      <Input
+                        placeholder={ing ? ing.unit : "Unid. (ex.: cx)"}
+                        value={line.unit}
+                        onChange={(e) => updateNewLine(idx, { unit: e.target.value })}
+                        maxLength={20}
                       />
                       <Button size="icon" variant="ghost" onClick={() => removeNewLine(idx)} title="Remover">
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -1124,7 +1138,14 @@ function OrdersPage() {
           <div className="grid gap-3">
             <div className="grid gap-2">
               <Label>Insumo</Label>
-              <Select value={addIngredient} onValueChange={setAddIngredient}>
+              <Select
+                value={addIngredient}
+                onValueChange={(v) => {
+                  setAddIngredient(v);
+                  const ing = (ingredients ?? []).find((i) => i.id === v);
+                  setAddUnit(ing?.unit ?? "");
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Selecione o insumo" /></SelectTrigger>
                 <SelectContent>
                   {(ingredients ?? []).map((i) => (
@@ -1133,14 +1154,15 @@ function OrdersPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label>
-                Quantidade{(() => {
-                  const ing = (ingredients ?? []).find((i) => i.id === addIngredient);
-                  return ing ? ` (${ing.unit})` : "";
-                })()}
-              </Label>
-              <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} placeholder="0" />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Quantidade</Label>
+                <Input value={addQty} onChange={(e) => setAddQty(e.target.value)} placeholder="0" />
+              </div>
+              <div className="grid gap-2">
+                <Label>Unidade (ex.: cx, fardo, kg)</Label>
+                <Input value={addUnit} onChange={(e) => setAddUnit(e.target.value)} placeholder="cx" maxLength={20} />
+              </div>
             </div>
             <div className="grid gap-2">
               <Label>Previsão de chegada</Label>
