@@ -93,15 +93,6 @@ function RecipeDetail() {
     },
   });
 
-  const { data: allRecipes } = useQuery({
-    queryKey: ["recipes-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name, yield_unit").order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
   const { data: menuCategories } = useQuery({
     queryKey: ["menu-categories"],
     queryFn: async () => {
@@ -262,46 +253,27 @@ function RecipeDetail() {
   }
 
   // Add item form
-  const [itemType, setItemType] = useState<"ingredient" | "recipe">("ingredient");
   const [targetId, setTargetId] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState("un");
   const [adding, setAdding] = useState(false);
 
-  // Base unit for the selected target (ingredient.unit or recipe.yield_unit)
-  const selectedBaseUnit =
-    itemType === "ingredient"
-      ? ingredients?.find((i) => i.id === targetId)?.unit ?? ""
-      : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
+  // Base unit for the selected ingredient
+  const selectedBaseUnit = ingredients?.find((i) => i.id === targetId)?.unit ?? "";
   const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
 
-  // Auto-preenche a unidade com a padrão do insumo/ficha selecionado
+  // Auto-preenche a unidade com a padrão do insumo selecionado
   useEffect(() => {
     if (selectedBaseUnit) setUnit(selectedBaseUnit);
   }, [selectedBaseUnit]);
 
   // Custo unitário do item selecionado (para preview ao adicionar)
   const { data: selectedUnitCost } = useQuery({
-    queryKey: ["item-unit-cost", itemType, targetId],
+    queryKey: ["item-unit-cost", targetId],
     enabled: !!targetId,
     queryFn: async () => {
-      if (itemType === "ingredient") {
-        const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: targetId });
-        return Number(data ?? 0);
-      } else {
-        const { data: subTotal } = await supabase.rpc("recipe_total_cost", { _recipe_id: targetId, _depth: 0 });
-        const r = allRecipes?.find((r) => r.id === targetId);
-        const y = Number(r?.yield_unit ? 0 : 0); // placeholder, fetch yield below
-        // Buscar yield_qty
-        const { data: sub } = await supabase.from("recipes").select("yield_qty").eq("id", targetId).single();
-        const yq = Number(sub?.yield_qty ?? 1) || 1;
-        let uc = Number(subTotal ?? 0) / yq;
-        if (!uc) {
-          const { data: mirror } = await supabase.from("ingredients").select("avg_cost, last_cost").eq("source_recipe_id", targetId).maybeSingle();
-          uc = Number(mirror?.avg_cost ?? mirror?.last_cost ?? 0);
-        }
-        return uc;
-      }
+      const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: targetId });
+      return Number(data ?? 0);
     },
   });
 
@@ -315,15 +287,14 @@ function RecipeDetail() {
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!targetId || !qty) return toast.error("Selecione o item e informe a quantidade");
-    if (itemType === "recipe" && targetId === id) return toast.error("Uma ficha não pode usar a si mesma");
     const converted = convert(Number(qty), unit, selectedBaseUnit);
     if (converted === null) return toast.error(`Unidade ${unit} não é compatível com ${selectedBaseUnit}`);
     setAdding(true);
     const payload = {
       recipe_id: id,
-      item_type: itemType,
-      ingredient_id: itemType === "ingredient" ? targetId : null,
-      sub_recipe_id: itemType === "recipe" ? targetId : null,
+      item_type: "ingredient",
+      ingredient_id: targetId,
+      sub_recipe_id: null,
       quantity: converted,
       unit: selectedBaseUnit,
     };
@@ -683,7 +654,7 @@ function RecipeDetail() {
       {/* Items list */}
       <div className="rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
         <h2 className="font-display text-xl">Composição</h2>
-        <p className="text-sm text-muted-foreground">Insumos e sub-receitas que compõem esta ficha.</p>
+        <p className="text-sm text-muted-foreground">Insumos que compõem esta ficha.</p>
 
         <div className="mt-4 space-y-2">
           {(items ?? []).length === 0 ? (
@@ -697,8 +668,8 @@ function RecipeDetail() {
                   {it.item_type === "ingredient" ? <Package className="h-4 w-4 text-muted-foreground shrink-0" /> : <BookOpen className="h-4 w-4 text-primary shrink-0" />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
-                      {it.item_type === "recipe" ? (
-                        <Link to="/recipes/$id" params={{ id: it.sub_recipe_id! }} className="hover:text-primary">{it.name}</Link>
+                      {it.item_type === "recipe" && it.sub_recipe_id ? (
+                        <Link to="/recipes/$id" params={{ id: it.sub_recipe_id }} className="hover:text-primary">{it.name}</Link>
                       ) : it.name}
                     </p>
                     {isEditing ? (
@@ -737,33 +708,16 @@ function RecipeDetail() {
 
         {/* Add item form */}
         <form onSubmit={addItem} className="mt-5 grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-12">
-          <div className="sm:col-span-3">
-            <Label>Tipo</Label>
-            <Select value={itemType} onValueChange={(v: "ingredient" | "recipe") => { setItemType(v); setTargetId(""); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ingredient">Insumo</SelectItem>
-                <SelectItem value="recipe">Sub-receita</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="sm:col-span-5">
-            <Label>{itemType === "ingredient" ? "Insumo" : "Ficha"}</Label>
+          <div className="sm:col-span-8">
+            <Label>Insumo</Label>
             <Select value={targetId} onValueChange={(v) => {
               setTargetId(v);
-              if (itemType === "ingredient") {
-                const ing = ingredients?.find((i) => i.id === v);
-                if (ing) setUnit(ing.unit);
-              } else {
-                const r = allRecipes?.find((r) => r.id === v);
-                if (r) setUnit(r.yield_unit);
-              }
+              const ing = ingredients?.find((i) => i.id === v);
+              if (ing) setUnit(ing.unit);
             }}>
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
-                {itemType === "ingredient"
-                  ? (ingredients ?? []).map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)
-                  : (allRecipes ?? []).filter((r) => r.id !== id).map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                {(ingredients ?? []).map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
