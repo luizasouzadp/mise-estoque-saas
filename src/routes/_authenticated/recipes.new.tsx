@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Package, BookOpen, Check, ChevronsUpDown } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Package, Check, ChevronsUpDown } from "lucide-react";
 import { cn, normalizeName } from "@/lib/utils";
 import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 import { compatibleUnits, convert } from "@/lib/units";
@@ -24,7 +24,7 @@ const UNITS = ["un", "porção", "kg", "g", "L", "ml", "cx", "pct"];
 
 type DraftItem = {
   key: string;
-  item_type: "ingredient" | "recipe";
+  item_type: "ingredient";
   target_id: string;
   target_name: string;
   quantity: number;
@@ -78,7 +78,6 @@ function NewRecipe() {
 
   // Composition draft
   const [items, setItems] = useState<DraftItem[]>([]);
-  const [itemType, setItemType] = useState<"ingredient" | "recipe">("ingredient");
   const [targetId, setTargetId] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState("un");
@@ -92,16 +91,7 @@ function NewRecipe() {
     },
   });
 
-  const { data: allRecipes } = useQuery({
-    queryKey: ["recipes-min-with-yield"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("recipes").select("id, name, yield_qty, yield_unit").order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Unit cost lookup for selected draft items (sub-recipes use recipe_total_cost / yield_qty; ingredients use 30d avg)
+  // Unit cost lookup for selected ingredients
   const itemKeys = items.map((i) => `${i.item_type}:${i.target_id}`).join("|");
   const { data: unitCosts } = useQuery({
     queryKey: ["draft-item-costs", itemKeys],
@@ -111,20 +101,8 @@ function NewRecipe() {
       await Promise.all(
         items.map(async (it) => {
           const key = `${it.item_type}:${it.target_id}`;
-          if (it.item_type === "ingredient") {
-            const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: it.target_id });
-            map[key] = Number(data ?? 0);
-          } else {
-            const { data: total } = await supabase.rpc("recipe_total_cost", { _recipe_id: it.target_id, _depth: 0 });
-            const sub = allRecipes?.find((r) => r.id === it.target_id);
-            const y = Number(sub?.yield_qty ?? 1) || 1;
-            let uc = Number(total ?? 0) / y;
-            if (!uc) {
-              const { data: mirror } = await supabase.from("ingredients").select("avg_cost, last_cost").eq("source_recipe_id", it.target_id).maybeSingle();
-              uc = Number(mirror?.avg_cost ?? mirror?.last_cost ?? 0);
-            }
-            map[key] = uc;
-          }
+          const { data } = await supabase.rpc("ingredient_avg_cost_last_30d", { _ingredient_id: it.target_id });
+          map[key] = Number(data ?? 0);
         }),
       );
       return map;
@@ -146,10 +124,7 @@ function NewRecipe() {
     },
   });
 
-  const selectedBaseUnit =
-    itemType === "ingredient"
-      ? ingredients?.find((i) => i.id === targetId)?.unit ?? ""
-      : allRecipes?.find((r) => r.id === targetId)?.yield_unit ?? "";
+  const selectedBaseUnit = ingredients?.find((i) => i.id === targetId)?.unit ?? "";
   const unitOptions = selectedBaseUnit ? compatibleUnits(selectedBaseUnit) : [];
 
   useEffect(() => {
@@ -160,15 +135,10 @@ function NewRecipe() {
     if (!targetId || !qty) return toast.error("Selecione um item e a quantidade");
     const converted = convert(Number(qty), unit, selectedBaseUnit);
     if (converted === null) return toast.error(`Unidade ${unit} não é compatível com ${selectedBaseUnit}`);
-    let targetName = "";
-    if (itemType === "ingredient") {
-      targetName = ingredients?.find((i) => i.id === targetId)?.name ?? "";
-    } else {
-      targetName = allRecipes?.find((r) => r.id === targetId)?.name ?? "";
-    }
+    const targetName = ingredients?.find((i) => i.id === targetId)?.name ?? "";
     setItems((prev) => [
       ...prev,
-      { key: crypto.randomUUID(), item_type: itemType, target_id: targetId, target_name: targetName, quantity: converted, unit: selectedBaseUnit },
+      { key: crypto.randomUUID(), item_type: "ingredient", target_id: targetId, target_name: targetName, quantity: converted, unit: selectedBaseUnit },
     ]);
     setTargetId(""); setQty("");
   }
@@ -223,9 +193,9 @@ function NewRecipe() {
     if (items.length > 0) {
       const payload = items.map((it) => ({
         recipe_id: recipe.id,
-        item_type: it.item_type,
-        ingredient_id: it.item_type === "ingredient" ? it.target_id : null,
-        sub_recipe_id: it.item_type === "recipe" ? it.target_id : null,
+        item_type: "ingredient" as const,
+        ingredient_id: it.target_id,
+        sub_recipe_id: null,
         quantity: it.quantity,
         unit: it.unit,
       }));
@@ -358,7 +328,7 @@ function NewRecipe() {
         <div className="space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">
           <div>
             <h2 className="font-display text-xl">Composição</h2>
-            <p className="text-sm text-muted-foreground">Adicione insumos e sub-receitas que compõem esta ficha.</p>
+            <p className="text-sm text-muted-foreground">Adicione os insumos que compõem esta ficha.</p>
           </div>
 
           <div className="space-y-2">
@@ -370,7 +340,7 @@ function NewRecipe() {
               return (
               <div key={it.key} className="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  {it.item_type === "ingredient" ? <Package className="h-4 w-4 text-muted-foreground shrink-0" /> : <BookOpen className="h-4 w-4 text-primary shrink-0" />}
+                   <Package className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{it.target_name}</p>
                     <p className="text-xs text-muted-foreground">{it.quantity} {it.unit} · R$ {uc.toFixed(4)}/{it.unit}</p>
@@ -396,33 +366,16 @@ function NewRecipe() {
           </div>
 
           <div className="grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-12">
-            <div className="sm:col-span-3">
-              <Label>Tipo</Label>
-              <Select value={itemType} onValueChange={(v: "ingredient" | "recipe") => { setItemType(v); setTargetId(""); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ingredient">Insumo</SelectItem>
-                  <SelectItem value="recipe">Sub-receita</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="sm:col-span-5">
-              <Label>{itemType === "ingredient" ? "Insumo" : "Ficha"}</Label>
+            <div className="sm:col-span-8">
+              <Label>Insumo</Label>
               <Select value={targetId} onValueChange={(v) => {
                 setTargetId(v);
-                if (itemType === "ingredient") {
-                  const ing = ingredients?.find((i) => i.id === v);
-                  if (ing) setUnit(ing.unit);
-                } else {
-                  const r = allRecipes?.find((r) => r.id === v);
-                  if (r) setUnit(r.yield_unit);
-                }
+                const ing = ingredients?.find((i) => i.id === v);
+                if (ing) setUnit(ing.unit);
               }}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {itemType === "ingredient"
-                    ? (ingredients ?? []).map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)
-                    : (allRecipes ?? []).map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                  {(ingredients ?? []).map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
