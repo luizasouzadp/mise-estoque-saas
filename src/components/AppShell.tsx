@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, ArrowLeftRight, BookOpen, DollarSign, Flame, Percent, Truck } from "lucide-react";
+import { ChefHat, LayoutDashboard, Package, Receipt, LogOut, ClipboardList, ArrowLeftRight, BookOpen, DollarSign, Flame, Percent, Truck, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUserRoles } from "@/hooks/use-roles";
+import { usePlatformAdmin } from "@/hooks/use-platform-admin";
 
 const allNavItems = [
   { to: "/dashboard", label: "Início", icon: LayoutDashboard },
@@ -23,12 +24,15 @@ export function AppShell() {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isChef, isReceiver, loading } = useUserRoles();
+  const { isPlatformAdmin } = usePlatformAdmin();
 
   const navItems = isChef
     ? allNavItems.filter((n) => n.to === "/productions")
     : isReceiver
       ? ([{ to: "/purchases/orders", label: "Encomendas", icon: Truck }] as const)
-      : allNavItems;
+      : isPlatformAdmin
+        ? ([...allNavItems, { to: "/admin", label: "Admin", icon: ShieldCheck }] as const)
+        : allNavItems;
 
   useEffect(() => {
     if (loading) return;
