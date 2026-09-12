@@ -24,8 +24,7 @@ function Landing() {
             <span className="font-display text-xl">Mise</span>
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="ghost"><Link to="/login">Entrar</Link></Button>
-            <Button asChild><Link to="/signup">Criar conta</Link></Button>
+            <Button asChild><Link to="/login">Entrar</Link></Button>
           </div>
         </div>
       </header>
@@ -39,8 +38,7 @@ function Landing() {
             Registre compras, controle insumos e acompanhe seu custo médio direto do celular.
           </p>
           <div className="mt-8 flex gap-3">
-            <Button asChild size="lg"><Link to="/signup">Começar grátis</Link></Button>
-            <Button asChild size="lg" variant="outline"><Link to="/login">Já tenho conta</Link></Button>
+            <Button asChild size="lg"><Link to="/login">Entrar</Link></Button>
           </div>
         </div>
 

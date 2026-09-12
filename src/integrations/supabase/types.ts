@@ -1517,6 +1517,7 @@ export type Database = {
         Returns: number
       }
       is_manager_or_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_platform_admin: { Args: never; Returns: boolean }
       projected_stock_for_ingredient: {
         Args: { _ingredient_id: string }
         Returns: number

@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     const access = await fetchAccessContext(supabase, data.session.user.id);
-    if (resolveAccessDecision(access) === "block" && location.pathname !== "/blocked") {
+    if (resolveAccessDecision(access) === "block") {
       throw redirect({ to: "/blocked" });
     }
 
