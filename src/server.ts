@@ -69,6 +69,13 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Cloudflare Workers pass dashboard-configured vars/secrets in `env`,
+      // not via process.env — bridge them here so code written for a
+      // Node-style process.env (client.ts, client.server.ts, auth-middleware.ts)
+      // sees SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY/SUPABASE_SERVICE_ROLE_KEY.
+      if (env && typeof env === "object") {
+        Object.assign(process.env, env);
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
