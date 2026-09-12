@@ -845,18 +845,21 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_platform_admin: boolean
           restaurant_id: string
         }
         Insert: {
           created_at?: string
           full_name?: string | null
           id: string
+          is_platform_admin?: boolean
           restaurant_id: string
         }
         Update: {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_platform_admin?: boolean
           restaurant_id?: string
         }
         Relationships: [
@@ -1176,18 +1179,21 @@ export type Database = {
           id: string
           ideal_cmv: number
           name: string
+          status: string
         }
         Insert: {
           created_at?: string
           id?: string
           ideal_cmv?: number
           name: string
+          status?: string
         }
         Update: {
           created_at?: string
           id?: string
           ideal_cmv?: number
           name?: string
+          status?: string
         }
         Relationships: []
       }

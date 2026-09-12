@@ -23,7 +23,7 @@ export const listRestaurants = createServerFn({ method: "POST" })
       .select("id, name, status")
       .order("name");
     if (error) throw new Error(error.message);
-    return (data ?? []) as unknown as { id: string; name: string; status: string }[];
+    return (data ?? []) as { id: string; name: string; status: string }[];
   });
 
 const SetStatusSchema = z.object({
@@ -41,7 +41,7 @@ export const setRestaurantStatus = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("restaurants")
-      .update({ status: data.status } as never)
+      .update({ status: data.status })
       .eq("id", data.restaurantId);
     if (error) throw new Error(error.message);
     return { ok: true };
