@@ -73,6 +73,9 @@ function LoginPage() {
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
+            <p className="text-right text-sm">
+              <Link to="/recuperar-senha" className="text-muted-foreground hover:underline">Esqueci minha senha</Link>
+            </p>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}
             </Button>
