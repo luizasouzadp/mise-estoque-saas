@@ -202,8 +202,16 @@ function RecipeDetail() {
         return toast.error(`Já existe um item no cardápio com o código "${productCode.trim()}".`);
       }
     }
+    const finalName = normalizeName(name);
+    const { data: dupRecipe } = await supabase
+      .from("recipes")
+      .select("id")
+      .ilike("name", finalName)
+      .neq("id", id)
+      .maybeSingle();
+    if (dupRecipe) return toast.error(`Já existe uma ficha chamada "${finalName}".`);
     const { error } = await supabase.from("recipes").update({
-      name, description: description || null,
+      name: finalName, description: description || null,
       yield_qty: Number(yieldQty) || 1, yield_unit: yieldUnit,
       is_stocked: newIsStocked,
       is_on_menu: newIsOnMenu,
@@ -217,7 +225,7 @@ function RecipeDetail() {
       recipeId: id,
       restaurantId: recipe.restaurant_id,
       isStocked: newIsStocked,
-      name: normalizeName(name),
+      name: finalName,
       unit: yieldUnit,
     });
     toast.success("Ficha atualizada");

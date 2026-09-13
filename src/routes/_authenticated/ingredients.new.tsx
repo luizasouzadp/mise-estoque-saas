@@ -52,10 +52,20 @@ function NewIngredient() {
       toast.error("Restaurante não encontrado.");
       return;
     }
+    const finalName = normalizeName(name);
+    const { data: dup } = await supabase
+      .from("ingredients")
+      .select("id")
+      .ilike("name", finalName)
+      .maybeSingle();
+    if (dup) {
+      setSaving(false);
+      return toast.error(`Já existe um insumo chamado "${finalName}".`);
+    }
     const valueNum = unitValue.trim() === "" ? null : Number(unitValue);
     const { error } = await supabase.from("ingredients").insert({
       restaurant_id: profile.restaurant_id,
-      name: normalizeName(name),
+      name: finalName,
       unit,
       category: category || null,
       min_stock: Number(minStock) || 0,
