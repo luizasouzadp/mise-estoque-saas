@@ -92,15 +92,19 @@ export const listChefs = createServerFn({ method: "POST" })
     return out;
   });
 
-async function assertTarget(supabase: any, restaurantId: string, targetId: string, role: "chef" | "receiver") {
-  const { data: prof } = await supabase
+async function assertTarget(restaurantId: string, targetId: string, role: "chef" | "receiver") {
+  // Managers can't read other users' profiles via RLS, so this reads through
+  // supabaseAdmin — but every result is manually checked against the caller's
+  // own restaurantId below, so tenant isolation is still enforced here.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: prof } = await supabaseAdmin
     .from("profiles")
     .select("id, restaurant_id")
     .eq("id", targetId)
     .maybeSingle();
   if (!prof || prof.restaurant_id !== restaurantId) throw new Error("Usuário não encontrado");
 
-  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", targetId);
+  const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", targetId);
   if (!roles?.some((r: any) => r.role === role)) throw new Error(`Usuário não é ${label(role).toLowerCase()}`);
 }
 
@@ -110,7 +114,7 @@ export const deleteChef = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const restaurantId = await ensureManager(supabase, userId);
-    await assertTarget(supabase, restaurantId, data.chefId, data.role);
+    await assertTarget(restaurantId, data.chefId, data.role);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.chefId);
@@ -124,7 +128,7 @@ export const resetChefPassword = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const restaurantId = await ensureManager(supabase, userId);
-    await assertTarget(supabase, restaurantId, data.chefId, data.role);
+    await assertTarget(restaurantId, data.chefId, data.role);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.chefId, { password: data.password });

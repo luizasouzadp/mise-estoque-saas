@@ -15,6 +15,13 @@ export const getInventoryByToken = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!inv) throw new Error("Inventário não encontrado");
 
+    const { data: restStatus } = await supabaseAdmin
+      .from("restaurants")
+      .select("status")
+      .eq("id", inv.restaurant_id)
+      .maybeSingle();
+    if (restStatus?.status !== "ativo") throw new Error("Inventário indisponível");
+
     // Sync missing group members into inventory_items (handles ingredients
     // adicionados ao grupo depois do inventário ser criado).
     const { data: invGroupRows } = await supabaseAdmin
@@ -97,12 +104,19 @@ export const submitInventoryCount = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { data: inv, error } = await supabaseAdmin
       .from("inventories")
-      .select("id, status")
+      .select("id, status, restaurant_id")
       .eq("public_token", data.token)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!inv) throw new Error("Inventário não encontrado");
     if (inv.status === "cancelled") throw new Error("Inventário cancelado");
+
+    const { data: restStatus } = await supabaseAdmin
+      .from("restaurants")
+      .select("status")
+      .eq("id", inv.restaurant_id)
+      .maybeSingle();
+    if (restStatus?.status !== "ativo") throw new Error("Inventário indisponível");
 
     const { data: items } = await supabaseAdmin
       .from("inventory_items")

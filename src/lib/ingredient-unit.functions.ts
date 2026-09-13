@@ -28,6 +28,16 @@ export const convertIngredientUnit = createServerFn({ method: "POST" })
     const { data: isMgr } = await supabase.rpc("is_manager_or_owner", { _user_id: userId });
     if (!isMgr) throw new Error("Apenas gerentes podem alterar a unidade");
 
+    // Verify the ingredient belongs to the caller's own restaurant using the
+    // RLS-scoped client — a cross-tenant id simply comes back as not found here.
+    const { data: owned, error: ownedErr } = await supabase
+      .from("ingredients")
+      .select("id")
+      .eq("id", ingredientId)
+      .maybeSingle();
+    if (ownedErr) throw new Error(ownedErr.message);
+    if (!owned) throw new Error("Insumo não encontrado");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: ing, error: ingErr } = await supabaseAdmin
