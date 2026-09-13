@@ -24,6 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { ChefHat, Filter, Pencil, Plus, Trash2, X } from "lucide-react";
 import { compatibleUnits, convert } from "@/lib/units";
+import { syncRecipeStockIngredient } from "@/lib/recipe-stock";
 
 export const Route = createFileRoute("/_authenticated/productions/")({
   component: ProductionsPage,
@@ -312,6 +313,23 @@ function ProductionsPage() {
         await supabase.from("ingredients").update({ source_recipe_id: q.recipeId }).eq("id", byName.id);
         mirror = { id: byName.id };
       }
+    }
+    if (!mirror) {
+      // Ficha marcada como armazenada em estoque mas sem insumo espelho ainda
+      // (ex.: ficha antiga criada antes desse vínculo existir) — cria agora.
+      await syncRecipeStockIngredient({
+        recipeId: q.recipeId,
+        restaurantId,
+        isStocked: true,
+        name: q.recipeName,
+        unit: q.yieldUnit,
+      });
+      const { data: created } = await supabase
+        .from("ingredients")
+        .select("id")
+        .eq("source_recipe_id", q.recipeId)
+        .maybeSingle();
+      mirror = created;
     }
     if (!mirror) return `Ficha "${q.recipeName}" não tem insumo de estoque vinculado.`;
 
@@ -638,7 +656,7 @@ function ProductionsPage() {
               {!editingId && (
                 <div className="space-y-1">
                   <Button type="button" onClick={addToQueue} disabled={saving} className="w-full">
-                    <Plus className="h-4 w-4" /> + Produção
+                    <Plus className="h-4 w-4" /> Produção
                   </Button>
                   <p className="text-xs text-muted-foreground text-center">
                     Você pode lançar mais de uma produção de uma vez: preencha os dados acima, clique em "+ Produção" para guardar na lista e repita antes de registrar tudo.
