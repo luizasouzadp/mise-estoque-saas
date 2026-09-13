@@ -27,7 +27,7 @@ async function ensureManager(supabase: any, userId: string) {
 }
 
 function label(role: "chef" | "receiver") {
-  return role === "chef" ? "Chef" : "Usuário de recebimento";
+  return role === "chef" ? "Usuário de cozinha" : "Usuário de recebimento";
 }
 
 export const createChef = createServerFn({ method: "POST" })

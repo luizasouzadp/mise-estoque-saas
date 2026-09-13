@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, TrendingDown, Pencil } from "lucide-react";
+import { ArrowLeft, Trash2, TrendingDown, Pencil, Check, ChevronsUpDown, Plus } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ReferenceLine } from "recharts";
 import {
   AlertDialog,
@@ -24,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { normalizeName } from "@/lib/utils";
+import { cn, normalizeName } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { convertIngredientUnit } from "@/lib/ingredient-unit.functions";
 
@@ -89,6 +91,9 @@ function IngredientDetail() {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("un");
   const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [catOpen, setCatOpen] = useState(false);
+  const [catQuery, setCatQuery] = useState("");
   const [minStock, setMinStock] = useState("0");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
@@ -121,6 +126,14 @@ function IngredientDetail() {
       setPrimarySupplierId((data as { primarySupplierId?: string | null }).primarySupplierId ?? null);
     }
   }, [data]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: cats } = await supabase.from("ingredients").select("category").not("category", "is", null);
+      const unique = Array.from(new Set((cats ?? []).map((r: any) => (r.category ?? "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setCategories(unique);
+    })();
+  }, []);
 
   function toggleGroup(gid: string) {
     setGroupIds((prev) => {
@@ -343,17 +356,6 @@ function IngredientDetail() {
   const totalConsumed = consumption.reduce((a, d) => a + d.out, 0);
   const avgPerDay = totalConsumed / Math.max(consumption.length, 1);
   const peakOut = consumption.reduce((m, d) => Math.max(m, d.out), 0);
-  const DOW_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const dowSums = [0, 0, 0, 0, 0, 0, 0];
-  const dowCounts = [0, 0, 0, 0, 0, 0, 0];
-  for (const d of consumption) {
-    const dow = new Date(d.date + "T12:00:00Z").getUTCDay();
-    dowSums[dow] += d.out;
-    dowCounts[dow] += 1;
-  }
-  const dowAvgs = dowSums.map((s, i) => (dowCounts[i] ? s / dowCounts[i] : 0));
-  const peakDowIdx = dowAvgs.reduce((best, v, i) => (v > dowAvgs[best] ? i : best), 0);
-  const peakDowAvg = dowAvgs[peakDowIdx];
   const xInterval = period <= 30 ? 2 : period <= 60 ? 6 : 10;
   const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
@@ -451,7 +453,7 @@ function IngredientDetail() {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <div className="rounded-lg border bg-muted/30 px-3 py-2">
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Média/dia</div>
             <div className="font-display text-lg leading-tight">{fmt(avgPerDay)}<span className="ml-1 text-xs text-muted-foreground">{data.unit}</span></div>
@@ -459,19 +461,6 @@ function IngredientDetail() {
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
             <div className="text-[10px] uppercase tracking-wide text-primary/80">Média/semana</div>
             <div className="font-display text-lg leading-tight text-primary">{fmt(weeklyAvg)}<span className="ml-1 text-xs text-muted-foreground">{data.unit}</span></div>
-          </div>
-          <div className="rounded-lg border bg-muted/30 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Pico semanal</div>
-            <div className="font-display text-lg leading-tight">
-              {peakDowAvg > 0 ? (
-                <>
-                  {DOW_LABELS[peakDowIdx]}
-                  <span className="ml-1 text-xs text-muted-foreground">{fmt(peakDowAvg)} {data.unit}</span>
-                </>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
-            </div>
           </div>
         </div>
 
@@ -553,12 +542,78 @@ function IngredientDetail() {
           </div>
           <div>
             <Label htmlFor="category">Categoria</Label>
-            <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} />
+            <Popover open={catOpen} onOpenChange={setCatOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="category"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  className={cn("w-full justify-between font-normal", !category && "text-muted-foreground")}
+                >
+                  {category || "Selecione ou crie..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar ou criar..." value={catQuery} onValueChange={setCatQuery} />
+                  <CommandList>
+                    <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                    <CommandGroup>
+                      {categories.map((c) => (
+                        <CommandItem
+                          key={c}
+                          value={c}
+                          onSelect={() => {
+                            setCategory(c);
+                            setCatOpen(false);
+                            setCatQuery("");
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", category === c ? "opacity-100" : "opacity-0")} />
+                          {c}
+                        </CommandItem>
+                      ))}
+                      {catQuery.trim() && !categories.some((c) => c.toLowerCase() === catQuery.trim().toLowerCase()) && (
+                        <CommandItem
+                          value={`__create__${catQuery}`}
+                          onSelect={() => {
+                            const v = catQuery.trim();
+                            setCategory(v);
+                            setCategories((prev) => [...prev, v].sort((a, b) => a.localeCompare(b, "pt-BR")));
+                            setCatOpen(false);
+                            setCatQuery("");
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Criar "{catQuery.trim()}"
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <div>
           <Label htmlFor="min">Estoque mínimo</Label>
           <Input id="min" type="number" step="0.001" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label htmlFor="cmv">Compõe o CMV?</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Se ativo, este insumo entra no cálculo do CMV.</p>
+          </div>
+          <Switch id="cmv" checked={composesCmv} onCheckedChange={setComposesCmv} />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <Label htmlFor="active">Insumo ativo?</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Desative para ocultar da lista principal, listas de compras e inventários. O histórico é preservado.</p>
+          </div>
+          <Switch id="active" checked={isActive} onCheckedChange={setIsActive} />
         </div>
         <div>
           <Label>Fornecedores</Label>
@@ -591,20 +646,6 @@ function IngredientDetail() {
               })}
             </div>
           )}
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-3">
-          <div>
-            <Label htmlFor="cmv">Compõe o CMV?</Label>
-            <p className="mt-1 text-xs text-muted-foreground">Se ativo, este insumo entra no cálculo do CMV.</p>
-          </div>
-          <Switch id="cmv" checked={composesCmv} onCheckedChange={setComposesCmv} />
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-3">
-          <div>
-            <Label htmlFor="active">Insumo ativo?</Label>
-            <p className="mt-1 text-xs text-muted-foreground">Desative para ocultar da lista principal, listas de compras e inventários. O histórico é preservado.</p>
-          </div>
-          <Switch id="active" checked={isActive} onCheckedChange={setIsActive} />
         </div>
         <div>
           <Label>Grupos de contagem</Label>

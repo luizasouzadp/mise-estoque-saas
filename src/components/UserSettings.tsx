@@ -16,10 +16,10 @@ type Role = "chef" | "receiver";
 
 const COPY: Record<Role, { title: string; single: string; hint: string; placeholder: string }> = {
   chef: {
-    title: "Chefs de cozinha",
-    single: "chef",
+    title: "Usuários de cozinha",
+    single: "usuário de cozinha",
     hint: "Acessa apenas a página de Produção.",
-    placeholder: "ex: chef.joao",
+    placeholder: "ex: cozinha.joao",
   },
   receiver: {
     title: "Usuários de recebimento",
@@ -241,7 +241,7 @@ export function UserSettings() {
       </p>
       <Tabs defaultValue="chef" className="mt-4">
         <TabsList>
-          <TabsTrigger value="chef">Chefs</TabsTrigger>
+          <TabsTrigger value="chef">Cozinha</TabsTrigger>
           <TabsTrigger value="receiver">Recebimento</TabsTrigger>
           <TabsTrigger value="contacts">Contatos WhatsApp</TabsTrigger>
         </TabsList>
