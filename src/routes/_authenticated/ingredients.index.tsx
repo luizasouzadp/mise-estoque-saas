@@ -245,10 +245,10 @@ function IngredientsList() {
             }}
           />
           <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleExport} disabled={isLoading}>
-            <Download className="mr-2 h-4 w-4" /> Exportar
+            <Download className="mr-2 h-4 w-4" /> Exportar estoque
           </Button>
           <Button variant="outline" className="flex-1 sm:flex-none" disabled={importing} onClick={() => setImportDialogOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar Excel"}
+            <Upload className="mr-2 h-4 w-4" /> {importing ? "Importando..." : "Importar estoque"}
           </Button>
           <Button asChild className="flex-1 sm:flex-none">
             <Link to="/ingredients/new"><Plus className="mr-2 h-4 w-4" /> Novo insumo</Link>

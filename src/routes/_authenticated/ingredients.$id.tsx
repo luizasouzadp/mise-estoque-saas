@@ -232,6 +232,7 @@ function IngredientDetail() {
     toast.success("Atualizado");
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     qc.invalidateQueries({ queryKey: ["ingredient", id] });
+    nav({ to: "/ingredients" });
   }
 
   async function confirmUnitConversion() {

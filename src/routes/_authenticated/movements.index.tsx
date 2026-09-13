@@ -196,7 +196,7 @@ function MovementsPage() {
       const prodId = isProduction ? (m.notes ?? "").slice("production:".length) : null;
       let value: number;
       if (isProduction && m.type === "in" && prodId && productionCost.has(prodId)) {
-        // Pré-preparo produzido: valor = soma dos insumos consumidos
+        // Sub-receita produzida: valor = soma dos insumos consumidos
         value = productionCost.get(prodId) ?? 0;
       } else if (m.unit_cost != null) {
         value = Number(m.quantity) * Number(m.unit_cost);

@@ -67,7 +67,7 @@ export const duplicateRecipe = createServerFn({ method: "POST" })
         source_recipe_id: created.id,
         name: newName,
         unit: original.yield_unit,
-        category: "pré-preparo",
+        category: "sub-receita",
         avg_cost: cost,
         last_cost: cost,
       });

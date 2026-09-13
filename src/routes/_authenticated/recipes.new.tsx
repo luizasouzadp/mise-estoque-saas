@@ -259,7 +259,7 @@ function NewRecipe() {
           <div>
             <Label>Esta ficha fica armazenada em estoque?</Label>
             <p className="text-xs text-muted-foreground mb-2">
-              Se sim, será criado um insumo de categoria <strong>pré-preparo</strong>, que pode entrar em grupos e inventários.
+              Se sim, será criado um insumo de categoria <strong>sub-receita</strong>, que pode entrar em grupos e inventários.
             </p>
             <RadioGroup value={isStocked} onValueChange={(v) => setIsStocked(v as "no" | "yes")} className="flex gap-6">
               <label className="flex items-center gap-2 cursor-pointer">

@@ -504,7 +504,7 @@ function RecipeDetail() {
                   <h1 className="font-display text-3xl">{recipe.name}</h1>
                   {recipe.is_stocked && (
                     <Badge variant="secondary" className="gap-1">
-                      <Archive className="h-3 w-3" /> Pré-preparo em estoque
+                      <Archive className="h-3 w-3" /> Sub-receita em estoque
                     </Badge>
                   )}
                 </div>
@@ -582,7 +582,7 @@ function RecipeDetail() {
             <div>
               <Label>Armazenada em estoque?</Label>
               <p className="text-xs text-muted-foreground mb-2">
-                Se sim, gera um insumo de categoria <strong>pré-preparo</strong> usado em grupos e inventários.
+                Se sim, gera um insumo de categoria <strong>sub-receita</strong> usado em grupos e inventários.
               </p>
               <RadioGroup value={isStocked} onValueChange={(v) => setIsStocked(v as "no" | "yes")} className="flex gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -694,10 +694,12 @@ function RecipeDetail() {
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="text-sm font-semibold">{BRL.format(it.lineCost)}</p>
-                  {!isEditing && (
+                  {editing && !isEditing && (
                     <Button variant="ghost" size="icon" onClick={() => { setEditingItemId(it.id); setEditItemQty(String(Number(it.quantity))); }}><Pencil className="h-4 w-4" /></Button>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => removeItem(it.id)}><Trash2 className="h-4 w-4" /></Button>
+                  {editing && (
+                    <Button variant="ghost" size="icon" onClick={() => removeItem(it.id)}><Trash2 className="h-4 w-4" /></Button>
+                  )}
                 </div>
               </div>
               );
@@ -707,43 +709,45 @@ function RecipeDetail() {
 
 
         {/* Add item form */}
-        <form onSubmit={addItem} className="mt-5 grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-12">
-          <div className="sm:col-span-8">
-            <Label>Insumo</Label>
-            <Select value={targetId} onValueChange={(v) => {
-              setTargetId(v);
-              const ing = ingredients?.find((i) => i.id === v);
-              if (ing) setUnit(ing.unit);
-            }}>
-              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                {(ingredients ?? []).map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Qtd.</Label>
-            <Input type="number" step="0.001" min="0" value={qty} onChange={(e) => setQty(e.target.value)} />
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Unid.</Label>
-            <Select value={unit} onValueChange={setUnit} disabled={!selectedBaseUnit}>
-              <SelectTrigger><SelectValue placeholder={selectedBaseUnit || "—"} /></SelectTrigger>
-              <SelectContent>{unitOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="sm:col-span-12 flex items-center justify-between gap-3">
-            {targetId && selectedUnitCost != null ? (
-              <p className="text-xs text-muted-foreground">
-                Custo: <span className="font-medium text-foreground">{BRL.format(selectedUnitCost)}</span> / {selectedBaseUnit || "—"}
-                {previewLineCost != null && (
-                  <> · Total da linha: <span className="font-semibold text-foreground">{BRL.format(previewLineCost)}</span></>
-                )}
-              </p>
-            ) : <span />}
-            <Button type="submit" disabled={adding}><Plus className="mr-2 h-4 w-4" /> Adicionar</Button>
-          </div>
-        </form>
+        {editing && (
+          <form onSubmit={addItem} className="mt-5 grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-12">
+            <div className="sm:col-span-8">
+              <Label>Insumo</Label>
+              <Select value={targetId} onValueChange={(v) => {
+                setTargetId(v);
+                const ing = ingredients?.find((i) => i.id === v);
+                if (ing) setUnit(ing.unit);
+              }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {(ingredients ?? []).map((i) => <SelectItem key={i.id} value={i.id}>{i.name} ({i.unit})</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Qtd.</Label>
+              <Input type="number" step="0.001" min="0" value={qty} onChange={(e) => setQty(e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Unid.</Label>
+              <Select value={unit} onValueChange={setUnit} disabled={!selectedBaseUnit}>
+                <SelectTrigger><SelectValue placeholder={selectedBaseUnit || "—"} /></SelectTrigger>
+                <SelectContent>{unitOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-12 flex items-center justify-between gap-3">
+              {targetId && selectedUnitCost != null ? (
+                <p className="text-xs text-muted-foreground">
+                  Custo: <span className="font-medium text-foreground">{BRL.format(selectedUnitCost)}</span> / {selectedBaseUnit || "—"}
+                  {previewLineCost != null && (
+                    <> · Total da linha: <span className="font-semibold text-foreground">{BRL.format(previewLineCost)}</span></>
+                  )}
+                </p>
+              ) : <span />}
+              <Button type="submit" disabled={adding}><Plus className="mr-2 h-4 w-4" /> Adicionar</Button>
+            </div>
+          </form>
+        )}
       </div>
 
       {editing && (

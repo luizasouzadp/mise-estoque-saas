@@ -273,7 +273,7 @@ function ShoppingListPage() {
           <div>
             <h1 className="font-display text-3xl">Lista de compras</h1>
             <p className="text-sm text-muted-foreground">
-              Insumos abaixo do mínimo (excluindo pré-preparos). Envie as vendas de um dia ou período
+              Insumos abaixo do mínimo (excluindo sub-receitas). Envie as vendas de um dia ou período
               para atualizar o consumo estimado.
             </p>
           </div>
