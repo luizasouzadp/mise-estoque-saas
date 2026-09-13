@@ -4,4 +4,14 @@
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
+  // Plain (non-secret) values only — the anon/publishable key and project
+  // URL/ID are meant to be public. Declared here, not just in the Cloudflare
+  // dashboard, because `wrangler deploy` resets any dashboard-configured
+  // plain "Variable" that isn't also declared in this file on every deploy.
+  // SUPABASE_SERVICE_ROLE_KEY stays a dashboard "Secret" — never put it here.
+  "vars": {
+    "SUPABASE_URL": "https://kekmhukvbwbhdvktuosi.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ZKFW3Bw9TT6b0tqge3y3Bg_woBXJ-TJ",
+    "SUPABASE_PROJECT_ID": "kekmhukvbwbhdvktuosi",
+  },
 }
