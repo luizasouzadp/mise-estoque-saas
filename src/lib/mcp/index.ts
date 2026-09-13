@@ -38,6 +38,9 @@ import generateManagementReport from "./tools/generate-management-report";
 
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
 
+// Recurso de IA (MCP) desligado por enquanto a pedido da Luiza — mude para `true` para reativar.
+const MCP_ENABLED = false;
+
 export default defineMcp({
   name: "mise-mcp",
   title: "Mise — Estoque & Fichas",
@@ -48,7 +51,7 @@ export default defineMcp({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  tools: [
+  tools: !MCP_ENABLED ? [] : [
     // Existentes
     listIngredients,
     listRecipes,
