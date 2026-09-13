@@ -635,6 +635,17 @@ function ProductionsPage() {
                 </Button>
               </div>
 
+              {!editingId && (
+                <div className="space-y-1">
+                  <Button type="button" onClick={addToQueue} disabled={saving} className="w-full">
+                    <Plus className="h-4 w-4" /> + Produção
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Você pode lançar mais de uma produção de uma vez: preencha os dados acima, clique em "+ Produção" para guardar na lista e repita antes de registrar tudo.
+                  </p>
+                </div>
+              )}
+
               {queue.length > 0 && (
                 <div className="rounded-md border bg-muted/30 p-2 space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Na lista ({queue.length}):</p>
@@ -653,11 +664,6 @@ function ProductionsPage() {
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
-              {!editingId && (
-                <Button variant="outline" onClick={addToQueue} disabled={saving}>
-                  <Plus className="h-4 w-4" /> Adicionar à lista
-                </Button>
-              )}
               <Button onClick={save} disabled={saving}>
                 {saving
                   ? (editingId ? "Salvando..." : "Registrando...")
