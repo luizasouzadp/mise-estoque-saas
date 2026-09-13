@@ -263,7 +263,19 @@ function IngredientDetail() {
 
   async function remove() {
     const { error } = await supabase.from("ingredients").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (error.code === "23503") {
+        if (confirm("Não é possível excluir este insumo porque ele já tem compras, produções ou movimentações de estoque registradas no histórico. Deseja desativá-lo em vez de excluir? Ele deixa de aparecer nas listas normais, mas o histórico é mantido.")) {
+          const { error: deactErr } = await supabase.from("ingredients").update({ is_active: false }).eq("id", id);
+          if (deactErr) return toast.error(deactErr.message);
+          toast.success("Insumo desativado");
+          qc.invalidateQueries({ queryKey: ["ingredients"] });
+          qc.invalidateQueries({ queryKey: ["ingredient", id] });
+        }
+        return;
+      }
+      return toast.error(error.message);
+    }
     toast.success("Insumo excluído");
     qc.invalidateQueries({ queryKey: ["ingredients"] });
     nav({ to: "/ingredients" });
