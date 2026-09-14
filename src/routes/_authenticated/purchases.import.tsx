@@ -473,9 +473,6 @@ function ImportPurchase() {
                 <><Sparkles className="mr-2 h-4 w-4" /> Ler nota com IA</>
               )}
             </Button>
-            <Button type="button" variant="outline" onClick={addManualItem} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" /> Adicionar itens manualmente
-            </Button>
           </div>
 
           {parseMut.isError && (
