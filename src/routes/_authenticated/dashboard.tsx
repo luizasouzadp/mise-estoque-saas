@@ -22,12 +22,12 @@ function Dashboard() {
     queryKey: ["dashboard"],
     queryFn: async () => {
       const [ing, purch] = await Promise.all([
-        supabase.from("ingredients").select("id, name, current_stock, min_stock, unit, avg_cost"),
+        supabase.from("ingredients").select("id, name, current_stock, min_stock, unit, avg_cost, is_active"),
         supabase.from("purchases").select("id, total_cost, purchased_at").order("purchased_at", { ascending: false }).limit(5),
       ]);
       if (ing.error) throw ing.error;
       if (purch.error) throw purch.error;
-      const items = ing.data ?? [];
+      const items = (ing.data ?? []).filter((i) => i.is_active !== false);
       const lowStock = items.filter((i) => Number(i.current_stock) > 0 && Number(i.min_stock) > 0 && Number(i.current_stock) <= Number(i.min_stock));
       const outOfStock = items.filter((i) => Number(i.current_stock) <= 0);
       const stockValue = items.reduce((s, i) => s + Number(i.current_stock) * Number(i.avg_cost), 0);
