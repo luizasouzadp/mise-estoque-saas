@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -94,7 +95,9 @@ function ShoppingListPage() {
   useEffect(() => { saveList(list); }, [list]);
 
   const [showList, setShowList] = useState(false);
-  const [waOpen, setWaOpen] = useState(false);
+  const [waPickOpen, setWaPickOpen] = useState(false);
+  const [waContact, setWaContact] = useState<{ id: string; name: string; phone: string; is_supplier?: boolean | null } | null>(null);
+  const [waMessage, setWaMessage] = useState("");
 
   const { data: projected, isLoading: projLoading } = useQuery<ProjectedRow[]>({
     queryKey: ["projected-stock-status"],
@@ -118,10 +121,10 @@ function ShoppingListPage() {
     },
   });
 
-  const { data: contacts } = useQuery<{ id: string; name: string; phone: string }[]>({
+  const { data: contacts } = useQuery<{ id: string; name: string; phone: string; is_supplier?: boolean | null }[]>({
     queryKey: ["whatsapp_contacts"],
     queryFn: async () => {
-      const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone").order("name");
+      const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone, is_supplier").order("name");
       return data ?? [];
     },
   });
@@ -158,11 +161,29 @@ function ShoppingListPage() {
     setList((prev) => prev.filter((x) => x.ingredient_id !== ingredient_id));
   }
 
-  function buildMessage(items: ListItem[]) {
-    const lines = [`*Lista de compras* — ${formatBR(todayISO())}`, ""];
+  function buildMessage(items: ListItem[], isSupplier: boolean) {
+    const lines = isSupplier
+      ? [`Olá! Gostaria de encomendar a lista abaixo — ${formatBR(todayISO())}`, ""]
+      : [`*Lista de compras* — ${formatBR(todayISO())}`, ""];
     for (const it of items) lines.push(`• ${it.name}: ${QTY.format(it.qty)} ${it.unit}`);
     lines.push("", `Total de itens: ${items.length}`);
     return lines.join("\n");
+  }
+
+  function pickContact(c: { id: string; name: string; phone: string; is_supplier?: boolean | null }) {
+    setWaContact(c);
+    setWaMessage(buildMessage(list, !!c.is_supplier));
+    setWaPickOpen(false);
+  }
+
+  function sendWhatsapp() {
+    if (!waContact) return;
+    const raw = waContact.phone.replace(/\D/g, "");
+    const phone = raw.length === 10 || raw.length === 11 ? `55${raw}` : raw;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(waMessage)}`;
+    window.open(url, "_blank");
+    setWaContact(null);
+    setWaMessage("");
   }
 
   return (
@@ -254,11 +275,11 @@ function ShoppingListPage() {
         items={list}
         onQtyChange={updateItemQty}
         onRemove={removeItem}
-        onSend={() => setWaOpen(true)}
+        onSend={() => setWaPickOpen(true)}
       />
 
-      {/* WhatsApp picker */}
-      <Dialog open={waOpen} onOpenChange={setWaOpen}>
+      {/* WhatsApp: escolher contato */}
+      <Dialog open={waPickOpen} onOpenChange={setWaPickOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Enviar por WhatsApp</DialogTitle>
@@ -273,16 +294,12 @@ function ShoppingListPage() {
                   <button
                     key={c.id}
                     className="w-full text-left px-3 py-2 hover:bg-secondary/50 flex items-center justify-between"
-                    onClick={() => {
-                      const message = buildMessage(list);
-                      const raw = c.phone.replace(/\D/g, "");
-                      const phone = raw.length === 10 || raw.length === 11 ? `55${raw}` : raw;
-                      const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-                      window.open(url, "_blank");
-                      setWaOpen(false);
-                    }}
+                    onClick={() => pickContact(c)}
                   >
-                    <span className="font-medium">{c.name}</span>
+                    <span className="font-medium">
+                      {c.name}
+                      {c.is_supplier && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground align-middle">Fornecedor</span>}
+                    </span>
                     <span className="text-xs text-muted-foreground">{c.phone}</span>
                   </button>
                 ))}
@@ -290,7 +307,26 @@ function ShoppingListPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setWaOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setWaPickOpen(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp: revisar e editar mensagem */}
+      <Dialog open={waContact != null} onOpenChange={(o) => !o && setWaContact(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mensagem para {waContact?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Você pode editar o texto antes de enviar:</p>
+            <Textarea value={waMessage} onChange={(e) => setWaMessage(e.target.value)} rows={10} className="font-mono text-sm" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setWaContact(null); setWaPickOpen(true); }}>Voltar</Button>
+            <Button onClick={sendWhatsapp}>
+              <Send className="mr-1 h-4 w-4" /> Enviar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
