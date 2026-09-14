@@ -21,6 +21,7 @@ const DOWS = [
 type Supplier = {
   id: string;
   name: string;
+  phone: string | null;
   delivery_days: number[] | null;
   order_days: number[] | null;
   lead_time_days: number | null;
@@ -35,7 +36,7 @@ function SuppliersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id, name, delivery_days, order_days, lead_time_days, min_order_value, notes")
+        .select("id, name, phone, delivery_days, order_days, lead_time_days, min_order_value, notes")
         .order("name");
       if (error) throw error;
       return (data ?? []) as Supplier[];
@@ -78,6 +79,7 @@ function SuppliersPage() {
 
 function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: () => void }) {
   const [name, setName] = useState(supplier.name);
+  const [phone, setPhone] = useState(supplier.phone ?? "");
   const [orderDays, setOrderDays] = useState<number[]>(supplier.order_days ?? []);
   const [deliveryDays, setDeliveryDays] = useState<number[]>(supplier.delivery_days ?? []);
   const [lead, setLead] = useState(supplier.lead_time_days?.toString() ?? "");
@@ -91,8 +93,10 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
 
   async function save() {
     setSaving(true);
+    const cleanedPhone = phone.replace(/\D/g, "");
     const { error } = await supabase.from("suppliers").update({
       name: name.trim(),
+      phone: cleanedPhone || null,
       order_days: orderDays,
       delivery_days: deliveryDays,
       lead_time_days: lead === "" ? null : Number(lead),
@@ -118,6 +122,10 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
       <div className="flex gap-2">
         <Input value={name} onChange={(e) => setName(e.target.value)} />
         <Button variant="ghost" size="icon" onClick={remove} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+      </div>
+      <div>
+        <Label className="text-xs">Telefone / WhatsApp (DDD + número)</Label>
+        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="11999998888" inputMode="numeric" />
       </div>
       <div>
         <Label className="text-xs">Dias de pedido</Label>

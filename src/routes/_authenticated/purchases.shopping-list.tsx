@@ -96,7 +96,8 @@ function ShoppingListPage() {
 
   const [showList, setShowList] = useState(false);
   const [waPickOpen, setWaPickOpen] = useState(false);
-  const [waContact, setWaContact] = useState<{ id: string; name: string; phone: string; is_supplier?: boolean | null } | null>(null);
+  const [waManualPhone, setWaManualPhone] = useState("");
+  const [waTarget, setWaTarget] = useState<{ name: string; phone: string; isSupplier: boolean } | null>(null);
   const [waMessage, setWaMessage] = useState("");
 
   const { data: projected, isLoading: projLoading } = useQuery<ProjectedRow[]>({
@@ -121,11 +122,19 @@ function ShoppingListPage() {
     },
   });
 
-  const { data: contacts } = useQuery<{ id: string; name: string; phone: string; is_supplier?: boolean | null }[]>({
+  const { data: contacts } = useQuery<{ id: string; name: string; phone: string }[]>({
     queryKey: ["whatsapp_contacts"],
     queryFn: async () => {
-      const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone, is_supplier").order("name");
+      const { data } = await supabase.from("whatsapp_contacts").select("id, name, phone").order("name");
       return data ?? [];
+    },
+  });
+
+  const { data: suppliers } = useQuery<{ id: string; name: string; phone: string | null }[]>({
+    queryKey: ["suppliers-with-phone"],
+    queryFn: async () => {
+      const { data } = await supabase.from("suppliers").select("id, name, phone").order("name");
+      return ((data ?? []) as { id: string; name: string; phone: string | null }[]).filter((s) => s.phone);
     },
   });
 
@@ -170,19 +179,26 @@ function ShoppingListPage() {
     return lines.join("\n");
   }
 
-  function pickContact(c: { id: string; name: string; phone: string; is_supplier?: boolean | null }) {
-    setWaContact(c);
-    setWaMessage(buildMessage(list, !!c.is_supplier));
+  function pickTarget(name: string, phone: string, isSupplier: boolean) {
+    setWaTarget({ name, phone, isSupplier });
+    setWaMessage(buildMessage(list, isSupplier));
     setWaPickOpen(false);
+    setWaManualPhone("");
+  }
+
+  function pickManualNumber() {
+    const cleaned = waManualPhone.replace(/\D/g, "");
+    if (cleaned.length < 10) return toast.error("Informe um telefone válido (DDD + número)");
+    pickTarget(waManualPhone, cleaned, false);
   }
 
   function sendWhatsapp() {
-    if (!waContact) return;
-    const raw = waContact.phone.replace(/\D/g, "");
+    if (!waTarget) return;
+    const raw = waTarget.phone.replace(/\D/g, "");
     const phone = raw.length === 10 || raw.length === 11 ? `55${raw}` : raw;
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(waMessage)}`;
     window.open(url, "_blank");
-    setWaContact(null);
+    setWaTarget(null);
     setWaMessage("");
   }
 
@@ -278,33 +294,65 @@ function ShoppingListPage() {
         onSend={() => setWaPickOpen(true)}
       />
 
-      {/* WhatsApp: escolher contato */}
+      {/* WhatsApp: escolher fornecedor, contato ou digitar número */}
       <Dialog open={waPickOpen} onOpenChange={setWaPickOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Enviar por WhatsApp</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Escolha um contato:</p>
-            {(contacts ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum contato cadastrado.</p>
-            ) : (
-              <div className="max-h-80 overflow-y-auto divide-y rounded-md border">
-                {(contacts ?? []).map((c) => (
-                  <button
-                    key={c.id}
-                    className="w-full text-left px-3 py-2 hover:bg-secondary/50 flex items-center justify-between"
-                    onClick={() => pickContact(c)}
-                  >
-                    <span className="font-medium">
-                      {c.name}
-                      {c.is_supplier && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground align-middle">Fornecedor</span>}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{c.phone}</span>
-                  </button>
-                ))}
+          <div className="space-y-4 max-h-[65vh] overflow-y-auto">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Fornecedores cadastrados</p>
+              {(suppliers ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhum fornecedor com telefone cadastrado. Adicione em "Fornecedores".</p>
+              ) : (
+                <div className="divide-y rounded-md border">
+                  {(suppliers ?? []).map((s) => (
+                    <button
+                      key={s.id}
+                      className="w-full text-left px-3 py-2 hover:bg-secondary/50 flex items-center justify-between"
+                      onClick={() => pickTarget(s.name, s.phone!, true)}
+                    >
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-xs text-muted-foreground">{s.phone}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Contatos salvos</p>
+              {(contacts ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhum contato cadastrado.</p>
+              ) : (
+                <div className="divide-y rounded-md border">
+                  {(contacts ?? []).map((c) => (
+                    <button
+                      key={c.id}
+                      className="w-full text-left px-3 py-2 hover:bg-secondary/50 flex items-center justify-between"
+                      onClick={() => pickTarget(c.name, c.phone, false)}
+                    >
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-xs text-muted-foreground">{c.phone}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1 border-t pt-3">
+              <p className="text-xs font-medium text-muted-foreground">Ou digite um número</p>
+              <div className="flex gap-2">
+                <Input
+                  value={waManualPhone}
+                  onChange={(e) => setWaManualPhone(e.target.value)}
+                  placeholder="11999998888"
+                  inputMode="numeric"
+                />
+                <Button variant="outline" onClick={pickManualNumber}>Usar</Button>
               </div>
-            )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setWaPickOpen(false)}>Cancelar</Button>
@@ -313,17 +361,17 @@ function ShoppingListPage() {
       </Dialog>
 
       {/* WhatsApp: revisar e editar mensagem */}
-      <Dialog open={waContact != null} onOpenChange={(o) => !o && setWaContact(null)}>
+      <Dialog open={waTarget != null} onOpenChange={(o) => !o && setWaTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mensagem para {waContact?.name}</DialogTitle>
+            <DialogTitle>Mensagem para {waTarget?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Você pode editar o texto antes de enviar:</p>
             <Textarea value={waMessage} onChange={(e) => setWaMessage(e.target.value)} rows={10} className="font-mono text-sm" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setWaContact(null); setWaPickOpen(true); }}>Voltar</Button>
+            <Button variant="outline" onClick={() => { setWaTarget(null); setWaPickOpen(true); }}>Voltar</Button>
             <Button onClick={sendWhatsapp}>
               <Send className="mr-1 h-4 w-4" /> Enviar
             </Button>

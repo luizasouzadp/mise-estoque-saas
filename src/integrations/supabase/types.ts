@@ -1417,6 +1417,7 @@ export type Database = {
           name: string
           notes: string | null
           order_days: number[]
+          phone: string | null
           restaurant_id: string
           tax_id: string | null
           updated_at: string
@@ -1431,6 +1432,7 @@ export type Database = {
           name: string
           notes?: string | null
           order_days?: number[]
+          phone?: string | null
           restaurant_id: string
           tax_id?: string | null
           updated_at?: string
@@ -1445,6 +1447,7 @@ export type Database = {
           name?: string
           notes?: string | null
           order_days?: number[]
+          phone?: string | null
           restaurant_id?: string
           tax_id?: string | null
           updated_at?: string
@@ -1476,7 +1479,6 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          is_supplier: boolean
           name: string
           phone: string
           restaurant_id: string
@@ -1485,7 +1487,6 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          is_supplier?: boolean
           name: string
           phone: string
           restaurant_id: string
@@ -1494,7 +1495,6 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          is_supplier?: boolean
           name?: string
           phone?: string
           restaurant_id?: string
