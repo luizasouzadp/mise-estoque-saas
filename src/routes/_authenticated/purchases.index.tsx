@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Receipt, Pencil, Trash2, Search, X, Camera, Images, ShoppingCart, PackageCheck, FileWarning, ArrowRight, ImageOff } from "lucide-react";
+import { Plus, Receipt, Pencil, Trash2, Search, X, Images, ShoppingCart, PackageCheck, FileWarning, ArrowRight, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/purchases/")({
@@ -289,9 +289,6 @@ function PurchasesList() {
           </Button>
           <Button asChild variant="outline">
             <Link to="/purchases/notes"><Images className="mr-2 h-4 w-4" /> Notas</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link to="/purchases/import"><Camera className="mr-2 h-4 w-4" /> Por foto da nota</Link>
           </Button>
           <Button asChild>
             <Link to="/purchases/new"><Plus className="mr-2 h-4 w-4" /> Nova compra</Link>

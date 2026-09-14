@@ -16,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/searchable-select";
-import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle, ZoomIn, Plus } from "lucide-react";
+import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle, ZoomIn, Plus, Pencil } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
@@ -372,10 +372,19 @@ function ImportPurchase() {
       <Link to="/purchases" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Voltar
       </Link>
-      <h1 className="mt-3 font-display text-3xl">Compra por foto da nota</h1>
+      <h1 className="mt-3 font-display text-3xl">Nova compra</h1>
       <p className="text-sm text-muted-foreground">
         Envie a foto de uma nota fiscal ou cupom. A IA extrai os itens, quantidades e valores e sugere o insumo do seu cadastro. Você confere antes de gravar.
       </p>
+
+      <div className="mt-4 flex gap-2 rounded-lg border bg-muted/30 p-1">
+        <Button type="button" variant="ghost" className="flex-1" size="sm" onClick={() => nav({ to: "/purchases/new" })}>
+          <Pencil className="mr-2 h-4 w-4" /> Adicionar manualmente
+        </Button>
+        <Button type="button" className="flex-1" size="sm">
+          <Camera className="mr-2 h-4 w-4" /> Adicionar por foto da nota
+        </Button>
+      </div>
 
       {items.length === 0 && (
         <div className="mt-6 space-y-4 rounded-xl border bg-card p-6 shadow-[var(--shadow-soft)]">

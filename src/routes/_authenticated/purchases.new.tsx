@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/searchable-select";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Paperclip, FileText, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Paperclip, FileText, X, Camera, Pencil } from "lucide-react";
 
 
 export const Route = createFileRoute("/_authenticated/purchases/new")({
@@ -158,6 +158,15 @@ function NewPurchase() {
       </Link>
       <h1 className="mt-3 font-display text-3xl">Nova compra</h1>
       <p className="text-sm text-muted-foreground">Adicione vários insumos em uma única compra. Estoque e custo médio são atualizados automaticamente.</p>
+
+      <div className="mt-4 flex gap-2 rounded-lg border bg-muted/30 p-1">
+        <Button type="button" className="flex-1" size="sm">
+          <Pencil className="mr-2 h-4 w-4" /> Adicionar manualmente
+        </Button>
+        <Button type="button" variant="ghost" className="flex-1" size="sm" onClick={() => nav({ to: "/purchases/import" })}>
+          <Camera className="mr-2 h-4 w-4" /> Adicionar por foto da nota
+        </Button>
+      </div>
 
       {(!ingredients || ingredients.length === 0) && (
         <div className="mt-6 rounded-xl border bg-card p-6 text-center">
