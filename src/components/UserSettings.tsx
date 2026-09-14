@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, Users } from "lucide-react";
+import { Trash2, Users, Pencil } from "lucide-react";
 import { useUserRoles } from "@/hooks/use-roles";
 import { createChef, listChefs, deleteChef, resetChefPassword } from "@/lib/chefs.functions";
 
@@ -161,6 +161,9 @@ function ContactsManager() {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
 
   const { data: contacts } = useQuery({
     queryKey: ["whatsapp_contacts"],
@@ -190,6 +193,24 @@ function ContactsManager() {
     qc.invalidateQueries({ queryKey: ["whatsapp_contacts"] });
   }
 
+  function startEdit(c: { id: string; name: string; phone: string }) {
+    setEditingId(c.id);
+    setEditName(c.name);
+    setEditPhone(c.phone);
+  }
+
+  async function saveEdit(id: string) {
+    const cleaned = editPhone.replace(/\D/g, "");
+    if (!editName.trim() || cleaned.length < 10) return toast.error("Informe nome e telefone válido");
+    const { error } = await supabase.from("whatsapp_contacts").update({
+      name: editName.trim(), phone: cleaned,
+    }).eq("id", id);
+    if (error) return toast.error(error.message);
+    setEditingId(null);
+    qc.invalidateQueries({ queryKey: ["whatsapp_contacts"] });
+    toast.success("Contato atualizado");
+  }
+
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
@@ -200,14 +221,36 @@ function ContactsManager() {
       ) : (
         <div className="space-y-2">
           {(contacts ?? []).map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-2 rounded-md border p-3">
-              <div className="min-w-0">
-                <div className="font-medium truncate">{c.name}</div>
-                <div className="text-xs text-muted-foreground">{c.phone}</div>
-              </div>
-              <Button size="sm" variant="destructive" onClick={() => deleteContact(c.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
+            <div key={c.id} className="rounded-md border p-3 space-y-2">
+              {editingId === c.id ? (
+                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                  <div>
+                    <Label className="text-xs">Nome</Label>
+                    <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Telefone (DDD + número)</Label>
+                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} inputMode="numeric" />
+                  </div>
+                  <Button size="sm" onClick={() => saveEdit(c.id)}>Salvar</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancelar</Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{c.name}</div>
+                    <div className="text-xs text-muted-foreground">{c.phone}</div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button size="sm" variant="outline" onClick={() => startEdit(c)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => deleteContact(c.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
