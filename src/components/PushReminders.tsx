@@ -50,24 +50,46 @@ export function PushReminders() {
     try {
       const publicKey = vapidKey;
       if (!publicKey) throw new Error("Notificações não configuradas neste ambiente.");
+
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Permissão de notificação negada.");
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      });
+
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("O app não preparou o service worker a tempo. Recarregue a página (F5) e tente de novo.")), 10000),
+        ),
+      ]);
+
+      let sub: PushSubscription;
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+        });
+      } catch (subErr) {
+        console.error("[push] subscribe falhou", subErr);
+        throw new Error(`Falha ao criar a inscrição de notificação: ${subErr instanceof Error ? subErr.message : String(subErr)}`);
+      }
+
       const json = sub.toJSON();
-      await subscribeFn({
-        data: {
-          endpoint: json.endpoint!,
-          p256dh: json.keys!.p256dh!,
-          auth: json.keys!.auth!,
-        },
-      });
+      try {
+        await subscribeFn({
+          data: {
+            endpoint: json.endpoint!,
+            p256dh: json.keys!.p256dh!,
+            auth: json.keys!.auth!,
+          },
+        });
+      } catch (saveErr) {
+        console.error("[push] salvar inscrição falhou", saveErr);
+        throw new Error(`Falha ao salvar a inscrição no servidor: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
+      }
+
       setSubscribed(true);
       toast.success("Lembretes ativados neste dispositivo.");
     } catch (err) {
+      console.error("[push] enable falhou", err);
       toast.error(err instanceof Error ? err.message : "Não foi possível ativar os lembretes.");
     } finally {
       setBusy(false);
