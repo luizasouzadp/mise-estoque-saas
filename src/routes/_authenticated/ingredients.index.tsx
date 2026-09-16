@@ -12,7 +12,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/searchable-select";
+import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   Search,
@@ -56,6 +66,72 @@ function parseNum(v: unknown): number {
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 
+type FieldKey = "name" | "unit" | "category" | "stock" | "minStock" | "cost" | "cmv";
+
+const FIELD_LABELS: Record<FieldKey, string> = {
+  name: "Nome do insumo",
+  unit: "Unidade",
+  category: "Categoria",
+  stock: "Estoque atual",
+  minStock: "Estoque mínimo",
+  cost: "Custo",
+  cmv: "Compõe CMV",
+};
+
+const FIELD_SYNONYMS: Record<FieldKey, string[]> = {
+  name: ["nome", "insumo", "produto", "descricao", "item"],
+  unit: ["unidade", "un", "medida"],
+  category: ["categoria", "grupo"],
+  stock: ["estoque atual", "estoque", "quantidade", "qtd", "saldo"],
+  minStock: ["estoque minimo", "minimo", "min"],
+  cost: ["custo unitario", "custo", "preco", "valor"],
+  cmv: ["compoe cmv", "cmv"],
+};
+
+function normKey(s: string) {
+  return String(s ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function autoDetectColumns(headers: string[]): Record<FieldKey, number | null> {
+  const normed = headers.map(normKey);
+  const map = {} as Record<FieldKey, number | null>;
+  const used = new Set<number>();
+  const fields = Object.keys(FIELD_SYNONYMS) as FieldKey[];
+  for (const field of fields) {
+    let found: number | null = null;
+    for (let i = 0; i < normed.length; i++) {
+      if (used.has(i)) continue;
+      if (FIELD_SYNONYMS[field].includes(normed[i])) { found = i; break; }
+    }
+    map[field] = found;
+    if (found != null) used.add(found);
+  }
+  for (const field of fields) {
+    if (map[field] != null) continue;
+    let found: number | null = null;
+    for (let i = 0; i < normed.length; i++) {
+      if (used.has(i)) continue;
+      if (FIELD_SYNONYMS[field].some((syn) => normed[i].includes(syn))) { found = i; break; }
+    }
+    map[field] = found;
+    if (found != null) used.add(found);
+  }
+  return map;
+}
+
+type PreviewRow = {
+  key: string;
+  name: string;
+  unit: string;
+  category: string | null;
+  stock: number | null;
+  minStock: number | null;
+  cost: number | null;
+  cmv: boolean;
+  existingId: string | null;
+  currentStock: number | null;
+};
+
 function IngredientsList() {
   const [q, setQ] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -64,6 +140,12 @@ function IngredientsList() {
 
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importStep, setImportStep] = useState<"start" | "preview">("start");
+  const [importHeaders, setImportHeaders] = useState<string[]>([]);
+  const [importRows, setImportRows] = useState<unknown[][]>([]);
+  const [colMap, setColMap] = useState<Record<FieldKey, number | null>>({
+    name: null, unit: null, category: null, stock: null, minStock: null, cost: null, cmv: null,
+  });
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
 
@@ -82,6 +164,12 @@ function IngredientsList() {
       ),
     [ingredients],
   );
+
+  const ingredientByName = useMemo(() => {
+    const m = new Map<string, { id: string; current_stock: number; unit: string }>();
+    for (const ing of ingredients) m.set(normKey(ing.name), ing);
+    return m;
+  }, [ingredients]);
 
   const cutoff = useMemo(() => (refDate ? parseLocal(refDate, true) : null), [refDate]);
 
@@ -180,48 +268,152 @@ function IngredientsList() {
     toast.success("Exportação gerada");
   }
 
-  async function handleImport(file: File) {
+  async function handleFileSelected(file: File) {
     setImporting(true);
     try {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, blankrows: false });
-      const dataRows = rows.slice(1).filter((r) => r && r.length && String(r[0] ?? "").trim());
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, blankrows: false });
+      if (!rows.length) throw new Error("Planilha vazia");
 
-      if (!dataRows.length) {
-        toast.error("Planilha vazia");
-        return;
+      const headerRow = (rows[0] ?? []).map((h, idx) => {
+        const s = String(h ?? "").trim();
+        return s || `Coluna ${idx + 1}`;
+      });
+      const dataRows = rows.slice(1).filter((r) => Array.isArray(r) && r.some((c) => String(c ?? "").trim() !== ""));
+      if (!dataRows.length) throw new Error("Planilha sem dados (só cabeçalho)");
+
+      setImportHeaders(headerRow);
+      setImportRows(dataRows);
+      setColMap(autoDetectColumns(headerRow));
+      setImportStep("preview");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao ler o arquivo");
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  const importPreview: PreviewRow[] = useMemo(() => {
+    if (colMap.name == null || !importRows.length) return [];
+    const list: PreviewRow[] = [];
+    const indexByKey = new Map<string, number>();
+    for (const r of importRows) {
+      const rawName = String(r[colMap.name as number] ?? "").trim();
+      if (!rawName) continue;
+      const name = normalizeName(rawName);
+      const key = normKey(name);
+      const unit = colMap.unit != null ? String(r[colMap.unit] ?? "").trim() : "";
+      const category = colMap.category != null ? String(r[colMap.category] ?? "").trim() : "";
+      const stock = colMap.stock != null && String(r[colMap.stock] ?? "").trim() !== "" ? parseNum(r[colMap.stock]) : null;
+      const minStock = colMap.minStock != null && String(r[colMap.minStock] ?? "").trim() !== "" ? parseNum(r[colMap.minStock]) : null;
+      const cost = colMap.cost != null && String(r[colMap.cost] ?? "").trim() !== "" ? parseNum(r[colMap.cost]) : null;
+      const cmv = colMap.cmv != null ? parseBool(r[colMap.cmv]) : false;
+      const existing = ingredientByName.get(key);
+
+      const dupIdx = indexByKey.get(key);
+      if (dupIdx != null) {
+        const prev = list[dupIdx];
+        if (unit) prev.unit = unit;
+        if (category) prev.category = category;
+        if (stock != null) prev.stock = stock;
+        if (minStock != null) prev.minStock = minStock;
+        if (cost != null) prev.cost = cost;
+        if (colMap.cmv != null) prev.cmv = cmv;
+        continue;
       }
+      indexByKey.set(key, list.length);
+      list.push({
+        key,
+        name,
+        unit: unit || existing?.unit || "un",
+        category: category || null,
+        stock,
+        minStock,
+        cost,
+        cmv,
+        existingId: existing?.id ?? null,
+        currentStock: existing ? Number(existing.current_stock) : null,
+      });
+    }
+    return list;
+  }, [importRows, colMap, ingredientByName]);
 
+  const importCounts = useMemo(() => {
+    const toCreate = importPreview.filter((p) => !p.existingId).length;
+    const toUpdate = importPreview.filter(
+      (p) => p.existingId && p.stock != null && Number(p.stock.toFixed(4)) !== Number((p.currentStock ?? 0).toFixed(4)),
+    ).length;
+    return { toCreate, toUpdate };
+  }, [importPreview]);
+
+  function resetImport() {
+    setImportDialogOpen(false);
+    setImportStep("start");
+    setImportHeaders([]);
+    setImportRows([]);
+    setColMap({ name: null, unit: null, category: null, stock: null, minStock: null, cost: null, cmv: null });
+  }
+
+  async function confirmImport() {
+    if (importPreview.length === 0) return;
+    setImporting(true);
+    try {
       const { data: prof, error: pErr } = await supabase
         .from("profiles").select("restaurant_id").maybeSingle();
       if (pErr || !prof?.restaurant_id) throw new Error("Restaurante não encontrado");
 
-      const payload = dataRows.map((r) => {
-        const cost = parseNum(r[5]);
-        return {
-          restaurant_id: prof.restaurant_id,
-          name: normalizeName(String(r[0])),
-          unit: String(r[1] ?? "un").trim() || "un",
-          category: r[2] ? String(r[2]).trim() : null,
-          current_stock: parseNum(r[3]),
-          min_stock: parseNum(r[4]),
-          avg_cost: cost,
-          last_cost: cost,
-          composes_cmv: parseBool(r[6]),
-        };
-      });
+      const toCreate = importPreview.filter((p) => !p.existingId);
+      const toUpdate = importPreview.filter(
+        (p) => p.existingId && p.stock != null && Number(p.stock.toFixed(4)) !== Number((p.currentStock ?? 0).toFixed(4)),
+      );
 
-      const { error } = await supabase.from("ingredients").insert(payload);
-      if (error) throw error;
-      toast.success(`${payload.length} insumos importados`);
+      if (toCreate.length > 0) {
+        const payload = toCreate.map((p) => {
+          const cost = p.cost ?? 0;
+          return {
+            restaurant_id: prof.restaurant_id,
+            name: p.name,
+            unit: p.unit || "un",
+            category: p.category,
+            current_stock: p.stock ?? 0,
+            min_stock: p.minStock ?? 0,
+            avg_cost: cost,
+            last_cost: cost,
+            composes_cmv: p.cmv,
+          };
+        });
+        const { error } = await supabase.from("ingredients").insert(payload);
+        if (error) throw error;
+      }
+
+      if (toUpdate.length > 0) {
+        const movRows = toUpdate.map((p) => {
+          const diff = Number((Number(p.stock) - Number(p.currentStock ?? 0)).toFixed(4));
+          return {
+            restaurant_id: prof.restaurant_id,
+            ingredient_id: p.existingId as string,
+            type: (diff > 0 ? "in" : "out") as "in" | "out",
+            quantity: Math.abs(diff),
+            reason: "Importação de estoque",
+            occurred_at: new Date().toISOString(),
+          };
+        }).filter((m) => m.quantity > 0);
+        if (movRows.length > 0) {
+          const { error } = await supabase.from("stock_movements").insert(movRows);
+          if (error) throw error;
+        }
+      }
+
+      toast.success(`${toCreate.length} insumo(s) criado(s), ${toUpdate.length} atualizado(s)`);
       qc.invalidateQueries({ queryKey: ["ingredients"] });
-    } catch (e: any) {
-      toast.error(e.message ?? "Falha ao importar");
+      resetImport();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao importar");
     } finally {
       setImporting(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -241,7 +433,7 @@ function IngredientsList() {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) handleImport(f);
+              if (f) handleFileSelected(f);
             }}
           />
           <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleExport} disabled={isLoading}>
@@ -395,71 +587,138 @@ function IngredientsList() {
         )}
       </div>
 
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
-              Importar estoque via Excel
-            </DialogTitle>
-            <DialogDescription>
-              Siga o formato abaixo para montar sua planilha e importar o estoque completo de insumos.
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog open={importDialogOpen} onOpenChange={(o) => (o ? setImportDialogOpen(true) : resetImport())}>
+        <DialogContent className={importStep === "preview" ? "max-w-3xl" : "max-w-xl"}>
+          {importStep === "start" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-primary" />
+                  Importar estoque via Excel
+                </DialogTitle>
+                <DialogDescription>
+                  Envie a planilha com a primeira linha de cabeçalho. Na próxima tela você confere uma prévia,
+                  ajusta qual coluna é cada informação e só então confirma a importação.
+                </DialogDescription>
+              </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-muted/50 p-3">
-              <p className="text-sm font-medium mb-2">Estrutura da planilha (1ª linha = cabeçalho)</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-1 px-2 font-semibold">Coluna</th>
-                      <th className="text-left py-1 px-2 font-semibold">Campo</th>
-                      <th className="text-left py-1 px-2 font-semibold">Tipo</th>
-                      <th className="text-left py-1 px-2 font-semibold">Exemplo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-muted-foreground">
-                    <tr className="border-b border-border/50"><td className="py-1 px-2">A</td><td className="py-1 px-2">Nome</td><td className="py-1 px-2">Texto</td><td className="py-1 px-2">Farinha de trigo</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-1 px-2">B</td><td className="py-1 px-2">Unidade</td><td className="py-1 px-2">Texto</td><td className="py-1 px-2">kg</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-1 px-2">C</td><td className="py-1 px-2">Categoria</td><td className="py-1 px-2">Texto</td><td className="py-1 px-2">Secos</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-1 px-2">D</td><td className="py-1 px-2">Estoque atual</td><td className="py-1 px-2">Número</td><td className="py-1 px-2">15,5</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-1 px-2">E</td><td className="py-1 px-2">Estoque mínimo</td><td className="py-1 px-2">Número</td><td className="py-1 px-2">5,0</td></tr>
-                    <tr className="border-b border-border/50"><td className="py-1 px-2">F</td><td className="py-1 px-2">Custo</td><td className="py-1 px-2">Número</td><td className="py-1 px-2">12,90</td></tr>
-                    <tr><td className="py-1 px-2">G</td><td className="py-1 px-2">Compõe CMV</td><td className="py-1 px-2">Sim/Não</td><td className="py-1 px-2">Sim</td></tr>
-                  </tbody>
-                </table>
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-muted/50 p-3 text-sm">
+                  <p className="font-medium mb-1">Colunas que o sistema reconhece</p>
+                  <p className="text-muted-foreground">
+                    Nome do insumo (obrigatória), Unidade, Categoria, Estoque atual, Estoque mínimo, Custo e Compõe CMV.
+                    A ordem das colunas não importa — você escolhe qual é qual na próxima tela.
+                  </p>
+                </div>
+
+                <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm dark:border-yellow-900 dark:bg-yellow-950">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-700 dark:text-yellow-400" />
+                  <div className="text-yellow-800 dark:text-yellow-200">
+                    <p className="font-medium">Como funciona</p>
+                    <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                      <li>Se o nome já existir num insumo cadastrado, só o <strong>estoque</strong> dele é atualizado.</li>
+                      <li>Se o nome for novo, um insumo é <strong>criado</strong> com os dados da planilha.</li>
+                      <li>Valores numéricos podem usar vírgula ou ponto como separador decimal.</li>
+                      <li>Formatos aceitos: <strong>.xlsx, .xls, .csv</strong></li>
+                    </ul>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm dark:border-yellow-900 dark:bg-yellow-950">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-700 dark:text-yellow-400" />
-              <div className="text-yellow-800 dark:text-yellow-200">
-                <p className="font-medium">Dicas importantes</p>
-                <ul className="mt-1 list-disc pl-4 space-y-0.5">
-                  <li>Valores numéricos podem usar vírgula ou ponto como separador decimal.</li>
-                  <li>Para <strong>Compõe CMV</strong>, use: <em>Sim, S, Yes, True, 1</em> para sim; qualquer outro valor será tratado como não.</li>
-                  <li>Formatos aceitos: <strong>.xlsx, .xls, .csv</strong></li>
-                  <li>A primeira linha será ignorada (cabeçalho). Os dados começam na segunda linha.</li>
-                </ul>
+              <DialogFooter className="pt-2">
+                <Button variant="outline" onClick={resetImport}>Cancelar</Button>
+                <Button onClick={() => fileRef.current?.click()} disabled={importing}>
+                  <Upload className="mr-2 h-4 w-4" /> {importing ? "Lendo arquivo..." : "Selecionar arquivo"}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-primary" />
+                  Prévia da importação
+                </DialogTitle>
+                <DialogDescription>
+                  Confira o que cada coluna da planilha representa e revise os itens antes de confirmar.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                {(Object.keys(FIELD_LABELS) as FieldKey[]).map((field) => (
+                  <div key={field}>
+                    <Label className="text-xs">
+                      {FIELD_LABELS[field]}{field === "name" && <span className="text-destructive"> *</span>}
+                    </Label>
+                    <Select
+                      value={colMap[field] != null ? String(colMap[field]) : "__none__"}
+                      onValueChange={(v) => setColMap((prev) => ({ ...prev, [field]: v === "__none__" ? null : Number(v) }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Não usar" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Não usar</SelectItem>
+                        {importHeaders.map((h, idx) => (
+                          <SelectItem key={idx} value={String(idx)}>{h}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                setImportDialogOpen(false);
-                fileRef.current?.click();
-              }}
-            >
-              <Upload className="mr-2 h-4 w-4" /> Selecionar arquivo
-            </Button>
-          </div>
+              {colMap.name == null ? (
+                <p className="text-sm text-destructive">Escolha qual coluna é o nome do insumo para ver a prévia.</p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <Badge variant="secondary">{importCounts.toCreate} novo(s) insumo(s)</Badge>
+                    <Badge variant="secondary">{importCounts.toUpdate} atualização(ões) de estoque</Badge>
+                    <Badge variant="outline">{importPreview.length} linha(s) no total</Badge>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-card">
+                        <tr className="border-b">
+                          <th className="text-left py-1.5 px-2 font-semibold">Insumo</th>
+                          <th className="text-left py-1.5 px-2 font-semibold">Unidade</th>
+                          <th className="text-left py-1.5 px-2 font-semibold">Categoria</th>
+                          <th className="text-left py-1.5 px-2 font-semibold">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-muted-foreground">
+                        {importPreview.map((p) => {
+                          const changed = p.existingId && p.stock != null && Number(p.stock.toFixed(4)) !== Number((p.currentStock ?? 0).toFixed(4));
+                          return (
+                            <tr key={p.key} className="border-b border-border/50">
+                              <td className="py-1.5 px-2 text-foreground">{p.name}</td>
+                              <td className="py-1.5 px-2">{p.unit}</td>
+                              <td className="py-1.5 px-2">{p.category ?? "—"}</td>
+                              <td className="py-1.5 px-2">
+                                {!p.existingId ? (
+                                  <span className="text-emerald-700 dark:text-emerald-400">Novo insumo</span>
+                                ) : changed ? (
+                                  <span>Estoque: {p.currentStock} → {p.stock}</span>
+                                ) : (
+                                  <span>Sem alteração</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              <DialogFooter className="pt-2">
+                <Button variant="outline" onClick={() => setImportStep("start")}>Voltar</Button>
+                <Button onClick={confirmImport} disabled={importing || colMap.name == null || importPreview.length === 0}>
+                  {importing ? "Importando..." : `Confirmar (${importCounts.toCreate} novos, ${importCounts.toUpdate} atualizações)`}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
