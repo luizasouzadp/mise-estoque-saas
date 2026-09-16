@@ -55,8 +55,9 @@ export function PushReminders() {
       setSupported(!!publicKey);
       if (!publicKey) return;
       try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        const sub = await reg?.pushManager.getSubscription();
+        const reg = await navigator.serviceWorker.getRegistration("/");
+        const isPushSw = reg?.active?.scriptURL.endsWith("/push-sw.js");
+        const sub = isPushSw ? await reg?.pushManager.getSubscription() : null;
         setSubscribed(!!sub);
       } catch {
         // ignore — treated as not subscribed
@@ -75,9 +76,9 @@ export function PushReminders() {
       if (permission !== "granted") throw new Error("Permissão de notificação negada.");
 
       const reg = await withTimeout(
-        navigator.serviceWorker.ready,
+        navigator.serviceWorker.register("/push-sw.js", { scope: "/" }).then((r) => navigator.serviceWorker.ready.then(() => r)),
         10000,
-        "O app não preparou o service worker a tempo. Recarregue a página (F5) e tente de novo.",
+        "Não foi possível preparar o navegador para notificações. Recarregue a página (F5) e tente de novo.",
       );
 
       let sub: PushSubscription;
@@ -126,7 +127,7 @@ export function PushReminders() {
   async function disable() {
     setBusy(true);
     try {
-      const reg = await navigator.serviceWorker.getRegistration();
+      const reg = await navigator.serviceWorker.getRegistration("/");
       const sub = await reg?.pushManager.getSubscription();
       if (sub) {
         await unsubscribeFn({ data: { endpoint: sub.endpoint } });
