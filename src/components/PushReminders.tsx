@@ -5,6 +5,20 @@ import { BellRing, BellOff } from "lucide-react";
 import { toast } from "sonner";
 import { subscribePush, unsubscribePush, sendTestPush, getVapidPublicKey } from "@/lib/push.functions";
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
+
+function isIosNotStandalone(): boolean {
+  const ua = navigator.userAgent;
+  const isIos = /iPad|iPhone|iPod/.test(ua) || (ua.includes("Macintosh") && "ontouchend" in document);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
+  return isIos && !isStandalone;
+}
+
 function urlBase64ToUint8Array(base64Url: string): Uint8Array {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
   const base64 = (base64Url + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -16,6 +30,7 @@ function urlBase64ToUint8Array(base64Url: string): Uint8Array {
 
 export function PushReminders() {
   const [supported, setSupported] = useState(false);
+  const [needsIosInstall, setNeedsIosInstall] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [vapidKey, setVapidKey] = useState<string | null>(null);
@@ -26,6 +41,11 @@ export function PushReminders() {
 
   useEffect(() => {
     (async () => {
+      if (isIosNotStandalone()) {
+        setNeedsIosInstall(true);
+        setSupported(false);
+        return;
+      }
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
         setSupported(false);
         return;
@@ -54,19 +74,22 @@ export function PushReminders() {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Permissão de notificação negada.");
 
-      const reg = await Promise.race([
+      const reg = await withTimeout(
         navigator.serviceWorker.ready,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("O app não preparou o service worker a tempo. Recarregue a página (F5) e tente de novo.")), 10000),
-        ),
-      ]);
+        10000,
+        "O app não preparou o service worker a tempo. Recarregue a página (F5) e tente de novo.",
+      );
 
       let sub: PushSubscription;
       try {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-        });
+        sub = await withTimeout(
+          reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+          }),
+          10000,
+          "O navegador demorou demais para responder. Tente de novo.",
+        );
       } catch (subErr) {
         console.error("[push] subscribe falhou", subErr);
         throw new Error(`Falha ao criar a inscrição de notificação: ${subErr instanceof Error ? subErr.message : String(subErr)}`);
@@ -74,13 +97,17 @@ export function PushReminders() {
 
       const json = sub.toJSON();
       try {
-        await subscribeFn({
-          data: {
-            endpoint: json.endpoint!,
-            p256dh: json.keys!.p256dh!,
-            auth: json.keys!.auth!,
-          },
-        });
+        await withTimeout(
+          subscribeFn({
+            data: {
+              endpoint: json.endpoint!,
+              p256dh: json.keys!.p256dh!,
+              auth: json.keys!.auth!,
+            },
+          }),
+          10000,
+          "O servidor demorou demais para responder ao salvar a inscrição.",
+        );
       } catch (saveErr) {
         console.error("[push] salvar inscrição falhou", saveErr);
         throw new Error(`Falha ao salvar a inscrição no servidor: ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`);
@@ -124,6 +151,19 @@ export function PushReminders() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (needsIosInstall) {
+    return (
+      <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+        <p className="font-medium">Lembrete de dia de pedido</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          No iPhone, o Safari só permite notificações se o site for adicionado à tela de início primeiro:
+          toque no ícone de compartilhar e depois em "Adicionar à Tela de Início". Depois, abra o app por esse
+          ícone (não pelo Safari normal) para ativar os lembretes.
+        </p>
+      </div>
+    );
   }
 
   if (!supported) return null;
