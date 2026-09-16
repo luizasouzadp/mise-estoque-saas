@@ -28,6 +28,7 @@ export default defineConfig({
         workbox: {
           globDirectory: "dist/client",
           globPatterns: ["**/*.{js,css,woff2,png,svg,ico}"],
+          importScripts: ["push-sw.js"],
           navigateFallback: null,
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/\.mcp/],
           cleanupOutdatedCaches: true,

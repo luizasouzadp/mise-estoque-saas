@@ -84,4 +84,19 @@ export default {
       return brandedErrorResponse();
     }
   },
+
+  // Daily Cron Trigger (see wrangler.jsonc `triggers.crons`) — sends the
+  // "dia de pedido" push reminders for suppliers marked notify_on_order_day.
+  async scheduled(_event: unknown, env: unknown) {
+    if (env && typeof env === "object") {
+      Object.assign(process.env, env);
+    }
+    const { runOrderDayReminders } = await import("./lib/order-reminders.server");
+    try {
+      const result = await runOrderDayReminders();
+      console.log(`[scheduled] order-day reminders sent to ${result.restaurantsNotified} restaurant(s)`);
+    } catch (error) {
+      console.error("[scheduled] order-day reminders failed", error);
+    }
+  },
 };

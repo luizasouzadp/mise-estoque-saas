@@ -1408,6 +1408,7 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          contact_name: string | null
           created_at: string
           created_by: string | null
           delivery_days: number[]
@@ -1416,6 +1417,7 @@ export type Database = {
           min_order_value: number | null
           name: string
           notes: string | null
+          notify_on_order_day: boolean
           order_days: number[]
           phone: string | null
           restaurant_id: string
@@ -1423,6 +1425,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          contact_name?: string | null
           created_at?: string
           created_by?: string | null
           delivery_days?: number[]
@@ -1431,6 +1434,7 @@ export type Database = {
           min_order_value?: number | null
           name: string
           notes?: string | null
+          notify_on_order_day?: boolean
           order_days?: number[]
           phone?: string | null
           restaurant_id: string
@@ -1438,6 +1442,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          contact_name?: string | null
           created_at?: string
           created_by?: string | null
           delivery_days?: number[]
@@ -1446,11 +1451,42 @@ export type Database = {
           min_order_value?: number | null
           name?: string
           notes?: string | null
+          notify_on_order_day?: boolean
           order_days?: number[]
           phone?: string | null
           restaurant_id?: string
           tax_id?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          created_by: string | null
+          endpoint: string
+          id: string
+          p256dh: string
+          restaurant_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          created_by?: string | null
+          endpoint: string
+          id?: string
+          p256dh: string
+          restaurant_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          created_by?: string | null
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          restaurant_id?: string
         }
         Relationships: []
       }

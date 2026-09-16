@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PushReminders } from "@/components/PushReminders";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -21,12 +23,14 @@ const DOWS = [
 type Supplier = {
   id: string;
   name: string;
+  contact_name: string | null;
   phone: string | null;
   delivery_days: number[] | null;
   order_days: number[] | null;
   lead_time_days: number | null;
   min_order_value: number | null;
   notes: string | null;
+  notify_on_order_day: boolean;
 };
 
 function SuppliersPage() {
@@ -36,7 +40,7 @@ function SuppliersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id, name, phone, delivery_days, order_days, lead_time_days, min_order_value, notes")
+        .select("id, name, contact_name, phone, delivery_days, order_days, lead_time_days, min_order_value, notes, notify_on_order_day")
         .order("name");
       if (error) throw error;
       return (data ?? []) as Supplier[];
@@ -62,6 +66,10 @@ function SuppliersPage() {
       <h1 className="font-display text-3xl">Fornecedores</h1>
       <p className="text-sm text-muted-foreground">Cadastre a agenda de pedido/entrega para gerar listas de compra por fornecedor.</p>
 
+      <div className="mt-4">
+        <PushReminders />
+      </div>
+
       <div className="mt-4 flex gap-2">
         <Input placeholder="Nome do fornecedor" value={newName} onChange={(e) => setNewName(e.target.value)} />
         <Button onClick={addSupplier}><Plus className="mr-1 h-4 w-4" /> Adicionar</Button>
@@ -79,12 +87,14 @@ function SuppliersPage() {
 
 function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: () => void }) {
   const [name, setName] = useState(supplier.name);
+  const [contactName, setContactName] = useState(supplier.contact_name ?? "");
   const [phone, setPhone] = useState(supplier.phone ?? "");
   const [orderDays, setOrderDays] = useState<number[]>(supplier.order_days ?? []);
   const [deliveryDays, setDeliveryDays] = useState<number[]>(supplier.delivery_days ?? []);
   const [lead, setLead] = useState(supplier.lead_time_days?.toString() ?? "");
   const [minOrder, setMinOrder] = useState(supplier.min_order_value?.toString() ?? "");
   const [notes, setNotes] = useState(supplier.notes ?? "");
+  const [notifyOnOrderDay, setNotifyOnOrderDay] = useState(supplier.notify_on_order_day);
   const [saving, setSaving] = useState(false);
 
   function toggle(list: number[], v: number, set: (arr: number[]) => void) {
@@ -96,12 +106,14 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
     const cleanedPhone = phone.replace(/\D/g, "");
     const { error } = await supabase.from("suppliers").update({
       name: name.trim(),
+      contact_name: contactName.trim() || null,
       phone: cleanedPhone || null,
       order_days: orderDays,
       delivery_days: deliveryDays,
       lead_time_days: lead === "" ? null : Number(lead),
       min_order_value: minOrder === "" ? null : Number(minOrder),
       notes: notes.trim() || null,
+      notify_on_order_day: notifyOnOrderDay,
     }).eq("id", supplier.id);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -123,9 +135,15 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
         <Input value={name} onChange={(e) => setName(e.target.value)} />
         <Button variant="ghost" size="icon" onClick={remove} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
       </div>
-      <div>
-        <Label className="text-xs">Telefone / WhatsApp (DDD + número)</Label>
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="11999998888" inputMode="numeric" />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Nome do contato</Label>
+          <Input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="ex: João" />
+        </div>
+        <div>
+          <Label className="text-xs">Telefone / WhatsApp do contato</Label>
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="11999998888" inputMode="numeric" />
+        </div>
       </div>
       <div>
         <Label className="text-xs">Dias de pedido</Label>
@@ -137,6 +155,10 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
             </button>
           ))}
         </div>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <Checkbox checked={notifyOnOrderDay} onCheckedChange={(v) => setNotifyOnOrderDay(!!v)} />
+          Notificar no celular/computador no dia do pedido
+        </label>
       </div>
       <div>
         <Label className="text-xs">Dias de entrega</Label>

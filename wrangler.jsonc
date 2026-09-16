@@ -13,5 +13,15 @@
     "SUPABASE_URL": "https://kekmhukvbwbhdvktuosi.supabase.co",
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ZKFW3Bw9TT6b0tqge3y3Bg_woBXJ-TJ",
     "SUPABASE_PROJECT_ID": "kekmhukvbwbhdvktuosi",
+    // Public VAPID key for Web Push — safe to expose, it identifies this
+    // server to push services. VAPID_PRIVATE_KEY stays a dashboard Secret,
+    // never here (same rule as SUPABASE_SERVICE_ROLE_KEY).
+    "VAPID_PUBLIC_KEY": "BMItQVST5CHAz4CRlirSwmV1nI0yx7pgSZrOKX8jTyKFi9XMWFcdFtujuhR5-YqWzs8VSy07jvcIR_AjV1GFztg",
+  },
+  // Daily at 11:00 UTC = 08:00 America/Sao_Paulo (Brazil has had no DST
+  // since 2019). Sends the "dia de pedido" reminders — see src/server.ts
+  // `scheduled` and src/lib/order-reminders.server.ts.
+  "triggers": {
+    "crons": ["0 11 * * *"],
   },
 }
