@@ -12,6 +12,11 @@ const UnsubscribeSchema = z.object({
   endpoint: z.string().url(),
 });
 
+export const getVapidPublicKey = createServerFn({ method: "GET" })
+  .handler(async () => {
+    return { publicKey: process.env.VAPID_PUBLIC_KEY ?? null };
+  });
+
 export const subscribePush = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SubscribeSchema.parse(input))

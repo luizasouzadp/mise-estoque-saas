@@ -3,12 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { BellRing, BellOff } from "lucide-react";
 import { toast } from "sonner";
-import { subscribePush, unsubscribePush, sendTestPush } from "@/lib/push.functions";
-
-function getVapidPublicKey(): string | null {
-  const key = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) || (process.env.VAPID_PUBLIC_KEY as string | undefined);
-  return key || null;
-}
+import { subscribePush, unsubscribePush, sendTestPush, getVapidPublicKey } from "@/lib/push.functions";
 
 function urlBase64ToUint8Array(base64Url: string): Uint8Array {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
@@ -23,15 +18,22 @@ export function PushReminders() {
   const [supported, setSupported] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [vapidKey, setVapidKey] = useState<string | null>(null);
   const subscribeFn = useServerFn(subscribePush);
   const unsubscribeFn = useServerFn(unsubscribePush);
   const testFn = useServerFn(sendTestPush);
+  const vapidFn = useServerFn(getVapidPublicKey);
 
   useEffect(() => {
     (async () => {
-      const ok = "serviceWorker" in navigator && "PushManager" in window && !!getVapidPublicKey();
-      setSupported(ok);
-      if (!ok) return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setSupported(false);
+        return;
+      }
+      const { publicKey } = await vapidFn();
+      setVapidKey(publicKey);
+      setSupported(!!publicKey);
+      if (!publicKey) return;
       try {
         const reg = await navigator.serviceWorker.getRegistration();
         const sub = await reg?.pushManager.getSubscription();
@@ -40,12 +42,13 @@ export function PushReminders() {
         // ignore — treated as not subscribed
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function enable() {
     setBusy(true);
     try {
-      const publicKey = getVapidPublicKey();
+      const publicKey = vapidKey;
       if (!publicKey) throw new Error("Notificações não configuradas neste ambiente.");
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Permissão de notificação negada.");
