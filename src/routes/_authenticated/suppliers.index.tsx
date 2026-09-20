@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,9 +52,9 @@ function SuppliersPage() {
   async function addSupplier() {
     const name = newName.trim();
     if (!name) return;
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Sessão inválida.");
-    const { error } = await supabase.from("suppliers").insert({ restaurant_id: prof.restaurant_id, name });
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) return toast.error("Sessão inválida.");
+    const { error } = await supabase.from("suppliers").insert({ restaurant_id: restaurantId, name });
     if (error) return toast.error(error.message);
     setNewName("");
     toast.success("Fornecedor cadastrado.");

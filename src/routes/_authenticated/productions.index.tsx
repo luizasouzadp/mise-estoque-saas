@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -400,8 +401,8 @@ function ProductionsPage() {
   }
 
   async function save() {
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) return toast.error("Restaurante não encontrado");
 
     if (editingId) {
       const current = validateCurrent();
@@ -411,7 +412,7 @@ function ProductionsPage() {
       await supabase.from("stock_movements").delete().eq("notes", `production:${editingId}`);
       const { error: delErr } = await supabase.from("productions").delete().eq("id", editingId);
       if (delErr) { setSaving(false); return toast.error(delErr.message); }
-      const err = await persistOne(current, prof.restaurant_id);
+      const err = await persistOne(current, restaurantId);
       setSaving(false);
       if (err) return toast.error(err);
       toast.success("Produção atualizada");
@@ -434,7 +435,7 @@ function ProductionsPage() {
     let ok = 0;
     const errors: string[] = [];
     for (const q of toSave) {
-      const err = await persistOne(q, prof.restaurant_id);
+      const err = await persistOne(q, restaurantId);
       if (err) errors.push(`${q.recipeName}: ${err}`);
       else ok++;
     }

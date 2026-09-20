@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -163,12 +164,12 @@ function BulkStockDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       return;
     }
     setSaving(true);
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) {
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) {
       setSaving(false);
       return toast.error("Restaurante não encontrado");
     }
-    const payload = movements.map((m) => ({ ...m, restaurant_id: prof.restaurant_id }));
+    const payload = movements.map((m) => ({ ...m, restaurant_id: restaurantId }));
     const { error } = await supabase.from("stock_movements").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);

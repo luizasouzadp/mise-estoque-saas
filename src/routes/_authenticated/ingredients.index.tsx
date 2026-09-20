@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -361,9 +362,8 @@ function IngredientsList() {
     if (importPreview.length === 0) return;
     setImporting(true);
     try {
-      const { data: prof, error: pErr } = await supabase
-        .from("profiles").select("restaurant_id").maybeSingle();
-      if (pErr || !prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) throw new Error("Restaurante não encontrado");
 
       const toCreate = importPreview.filter((p) => !p.existingId);
       const toUpdate = importPreview.filter(
@@ -374,7 +374,7 @@ function IngredientsList() {
         const payload = toCreate.map((p) => {
           const cost = p.cost ?? 0;
           return {
-            restaurant_id: prof.restaurant_id,
+            restaurant_id: restaurantId,
             name: p.name,
             unit: p.unit || "un",
             category: p.category,
@@ -393,7 +393,7 @@ function IngredientsList() {
         const movRows = toUpdate.map((p) => {
           const diff = Number((Number(p.stock) - Number(p.currentStock ?? 0)).toFixed(4));
           return {
-            restaurant_id: prof.restaurant_id,
+            restaurant_id: restaurantId,
             ingredient_id: p.existingId as string,
             type: (diff > 0 ? "in" : "out") as "in" | "out",
             quantity: Math.abs(diff),

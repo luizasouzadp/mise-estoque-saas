@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -65,9 +66,9 @@ function PricingPage() {
   const { data: restaurant } = useQuery({
     queryKey: ["restaurant-pricing"],
     queryFn: async () => {
-      const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-      if (!profile?.restaurant_id) return null;
-      const { data, error } = await supabase.from("restaurants").select("id, ideal_cmv").eq("id", profile.restaurant_id).single();
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) return null;
+      const { data, error } = await supabase.from("restaurants").select("id, ideal_cmv").eq("id", restaurantId).single();
       if (error) throw error;
       return data;
     },
@@ -614,8 +615,8 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
     if (!name.trim()) return toast.error("Informe o nome do produto");
     const code = productCode.trim();
     setSaving(true);
-    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!profile?.restaurant_id) { setSaving(false); return toast.error("Restaurante não encontrado"); }
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) { setSaving(false); return toast.error("Restaurante não encontrado"); }
 
     if (code) {
       const [{ data: r }, { data: m }] = await Promise.all([
@@ -647,7 +648,7 @@ function ManualProductDialog({ onClose, existingCategories }: { onClose: () => v
     }
 
     const { error } = await (supabase as any).from("menu_products").insert({
-      restaurant_id: profile.restaurant_id,
+      restaurant_id: restaurantId,
       name: name.trim(),
       category: category.trim() || null,
       current_price: price === "" ? null : Number(price),

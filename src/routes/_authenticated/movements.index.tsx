@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -348,8 +349,8 @@ function MovementsPage() {
     const qty = Number(form.quantity);
     if (!qty || qty <= 0) return toast.error("Quantidade inválida");
 
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) return toast.error("Restaurante não encontrado");
 
     let unitCost: number | null = form.type === "in" && form.unit_cost ? Number(form.unit_cost) : null;
     if (form.type === "in" && unitCost === null) {
@@ -360,7 +361,7 @@ function MovementsPage() {
     }
 
     const payload = {
-      restaurant_id: prof.restaurant_id,
+      restaurant_id: restaurantId,
       ingredient_id: form.ingredient_id,
       type: form.type,
       quantity: qty,

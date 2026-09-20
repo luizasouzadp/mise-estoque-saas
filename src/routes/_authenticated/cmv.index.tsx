@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -126,9 +127,9 @@ function CmvPage() {
   const { data: restaurant } = useQuery({
     queryKey: ["restaurant-cmv"],
     queryFn: async () => {
-      const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-      if (!profile?.restaurant_id) return null;
-      const { data } = await supabase.from("restaurants").select("id, ideal_cmv").eq("id", profile.restaurant_id).single();
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) return null;
+      const { data } = await supabase.from("restaurants").select("id, ideal_cmv").eq("id", restaurantId).single();
       return data;
     },
   });

@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -173,13 +174,13 @@ function NewRecipe() {
       .maybeSingle();
     if (dupRecipe) return toast.error(`Já existe uma ficha chamada "${finalName}".`);
     setSaving(true);
-    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!profile?.restaurant_id) {
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) {
       setSaving(false);
       return toast.error("Restaurante não encontrado.");
     }
     const { data: recipe, error } = await supabase.from("recipes").insert({
-      restaurant_id: profile.restaurant_id,
+      restaurant_id: restaurantId,
       name: finalName,
       description: description || null,
       yield_qty: Number(yieldQty) || 1,
@@ -216,7 +217,7 @@ function NewRecipe() {
     if (isStocked === "yes") {
       await syncRecipeStockIngredient({
         recipeId: recipe.id,
-        restaurantId: profile.restaurant_id,
+        restaurantId,
         isStocked: true,
         name: finalName,
         unit: yieldUnit,

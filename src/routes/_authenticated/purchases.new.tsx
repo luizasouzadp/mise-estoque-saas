@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,11 +63,11 @@ function NewPurchase() {
   async function addSupplier() {
     const name = newSupplierName.trim();
     if (!name) return;
-    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!profile?.restaurant_id) return toast.error("Sessão inválida.");
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) return toast.error("Sessão inválida.");
     const { data, error } = await supabase
       .from("suppliers")
-      .insert({ restaurant_id: profile.restaurant_id, name })
+      .insert({ restaurant_id: restaurantId, name })
       .select("id, name")
       .single();
     if (error) return toast.error(error.message);
@@ -94,9 +95,9 @@ function NewPurchase() {
     const valid = items.filter((it) => it.ingredientId && Number(it.quantity) > 0 && Number(it.unitCost) >= 0);
     if (valid.length === 0) return toast.error("Adicione ao menos um insumo válido.");
     setSaving(true);
-    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+    const restaurantId = await getMyRestaurantId();
     const { data: u } = await supabase.auth.getUser();
-    if (!profile?.restaurant_id || !u.user) {
+    if (!restaurantId || !u.user) {
       setSaving(false);
       return toast.error("Sessão inválida.");
     }
@@ -106,7 +107,7 @@ function NewPurchase() {
     try {
       for (const f of attachments) {
         const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const path = `${profile.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const path = `${restaurantId}/${crypto.randomUUID()}.${ext || "jpg"}`;
         const { error: upErr } = await supabase.storage
           .from("purchase-invoices")
           .upload(path, f, { contentType: f.type || "application/octet-stream", upsert: false });
@@ -127,7 +128,7 @@ function NewPurchase() {
       const q = Number(it.quantity);
       const uc = Number(it.unitCost);
       return {
-        restaurant_id: profile.restaurant_id,
+        restaurant_id: restaurantId,
         ingredient_id: it.ingredientId,
         quantity: q,
         unit_cost: uc,

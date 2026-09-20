@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -208,13 +209,13 @@ function IngredientDetail() {
         .eq("ingredient_id", id).in("supplier_id", supToRemove);
     }
     if (supToAdd.length) {
-      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-      if (prof?.restaurant_id) {
+      const restaurantId = await getMyRestaurantId();
+      if (restaurantId) {
         await supabase.from("ingredient_suppliers").insert(
           supToAdd.map((sid) => ({
             ingredient_id: id,
             supplier_id: sid,
-            restaurant_id: prof.restaurant_id,
+            restaurant_id: restaurantId,
             is_primary: sid === primarySupplierId,
           })),
         );
@@ -307,13 +308,13 @@ function IngredientDetail() {
       return;
     }
     setAdjusting(true);
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) {
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) {
       setAdjusting(false);
       return toast.error("Restaurante não encontrado");
     }
     const { error } = await supabase.from("stock_movements").insert({
-      restaurant_id: prof.restaurant_id,
+      restaurant_id: restaurantId,
       ingredient_id: id,
       type: diff > 0 ? "in" : "out",
       quantity: Math.abs(diff),

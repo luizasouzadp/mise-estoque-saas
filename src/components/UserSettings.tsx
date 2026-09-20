@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Trash2, Users, Pencil } from "lucide-react";
 import { useUserRoles } from "@/hooks/use-roles";
 import { createChef, listChefs, deleteChef, resetChefPassword } from "@/lib/chefs.functions";
+import { getMyRestaurantId } from "@/lib/profile";
 
 type Person = { id: string; username: string; email: string };
 type Role = "chef" | "receiver";
@@ -176,10 +177,10 @@ function ContactsManager() {
   async function addContact() {
     const cleaned = phone.replace(/\D/g, "");
     if (!name.trim() || cleaned.length < 10) return toast.error("Informe nome e telefone válido");
-    const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) return toast.error("Restaurante não encontrado");
     const { error } = await supabase.from("whatsapp_contacts").insert({
-      restaurant_id: prof.restaurant_id, name: name.trim(), phone: cleaned,
+      restaurant_id: restaurantId, name: name.trim(), phone: cleaned,
     });
     if (error) return toast.error(error.message);
     setName(""); setPhone("");

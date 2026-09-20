@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -296,12 +297,12 @@ function ImportPurchase() {
       // 1. Upload images (reuse existing paths when coming from an order receipt).
       let invoicePaths: string[] = existingInvoicePaths;
       if (invoicePaths.length === 0 && files.length) {
-        const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-        if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+        const restaurantId = await getMyRestaurantId();
+        if (!restaurantId) throw new Error("Restaurante não encontrado");
         const uploaded: string[] = [];
         for (const f of files) {
           const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-          const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+          const path = `${restaurantId}/${crypto.randomUUID()}.${ext || "jpg"}`;
           const { error: upErr } = await supabase.storage.from("purchase-invoices").upload(path, f, {
             contentType: f.type || "image/jpeg",
             upsert: false,

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -242,12 +243,12 @@ function OrdersPage() {
     setReceiving(true);
     try {
       const { data: u } = await supabase.auth.getUser();
-      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) throw new Error("Restaurante não encontrado");
 
       const purchasedAt = new Date().toISOString();
       const purchaseRows = rowsInput.map((r) => ({
-        restaurant_id: prof.restaurant_id,
+        restaurant_id: restaurantId,
         ingredient_id: r.it.ingredient_id,
         quantity: r.qty,
         unit_cost: r.cost,
@@ -318,13 +319,12 @@ function OrdersPage() {
     if (receiveFiles.length === 0) return toast.error("Anexe ao menos uma foto da nota");
     setReceiving(true);
     try {
-      const { data: prof } = await supabase
-        .from("profiles").select("restaurant_id").maybeSingle();
-      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) throw new Error("Restaurante não encontrado");
       const uploadedPaths: string[] = [];
       for (const f of receiveFiles) {
         const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const path = `${restaurantId}/${crypto.randomUUID()}.${ext || "jpg"}`;
         const { error: upErr } = await supabase.storage
           .from("purchase-invoices")
           .upload(path, f, {
@@ -397,12 +397,12 @@ function OrdersPage() {
     if (looseFiles.length === 0) return toast.error("Anexe ao menos uma foto da nota");
     setLooseSaving(true);
     try {
-      const { data: prof } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) throw new Error("Restaurante não encontrado");
       const paths: string[] = [];
       for (const f of looseFiles) {
         const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const path = `${prof.restaurant_id}/${crypto.randomUUID()}.${ext || "jpg"}`;
+        const path = `${restaurantId}/${crypto.randomUUID()}.${ext || "jpg"}`;
         const { error: upErr } = await supabase.storage
           .from("purchase-invoices")
           .upload(path, f, { contentType: f.type || "image/jpeg", upsert: false });
@@ -411,7 +411,7 @@ function OrdersPage() {
       }
       const { data: userRes } = await supabase.auth.getUser();
       const { error } = await (supabase as any).from("pending_invoices").insert({
-        restaurant_id: prof.restaurant_id,
+        restaurant_id: restaurantId,
         supplier_name: looseSupplier.trim() || null,
         notes: looseNotes.trim() || null,
         image_paths: paths,
@@ -473,10 +473,9 @@ function OrdersPage() {
       .filter(Boolean);
     if (rows.length === 0) return toast.error("Adicione ao menos um item válido");
 
-    const { data: prof } = await supabase
-      .from("profiles").select("restaurant_id").maybeSingle();
-    if (!prof?.restaurant_id) return toast.error("Restaurante não encontrado");
-    const payload = rows.map((r) => ({ ...(r as object), restaurant_id: prof.restaurant_id }));
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) return toast.error("Restaurante não encontrado");
+    const payload = rows.map((r) => ({ ...(r as object), restaurant_id: restaurantId }));
     const { error } = await (supabase as any).from("purchase_orders").insert(payload);
     if (error) return toast.error(error.message);
     toast.success("Encomenda criada");
@@ -527,11 +526,10 @@ function OrdersPage() {
     if (!isFinite(q) || q <= 0) return toast.error("Quantidade inválida");
     setAddingItem(true);
     try {
-      const { data: prof } = await supabase
-        .from("profiles").select("restaurant_id").maybeSingle();
-      if (!prof?.restaurant_id) throw new Error("Restaurante não encontrado");
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) throw new Error("Restaurante não encontrado");
       const { error } = await (supabase as any).from("purchase_orders").insert({
-        restaurant_id: prof.restaurant_id,
+        restaurant_id: restaurantId,
         supplier_id: addTarget.supplier_id,
         supplier_name: addTarget.supplier_name,
         ingredient_id: ing.id,

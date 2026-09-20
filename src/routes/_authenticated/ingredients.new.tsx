@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,8 +47,8 @@ function NewIngredient() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!profile?.restaurant_id) {
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) {
       setSaving(false);
       toast.error("Restaurante não encontrado.");
       return;
@@ -64,7 +65,7 @@ function NewIngredient() {
     }
     const valueNum = unitValue.trim() === "" ? null : Number(unitValue);
     const { error } = await supabase.from("ingredients").insert({
-      restaurant_id: profile.restaurant_id,
+      restaurant_id: restaurantId,
       name: finalName,
       unit,
       category: category || null,

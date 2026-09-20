@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,9 +47,9 @@ function NewInventory() {
     if (selected.size === 0) return toast.error("Selecione ao menos um grupo");
     setSaving(true);
     try {
-      const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
+      const restaurantId = await getMyRestaurantId();
       const { data: userData } = await supabase.auth.getUser();
-      if (!profile?.restaurant_id) throw new Error("Restaurante não encontrado");
+      if (!restaurantId) throw new Error("Restaurante não encontrado");
 
       const groupIds = Array.from(selected);
 
@@ -62,7 +63,7 @@ function NewInventory() {
       const byGroup = new Map<string, Ing[]>();
       for (const m of members ?? []) {
         const ing = (m as { ingredients: Ing & { restaurant_id: string } }).ingredients;
-        if (!ing || ing.restaurant_id !== profile.restaurant_id) continue;
+        if (!ing || ing.restaurant_id !== restaurantId) continue;
         if (!byGroup.has(m.group_id)) byGroup.set(m.group_id, []);
         byGroup.get(m.group_id)!.push({ id: ing.id, name: ing.name, unit: ing.unit, current_stock: Number(ing.current_stock) || 0 });
       }
@@ -73,7 +74,7 @@ function NewInventory() {
       }
 
       const { data: inv, error: invErr } = await supabase.from("inventories").insert({
-        restaurant_id: profile.restaurant_id,
+        restaurant_id: restaurantId,
         name: name.trim(),
         frequency,
         weekday: frequency === "weekly" ? Number(weekday) : null,

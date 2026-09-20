@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,10 +45,10 @@ function GroupsPage() {
   async function createGroup(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    const { data: profile } = await supabase.from("profiles").select("restaurant_id").maybeSingle();
-    if (!profile?.restaurant_id) return toast.error("Restaurante não encontrado");
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) return toast.error("Restaurante não encontrado");
     const { error } = await supabase.from("ingredient_groups").insert({
-      restaurant_id: profile.restaurant_id, name: name.trim(),
+      restaurant_id: restaurantId, name: name.trim(),
     });
     if (error) return toast.error(error.message);
     setName("");
