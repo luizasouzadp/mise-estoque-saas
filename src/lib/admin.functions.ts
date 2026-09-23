@@ -20,7 +20,7 @@ export const listRestaurants = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: restaurants, error } = await supabaseAdmin
       .from("restaurants")
-      .select("id, name, status")
+      .select("id, name, status, internal_code")
       .order("name");
     if (error) throw new Error(error.message);
 
@@ -51,7 +51,39 @@ export const listRestaurants = createServerFn({ method: "POST" })
     return (restaurants ?? []).map((r) => ({
       ...r,
       ownerEmails: emailsByRestaurantId.get(r.id) ?? [],
-    })) as { id: string; name: string; status: string; ownerEmails: string[] }[];
+    })) as { id: string; name: string; status: string; internal_code: string; ownerEmails: string[] }[];
+  });
+
+const ImpersonateRestaurantSchema = z.object({
+  restaurantId: z.string().uuid(),
+});
+
+export const impersonateRestaurant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => ImpersonateRestaurantSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await ensurePlatformAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("restaurant_id", data.restaurantId)
+      .limit(1)
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+    if (!profile) throw new Error("Nenhum usuário encontrado para este restaurante.");
+
+    const { data: userRes, error: userError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    if (userError || !userRes.user?.email) throw new Error("Não foi possível localizar o e-mail deste usuário.");
+
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: userRes.user.email,
+    });
+    if (linkError) throw new Error(linkError.message);
+    return { actionLink: linkData.properties.action_link };
   });
 
 const SetStatusSchema = z.object({

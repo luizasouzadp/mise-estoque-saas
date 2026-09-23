@@ -13,8 +13,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Pencil } from "lucide-react";
-import { listRestaurants, setRestaurantStatus, createRestaurantClient, renameRestaurant } from "@/lib/admin.functions";
+import { Pencil, LogIn } from "lucide-react";
+import { listRestaurants, setRestaurantStatus, createRestaurantClient, renameRestaurant, impersonateRestaurant } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Restaurant = { id: string; name: string; status: string; ownerEmails: string[] };
+type Restaurant = { id: string; name: string; status: string; internal_code: string; ownerEmails: string[] };
 
 function AdminPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -44,11 +44,24 @@ function AdminPage() {
   const [editing, setEditing] = useState<Restaurant | null>(null);
   const [editName, setEditName] = useState("");
   const [renaming, setRenaming] = useState(false);
+  const [search, setSearch] = useState("");
+  const [accessingId, setAccessingId] = useState<string | null>(null);
 
   const listFn = useServerFn(listRestaurants);
   const statusFn = useServerFn(setRestaurantStatus);
   const createFn = useServerFn(createRestaurantClient);
   const renameFn = useServerFn(renameRestaurant);
+  const impersonateFn = useServerFn(impersonateRestaurant);
+
+  const filteredRestaurants = restaurants.filter((r) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      r.name.toLowerCase().includes(term) ||
+      r.internal_code.toLowerCase().includes(term) ||
+      r.ownerEmails.some((e) => e.toLowerCase().includes(term))
+    );
+  });
 
   async function refresh() {
     setLoading(true);
@@ -100,6 +113,19 @@ function AdminPage() {
     }
   }
 
+  async function accessAsRestaurant(r: Restaurant) {
+    if (!confirm(`Acessar a conta de "${r.name}"? Sua sessão de administradora nesta aba será substituída pela sessão do restaurante.`)) return;
+    setAccessingId(r.id);
+    try {
+      const { actionLink } = await impersonateFn({ data: { restaurantId: r.id } });
+      window.location.href = actionLink;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao acessar restaurante");
+    } finally {
+      setAccessingId(null);
+    }
+  }
+
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
@@ -124,22 +150,31 @@ function AdminPage() {
 
       <div className="rounded-xl border bg-card p-5">
         <h2 className="text-lg font-semibold">Restaurantes cadastrados</h2>
+        <Input
+          className="mt-3"
+          placeholder="Buscar por nome, código ou e-mail"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         {loading ? (
           <p className="mt-3 text-sm text-muted-foreground">Carregando...</p>
-        ) : restaurants.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">Nenhum restaurante cadastrado.</p>
+        ) : filteredRestaurants.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">Nenhum restaurante encontrado.</p>
         ) : (
           <div className="mt-3 space-y-2">
-            {restaurants.map((r) => (
+            {filteredRestaurants.map((r) => (
               <div key={r.id} className="flex items-center justify-between rounded-md border p-3">
                 <div>
                   <div className="font-medium">{r.name}</div>
-                  <div className="text-xs text-muted-foreground">{r.status}</div>
+                  <div className="text-xs text-muted-foreground">{r.status} · código {r.internal_code}</div>
                   {r.ownerEmails.length > 0 && (
                     <div className="text-xs text-muted-foreground">{r.ownerEmails.join(", ")}</div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => accessAsRestaurant(r)} disabled={accessingId === r.id}>
+                    <LogIn className="mr-1 h-4 w-4" /> Acessar como este restaurante
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
                     <Pencil className="mr-1 h-4 w-4" /> Editar nome
                   </Button>
