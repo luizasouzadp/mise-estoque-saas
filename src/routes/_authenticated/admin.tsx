@@ -6,7 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { listRestaurants, setRestaurantStatus, createRestaurantClient } from "@/lib/admin.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Pencil } from "lucide-react";
+import { listRestaurants, setRestaurantStatus, createRestaurantClient, renameRestaurant } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
@@ -33,10 +41,14 @@ function AdminPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Restaurant | null>(null);
+  const [editName, setEditName] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   const listFn = useServerFn(listRestaurants);
   const statusFn = useServerFn(setRestaurantStatus);
   const createFn = useServerFn(createRestaurantClient);
+  const renameFn = useServerFn(renameRestaurant);
 
   async function refresh() {
     setLoading(true);
@@ -62,6 +74,29 @@ function AdminPage() {
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao atualizar status");
+    }
+  }
+
+  function openEdit(r: Restaurant) {
+    setEditing(r);
+    setEditName(r.name);
+  }
+
+  async function saveRename(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    const name = editName.trim();
+    if (!name) return toast.error("Informe o nome do restaurante.");
+    setRenaming(true);
+    try {
+      await renameFn({ data: { restaurantId: editing.id, name } });
+      toast.success("Nome atualizado.");
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar nome");
+    } finally {
+      setRenaming(false);
     }
   }
 
@@ -104,18 +139,40 @@ function AdminPage() {
                     <div className="text-xs text-muted-foreground">{r.ownerEmails.join(", ")}</div>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant={r.status === "ativo" ? "destructive" : "default"}
-                  onClick={() => toggleStatus(r)}
-                >
-                  {r.status === "ativo" ? "Bloquear" : "Ativar"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
+                    <Pencil className="mr-1 h-4 w-4" /> Editar nome
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={r.status === "ativo" ? "destructive" : "default"}
+                    onClick={() => toggleStatus(r)}
+                  >
+                    {r.status === "ativo" ? "Bloquear" : "Ativar"}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar nome do restaurante</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={saveRename} className="space-y-3">
+            <div>
+              <Label htmlFor="editName">Nome do restaurante</Label>
+              <Input id="editName" required value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={renaming}>{renaming ? "Salvando..." : "Salvar"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <form onSubmit={submitCreate} className="space-y-3 rounded-xl border bg-card p-5">
         <h2 className="text-lg font-semibold">Cadastrar novo restaurante-cliente</h2>

@@ -75,6 +75,27 @@ export const setRestaurantStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const RenameRestaurantSchema = z.object({
+  restaurantId: z.string().uuid(),
+  name: z.string().trim().min(2).max(120),
+});
+
+export const renameRestaurant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => RenameRestaurantSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await ensurePlatformAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("restaurants")
+      .update({ name: data.name })
+      .eq("id", data.restaurantId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 const CreateRestaurantSchema = z.object({
   restaurantName: z.string().trim().min(2).max(120),
   ownerName: z.string().trim().min(2).max(120),
