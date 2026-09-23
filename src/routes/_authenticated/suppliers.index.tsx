@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { PushReminders } from "@/components/PushReminders";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/suppliers/")({
   component: SuppliersPage,
@@ -213,8 +213,8 @@ function SuppliersPage() {
   );
 }
 
-function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: () => void }) {
-  const [values, setValues] = useState<SupplierFormValues>({
+function supplierToFormValues(supplier: Supplier): SupplierFormValues {
+  return {
     name: supplier.name,
     contactName: supplier.contact_name ?? "",
     phone: supplier.phone ?? "",
@@ -224,14 +224,31 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
     minOrder: supplier.min_order_value?.toString() ?? "",
     notes: supplier.notes ?? "",
     notifyOnOrderDay: supplier.notify_on_order_day,
-  });
+  };
+}
+
+function dowLabels(days: number[] | null) {
+  if (!days || days.length === 0) return "Não definido";
+  return days.map((d) => DOWS.find((dow) => dow.v === d)?.l ?? "").join(", ");
+}
+
+function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: () => void }) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [values, setValues] = useState<SupplierFormValues>(() => supplierToFormValues(supplier));
   const [saving, setSaving] = useState(false);
 
+  function openEdit() {
+    setValues(supplierToFormValues(supplier));
+    setEditOpen(true);
+  }
+
   async function save() {
+    const name = values.name.trim();
+    if (!name) return toast.error("Informe o nome do fornecedor.");
     setSaving(true);
     const cleanedPhone = values.phone.replace(/\D/g, "");
     const { error } = await supabase.from("suppliers").update({
-      name: values.name.trim(),
+      name,
       contact_name: values.contactName.trim() || null,
       phone: cleanedPhone || null,
       order_days: values.orderDays,
@@ -244,6 +261,7 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Fornecedor atualizado.");
+    setEditOpen(false);
     onChanged();
   }
 
@@ -257,13 +275,37 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] space-y-3">
-      <div className="flex justify-end">
+      <div>
+        <p className="font-medium">{supplier.name}</p>
+        {(supplier.contact_name || supplier.phone) && (
+          <p className="text-sm text-muted-foreground">
+            {[supplier.contact_name, supplier.phone].filter(Boolean).join(" · ")}
+          </p>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+        <p><span className="text-foreground">Dias de pedido:</span> {dowLabels(supplier.order_days)}</p>
+        <p><span className="text-foreground">Dias de entrega:</span> {dowLabels(supplier.delivery_days)}</p>
+        <p><span className="text-foreground">Prazo de entrega:</span> {supplier.lead_time_days != null ? `${supplier.lead_time_days} dias` : "Não definido"}</p>
+        <p><span className="text-foreground">Pedido mínimo:</span> {supplier.min_order_value != null ? `R$ ${supplier.min_order_value}` : "Não definido"}</p>
+      </div>
+      {supplier.notes && <p className="text-sm text-muted-foreground">{supplier.notes}</p>}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={openEdit}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
         <Button variant="ghost" size="icon" onClick={remove} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
       </div>
-      <SupplierFormFields values={values} onChange={setValues} />
-      <div className="flex justify-end">
-        <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
-      </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar fornecedor</DialogTitle>
+          </DialogHeader>
+          <SupplierFormFields values={values} onChange={setValues} />
+          <DialogFooter>
+            <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
