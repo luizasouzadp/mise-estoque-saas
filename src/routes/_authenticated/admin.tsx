@@ -117,7 +117,7 @@ function AdminPage() {
     if (!confirm(`Acessar a conta de "${r.name}"? Sua sessão de administradora nesta aba será substituída pela sessão do restaurante.`)) return;
     setAccessingId(r.id);
     try {
-      const { actionLink } = await impersonateFn({ data: { restaurantId: r.id } });
+      const { actionLink } = await impersonateFn({ data: { restaurantId: r.id, origin: window.location.origin } });
       window.location.href = actionLink;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao acessar restaurante");

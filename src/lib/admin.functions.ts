@@ -56,6 +56,7 @@ export const listRestaurants = createServerFn({ method: "POST" })
 
 const ImpersonateRestaurantSchema = z.object({
   restaurantId: z.string().uuid(),
+  origin: z.string().url(),
 });
 
 export const impersonateRestaurant = createServerFn({ method: "POST" })
@@ -81,6 +82,7 @@ export const impersonateRestaurant = createServerFn({ method: "POST" })
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: userRes.user.email,
+      options: { redirectTo: `${data.origin}/dashboard` },
     });
     if (linkError) throw new Error(linkError.message);
     return { actionLink: linkData.properties.action_link };
