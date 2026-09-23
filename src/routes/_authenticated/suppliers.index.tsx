@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { PushReminders } from "@/components/PushReminders";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
@@ -34,6 +41,92 @@ type Supplier = {
   notify_on_order_day: boolean;
 };
 
+type SupplierFormValues = {
+  name: string;
+  contactName: string;
+  phone: string;
+  orderDays: number[];
+  deliveryDays: number[];
+  lead: string;
+  minOrder: string;
+  notes: string;
+  notifyOnOrderDay: boolean;
+};
+
+const emptySupplierForm: SupplierFormValues = {
+  name: "",
+  contactName: "",
+  phone: "",
+  orderDays: [],
+  deliveryDays: [],
+  lead: "",
+  minOrder: "",
+  notes: "",
+  notifyOnOrderDay: false,
+};
+
+function DayToggleGroup({ label, value, onChange }: { label: string; value: number[]; onChange: (arr: number[]) => void }) {
+  function toggle(v: number) {
+    onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v].sort((a, b) => a - b));
+  }
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {DOWS.map((d) => (
+          <button key={d.v} type="button" onClick={() => toggle(d.v)}
+            className={`rounded-md border px-2 py-1 text-xs ${value.includes(d.v) ? "bg-primary text-primary-foreground" : "bg-background"}`}>
+            {d.l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SupplierFormFields({ values, onChange }: { values: SupplierFormValues; onChange: (values: SupplierFormValues) => void }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">Nome do fornecedor</Label>
+        <Input value={values.name} onChange={(e) => onChange({ ...values, name: e.target.value })} placeholder="Ex: Distribuidora Central" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Nome do contato</Label>
+          <Input value={values.contactName} onChange={(e) => onChange({ ...values, contactName: e.target.value })} placeholder="ex: João" />
+        </div>
+        <div>
+          <Label className="text-xs">Telefone / WhatsApp do contato</Label>
+          <Input value={values.phone} onChange={(e) => onChange({ ...values, phone: e.target.value })} placeholder="11999998888" inputMode="numeric" />
+        </div>
+      </div>
+      <div>
+        <DayToggleGroup label="Dias de pedido" value={values.orderDays} onChange={(orderDays) => onChange({ ...values, orderDays })} />
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <Checkbox checked={values.notifyOnOrderDay} onCheckedChange={(v) => onChange({ ...values, notifyOnOrderDay: !!v })} />
+          Notificar no celular/computador no dia do pedido
+        </label>
+      </div>
+      <DayToggleGroup label="Dias de entrega" value={values.deliveryDays} onChange={(deliveryDays) => onChange({ ...values, deliveryDays })} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Prazo de entrega (dias)</Label>
+          <Input type="number" min="0" value={values.lead} onChange={(e) => onChange({ ...values, lead: e.target.value })} />
+        </div>
+        <div>
+          <Label className="text-xs">Pedido mínimo (R$)</Label>
+          <Input type="number" min="0" step="0.01" value={values.minOrder} onChange={(e) => onChange({ ...values, minOrder: e.target.value })} />
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs">Observações</Label>
+        <Textarea rows={2} value={values.notes} onChange={(e) => onChange({ ...values, notes: e.target.value })} placeholder="Ex: pedir por WhatsApp, contato fulano" />
+      </div>
+    </div>
+  );
+}
+
 function SuppliersPage() {
   const qc = useQueryClient();
   const { data: suppliers } = useQuery({
@@ -47,19 +140,43 @@ function SuppliersPage() {
       return (data ?? []) as Supplier[];
     },
   });
-  const [newName, setNewName] = useState("");
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<SupplierFormValues>(emptySupplierForm);
+  const [saving, setSaving] = useState(false);
 
-  async function addSupplier() {
-    const name = newName.trim();
-    if (!name) return;
-    const restaurantId = await getMyRestaurantId();
-    if (!restaurantId) return toast.error("Sessão inválida.");
-    const { error } = await supabase.from("suppliers").insert({ restaurant_id: restaurantId, name });
-    if (error) return toast.error(error.message);
-    setNewName("");
-    toast.success("Fornecedor cadastrado.");
+  function refresh() {
     qc.invalidateQueries({ queryKey: ["suppliers-full"] });
     qc.invalidateQueries({ queryKey: ["suppliers"] });
+  }
+
+  async function addSupplier() {
+    const name = form.name.trim();
+    if (!name) return toast.error("Informe o nome do fornecedor.");
+    setSaving(true);
+    const restaurantId = await getMyRestaurantId();
+    if (!restaurantId) {
+      setSaving(false);
+      return toast.error("Sessão inválida.");
+    }
+    const cleanedPhone = form.phone.replace(/\D/g, "");
+    const { error } = await supabase.from("suppliers").insert({
+      restaurant_id: restaurantId,
+      name,
+      contact_name: form.contactName.trim() || null,
+      phone: cleanedPhone || null,
+      order_days: form.orderDays,
+      delivery_days: form.deliveryDays,
+      lead_time_days: form.lead === "" ? null : Number(form.lead),
+      min_order_value: form.minOrder === "" ? null : Number(form.minOrder),
+      notes: form.notes.trim() || null,
+      notify_on_order_day: form.notifyOnOrderDay,
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    setForm(emptySupplierForm);
+    setOpen(false);
+    toast.success("Fornecedor cadastrado.");
+    refresh();
   }
 
   return (
@@ -71,13 +188,23 @@ function SuppliersPage() {
         <PushReminders />
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <Input placeholder="Nome do fornecedor" value={newName} onChange={(e) => setNewName(e.target.value)} />
-        <Button onClick={addSupplier}><Plus className="mr-1 h-4 w-4" /> Adicionar</Button>
+      <div className="mt-4">
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setForm(emptySupplierForm); }}>
+          <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" /> Adicionar Fornecedor</Button>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo fornecedor</DialogTitle>
+            </DialogHeader>
+            <SupplierFormFields values={form} onChange={setForm} />
+            <DialogFooter>
+              <Button onClick={addSupplier} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="mt-6 space-y-4">
-        {(suppliers ?? []).map((s) => <SupplierCard key={s.id} supplier={s} onChanged={() => qc.invalidateQueries({ queryKey: ["suppliers-full"] })} />)}
+        {(suppliers ?? []).map((s) => <SupplierCard key={s.id} supplier={s} onChanged={refresh} />)}
         {suppliers?.length === 0 && (
           <p className="text-sm text-muted-foreground">Nenhum fornecedor cadastrado ainda.</p>
         )}
@@ -87,34 +214,32 @@ function SuppliersPage() {
 }
 
 function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: () => void }) {
-  const [name, setName] = useState(supplier.name);
-  const [contactName, setContactName] = useState(supplier.contact_name ?? "");
-  const [phone, setPhone] = useState(supplier.phone ?? "");
-  const [orderDays, setOrderDays] = useState<number[]>(supplier.order_days ?? []);
-  const [deliveryDays, setDeliveryDays] = useState<number[]>(supplier.delivery_days ?? []);
-  const [lead, setLead] = useState(supplier.lead_time_days?.toString() ?? "");
-  const [minOrder, setMinOrder] = useState(supplier.min_order_value?.toString() ?? "");
-  const [notes, setNotes] = useState(supplier.notes ?? "");
-  const [notifyOnOrderDay, setNotifyOnOrderDay] = useState(supplier.notify_on_order_day);
+  const [values, setValues] = useState<SupplierFormValues>({
+    name: supplier.name,
+    contactName: supplier.contact_name ?? "",
+    phone: supplier.phone ?? "",
+    orderDays: supplier.order_days ?? [],
+    deliveryDays: supplier.delivery_days ?? [],
+    lead: supplier.lead_time_days?.toString() ?? "",
+    minOrder: supplier.min_order_value?.toString() ?? "",
+    notes: supplier.notes ?? "",
+    notifyOnOrderDay: supplier.notify_on_order_day,
+  });
   const [saving, setSaving] = useState(false);
-
-  function toggle(list: number[], v: number, set: (arr: number[]) => void) {
-    set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v].sort((a, b) => a - b));
-  }
 
   async function save() {
     setSaving(true);
-    const cleanedPhone = phone.replace(/\D/g, "");
+    const cleanedPhone = values.phone.replace(/\D/g, "");
     const { error } = await supabase.from("suppliers").update({
-      name: name.trim(),
-      contact_name: contactName.trim() || null,
+      name: values.name.trim(),
+      contact_name: values.contactName.trim() || null,
       phone: cleanedPhone || null,
-      order_days: orderDays,
-      delivery_days: deliveryDays,
-      lead_time_days: lead === "" ? null : Number(lead),
-      min_order_value: minOrder === "" ? null : Number(minOrder),
-      notes: notes.trim() || null,
-      notify_on_order_day: notifyOnOrderDay,
+      order_days: values.orderDays,
+      delivery_days: values.deliveryDays,
+      lead_time_days: values.lead === "" ? null : Number(values.lead),
+      min_order_value: values.minOrder === "" ? null : Number(values.minOrder),
+      notes: values.notes.trim() || null,
+      notify_on_order_day: values.notifyOnOrderDay,
     }).eq("id", supplier.id);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -132,60 +257,10 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] space-y-3">
-      <div className="flex gap-2">
-        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="flex justify-end">
         <Button variant="ghost" size="icon" onClick={remove} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Nome do contato</Label>
-          <Input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="ex: João" />
-        </div>
-        <div>
-          <Label className="text-xs">Telefone / WhatsApp do contato</Label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="11999998888" inputMode="numeric" />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs">Dias de pedido</Label>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {DOWS.map((d) => (
-            <button key={d.v} type="button" onClick={() => toggle(orderDays, d.v, setOrderDays)}
-              className={`rounded-md border px-2 py-1 text-xs ${orderDays.includes(d.v) ? "bg-primary text-primary-foreground" : "bg-background"}`}>
-              {d.l}
-            </button>
-          ))}
-        </div>
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <Checkbox checked={notifyOnOrderDay} onCheckedChange={(v) => setNotifyOnOrderDay(!!v)} />
-          Notificar no celular/computador no dia do pedido
-        </label>
-      </div>
-      <div>
-        <Label className="text-xs">Dias de entrega</Label>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {DOWS.map((d) => (
-            <button key={d.v} type="button" onClick={() => toggle(deliveryDays, d.v, setDeliveryDays)}
-              className={`rounded-md border px-2 py-1 text-xs ${deliveryDays.includes(d.v) ? "bg-primary text-primary-foreground" : "bg-background"}`}>
-              {d.l}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Prazo de entrega (dias)</Label>
-          <Input type="number" min="0" value={lead} onChange={(e) => setLead(e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Pedido mínimo (R$)</Label>
-          <Input type="number" min="0" step="0.01" value={minOrder} onChange={(e) => setMinOrder(e.target.value)} />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs">Observações</Label>
-        <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex: pedir por WhatsApp, contato fulano" />
-      </div>
+      <SupplierFormFields values={values} onChange={setValues} />
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
       </div>
