@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Restaurant = { id: string; name: string; status: string };
+type Restaurant = { id: string; name: string; status: string; ownerEmails: string[] };
 
 function AdminPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -100,6 +100,9 @@ function AdminPage() {
                 <div>
                   <div className="font-medium">{r.name}</div>
                   <div className="text-xs text-muted-foreground">{r.status}</div>
+                  {r.ownerEmails.length > 0 && (
+                    <div className="text-xs text-muted-foreground">{r.ownerEmails.join(", ")}</div>
+                  )}
                 </div>
                 <Button
                   size="sm"

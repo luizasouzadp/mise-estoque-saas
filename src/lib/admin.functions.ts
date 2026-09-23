@@ -18,12 +18,40 @@ export const listRestaurants = createServerFn({ method: "POST" })
     await ensurePlatformAdmin(supabase, userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
+    const { data: restaurants, error } = await supabaseAdmin
       .from("restaurants")
       .select("id, name, status")
       .order("name");
     if (error) throw new Error(error.message);
-    return (data ?? []) as { id: string; name: string; status: string }[];
+
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, restaurant_id");
+    if (profilesError) throw new Error(profilesError.message);
+
+    const emailByUserId = new Map<string, string>();
+    let page = 1;
+    while (true) {
+      const { data: usersPage, error: usersError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      if (usersError) throw new Error(usersError.message);
+      for (const u of usersPage.users) if (u.email) emailByUserId.set(u.id, u.email);
+      if (usersPage.users.length < 200) break;
+      page += 1;
+    }
+
+    const emailsByRestaurantId = new Map<string, string[]>();
+    for (const p of profiles ?? []) {
+      const email = emailByUserId.get(p.id);
+      if (!email) continue;
+      const list = emailsByRestaurantId.get(p.restaurant_id) ?? [];
+      list.push(email);
+      emailsByRestaurantId.set(p.restaurant_id, list);
+    }
+
+    return (restaurants ?? []).map((r) => ({
+      ...r,
+      ownerEmails: emailsByRestaurantId.get(r.id) ?? [],
+    })) as { id: string; name: string; status: string; ownerEmails: string[] }[];
   });
 
 const SetStatusSchema = z.object({
