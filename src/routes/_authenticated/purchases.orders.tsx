@@ -571,7 +571,7 @@ function OrdersPage() {
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl flex items-center gap-2">
-              <PackageCheck className="h-6 w-6 text-emerald-600" /> Encomendas
+              <PackageCheck className="h-6 w-6 text-success" /> Encomendas
             </h1>
             <p className="text-sm text-muted-foreground">
               Encomendas pendentes agrupadas por fornecedor. Envie a ordem de compra pelo WhatsApp
@@ -614,7 +614,7 @@ function OrdersPage() {
                   {supplier}
                   <Badge variant="secondary">{items.length}</Badge>
                   {selectedItems.length > 0 && (
-                    <Badge className="bg-emerald-600 text-white">{selectedItems.length} selecionado(s)</Badge>
+                    <Badge className="bg-success text-white">{selectedItems.length} selecionado(s)</Badge>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -627,7 +627,7 @@ function OrdersPage() {
                     disabled={selectedItems.length === 0}
                     onClick={() => openReceive(supplier, selectedItems)}
                   >
-                    <CheckCircle2 className="mr-1 h-4 w-4 text-emerald-600" /> Confirmar recebimento
+                    <CheckCircle2 className="mr-1 h-4 w-4 text-success" /> Confirmar recebimento
                     {selectedItems.length > 0 ? ` (${selectedItems.length})` : ""}
                   </Button>
                   <Button size="sm" onClick={() => setWaTarget({ supplier, message: buildMessage(supplier, items) })}>
@@ -642,7 +642,7 @@ function OrdersPage() {
                       <input
                         type="checkbox"
                         aria-label="Selecionar todos"
-                        className="h-4 w-4 accent-emerald-600"
+                        className="h-4 w-4 accent-success"
                         checked={allSelected}
                         ref={(el) => { if (el) el.indeterminate = someSelected; }}
                         onChange={() => toggleSelectAll(items)}
@@ -662,7 +662,7 @@ function OrdersPage() {
                         <input
                           type="checkbox"
                           aria-label={`Selecionar ${o.ingredient?.name ?? ""}`}
-                          className="h-4 w-4 accent-emerald-600"
+                          className="h-4 w-4 accent-success"
                           checked={!!selected[o.id]}
                           onChange={() => toggleSelect(o.id)}
                         />

@@ -705,7 +705,7 @@ function MovementsPage() {
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border bg-card p-3 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <ArrowDownCircle className="h-4 w-4 text-green-600" />
+              <ArrowDownCircle className="h-4 w-4 text-success" />
               Total de entradas
             </div>
             <span className="font-semibold tabular-nums">{formatBRL(totals.in)}</span>
@@ -758,7 +758,7 @@ function MovementsPage() {
                   <TableCell>{sourceBadge(m.source)}</TableCell>
                   <TableCell>
                     {m.type === "in" ? (
-                      <Badge variant="secondary" className="gap-1"><ArrowDownCircle className="h-3 w-3 text-green-600" />Entrada</Badge>
+                      <Badge variant="secondary" className="gap-1"><ArrowDownCircle className="h-3 w-3 text-success" />Entrada</Badge>
                     ) : m.type === "out" ? (
                       <Badge variant="secondary" className="gap-1"><ArrowUpCircle className="h-3 w-3 text-red-600" />Saída</Badge>
                     ) : (
@@ -775,7 +775,7 @@ function MovementsPage() {
                         <span className="text-xs text-muted-foreground">
                           {fmtQty(Number(bal.prevQty))} {ing?.unit ?? ""}
                         </span>
-                        <span className={`font-semibold tabular-nums ${m.type === "in" ? "text-green-600" : "text-red-600"}`}>
+                        <span className={`font-semibold tabular-nums ${m.type === "in" ? "text-success" : "text-red-600"}`}>
                           {m.type === "in" ? "+" : "−"}{fmtQty(Number(m.quantity))} {ing?.unit ?? ""}
                         </span>
                         <span className="text-xs text-muted-foreground">
@@ -786,7 +786,7 @@ function MovementsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     {m.value != null ? (
-                      <span className={`text-sm font-semibold tabular-nums ${m.type === "in" ? "text-green-600" : "text-red-600"}`}>
+                      <span className={`text-sm font-semibold tabular-nums ${m.type === "in" ? "text-success" : "text-red-600"}`}>
                         {m.type === "in" ? "+" : "−"}{formatBRL(Number(m.value))}
                       </span>
                     ) : (

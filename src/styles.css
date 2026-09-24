@@ -5,10 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 6px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -29,70 +30,83 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-tape: var(--tape);
+  --color-tape-foreground: var(--tape-foreground);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-display: "Outfit", system-ui, sans-serif;
-  --font-sans: "Figtree", system-ui, sans-serif;
-  --shadow-soft: 0 1px 2px rgb(6 78 59 / 0.04), 0 6px 20px rgb(6 78 59 / 0.06);
-  --shadow-card: 0 2px 8px rgb(6 78 59 / 0.06), 0 16px 40px rgb(6 78 59 / 0.08);
-  --gradient-primary: linear-gradient(135deg, oklch(0.32 0.06 165) 0%, oklch(0.48 0.11 162) 100%);
-  --gradient-gold: linear-gradient(135deg, oklch(0.78 0.12 85) 0%, oklch(0.86 0.13 92) 100%);
-  --gradient-surface: linear-gradient(180deg, oklch(0.99 0.01 95) 0%, oklch(0.97 0.015 95) 100%);
+  --font-display: "Newsreader", Georgia, serif;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --shadow-soft: 0 1px 2px oklch(0.2 0.03 255 / 0.05);
+  --shadow-card: 0 6px 20px oklch(0.2 0.03 255 / 0.08);
+  /* Sem degradês: as utilidades antigas viram cor sólida */
+  --gradient-primary: linear-gradient(var(--primary), var(--primary));
+  --gradient-gold: linear-gradient(var(--tape), var(--tape));
+  --gradient-surface: linear-gradient(var(--card), var(--card));
 }
 
 :root {
-  --radius: 0.875rem;
-  /* Emerald Prestige — deep emerald + gold */
-  --background: oklch(0.985 0.012 95);
-  --foreground: oklch(0.22 0.04 165);
+  --radius: 0.375rem;
+  /* Profissional: cinza-azulado claro, azul-petróleo escuro, toque de latão */
+  --background: oklch(0.97 0.004 250);
+  --foreground: oklch(0.22 0.03 255);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.04 165);
+  --card-foreground: oklch(0.22 0.03 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.04 165);
-  --primary: oklch(0.36 0.07 165); /* deep emerald */
-  --primary-foreground: oklch(0.98 0.015 95);
-  --secondary: oklch(0.94 0.02 90);
-  --secondary-foreground: oklch(0.3 0.05 165);
-  --muted: oklch(0.95 0.015 95);
-  --muted-foreground: oklch(0.5 0.025 150);
-  --accent: oklch(0.78 0.13 88); /* gold */
-  --accent-foreground: oklch(0.22 0.04 70);
-  --destructive: oklch(0.58 0.22 27);
+  --popover-foreground: oklch(0.22 0.03 255);
+  --primary: oklch(0.37 0.08 255); /* azul-petróleo */
+  --primary-foreground: oklch(0.99 0.003 250);
+  --secondary: oklch(0.945 0.006 250);
+  --secondary-foreground: oklch(0.28 0.04 255);
+  --muted: oklch(0.955 0.005 250);
+  --muted-foreground: oklch(0.5 0.02 255);
+  --accent: oklch(0.94 0.01 250);
+  --accent-foreground: oklch(0.25 0.04 255);
+  --destructive: oklch(0.55 0.19 27);
   --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.6 0.13 155);
+  --success: oklch(0.5 0.11 155);
   --success-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.78 0.14 80);
-  --warning-foreground: oklch(0.25 0.04 60);
-  --border: oklch(0.9 0.018 140);
-  --input: oklch(0.93 0.014 140);
-  --ring: oklch(0.48 0.1 162);
+  --warning: oklch(0.7 0.14 70);
+  --warning-foreground: oklch(0.22 0.04 60);
+  --tape: oklch(0.8 0.1 85); /* latão discreto */
+  --tape-foreground: oklch(0.22 0.04 70);
+  --ink: oklch(0.2 0.03 255); /* menu lateral */
+  --ink-foreground: oklch(0.96 0.005 250);
+  --border: oklch(0.905 0.006 250);
+  --input: oklch(0.83 0.01 250);
+  --ring: oklch(0.5 0.12 255);
 }
 
 .dark {
-  --background: oklch(0.18 0.025 170);
-  --foreground: oklch(0.96 0.015 90);
-  --card: oklch(0.23 0.03 168);
-  --card-foreground: oklch(0.96 0.015 90);
-  --popover: oklch(0.23 0.03 168);
-  --popover-foreground: oklch(0.96 0.015 90);
-  --primary: oklch(0.62 0.12 162);
-  --primary-foreground: oklch(0.18 0.025 170);
-  --secondary: oklch(0.3 0.04 168);
-  --secondary-foreground: oklch(0.96 0.015 90);
-  --muted: oklch(0.28 0.03 165);
-  --muted-foreground: oklch(0.74 0.02 130);
-  --accent: oklch(0.82 0.13 88);
-  --accent-foreground: oklch(0.2 0.03 70);
-  --destructive: oklch(0.7 0.19 25);
+  --background: oklch(0.18 0.02 255);
+  --foreground: oklch(0.95 0.005 250);
+  --card: oklch(0.22 0.025 255);
+  --card-foreground: oklch(0.95 0.005 250);
+  --popover: oklch(0.22 0.025 255);
+  --popover-foreground: oklch(0.95 0.005 250);
+  --primary: oklch(0.72 0.1 250);
+  --primary-foreground: oklch(0.18 0.02 255);
+  --secondary: oklch(0.28 0.03 255);
+  --secondary-foreground: oklch(0.95 0.005 250);
+  --muted: oklch(0.27 0.025 255);
+  --muted-foreground: oklch(0.73 0.02 250);
+  --accent: oklch(0.3 0.035 255);
+  --accent-foreground: oklch(0.95 0.005 250);
+  --destructive: oklch(0.7 0.18 26);
   --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.72 0.13 150);
-  --success-foreground: oklch(0.18 0.025 170);
-  --warning: oklch(0.8 0.15 80);
-  --warning-foreground: oklch(0.2 0.03 60);
+  --success: oklch(0.72 0.12 155);
+  --success-foreground: oklch(0.18 0.02 255);
+  --warning: oklch(0.78 0.14 72);
+  --warning-foreground: oklch(0.2 0.04 60);
+  --tape: oklch(0.8 0.1 85);
+  --tape-foreground: oklch(0.2 0.04 70);
+  --ink: oklch(0.14 0.02 255);
+  --ink-foreground: oklch(0.95 0.005 250);
   --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.62 0.12 162);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.72 0.1 250);
 }
 
 @layer base {
@@ -103,16 +117,15 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "ss01", "cv11";
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
     font-weight: 600;
   }
-  h1 { font-weight: 700; }
 }
 
 @utility surface-elevated {
@@ -128,5 +141,21 @@
 
 @utility gradient-gold {
   background-image: var(--gradient-gold);
-  color: var(--accent-foreground);
+  color: var(--tape-foreground);
+}
+
+/* Selo em latão: usado com moderação, só em avisos */
+@utility tape {
+  background-color: var(--color-tape);
+  color: var(--color-tape-foreground);
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+/* Nome da marca, escrito em letra com serifa */
+@utility wordmark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
 }

@@ -1,3 +1,4 @@
+import { Logo } from "@/components/Logo";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -6,7 +7,7 @@ import { getInventoryByToken, submitInventoryCount } from "@/lib/inventory.funct
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ChefHat, CheckCircle2, ChevronRight, ArrowLeft, Circle } from "lucide-react";
+import { CheckCircle2, ChevronRight, ArrowLeft, Circle } from "lucide-react";
 
 export const Route = createFileRoute("/count/$token")({ component: CountPage });
 
@@ -122,9 +123,7 @@ function CountPage() {
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ChefHat className="h-4 w-4" />
-          </div>
+          <Logo size={30} />
           <div>
             <div className="text-xs text-muted-foreground">{data.restaurantName}</div>
             <div className="font-display text-lg leading-none">

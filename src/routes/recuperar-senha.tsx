@@ -1,10 +1,10 @@
+import { Logo } from "@/components/Logo";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChefHat } from "lucide-react";
 
 export const Route = createFileRoute("/recuperar-senha")({
   component: RecuperarSenhaPage,
@@ -29,10 +29,7 @@ function RecuperarSenhaPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <Link to="/" className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ChefHat className="h-5 w-5" />
-          </div>
-          <span className="font-display text-xl">Mise</span>
+          <Logo size={44} />
         </Link>
         <div className="rounded-2xl border bg-card p-8 shadow-[var(--shadow-card)]">
           <h1 className="font-display text-2xl">Recuperar senha</h1>

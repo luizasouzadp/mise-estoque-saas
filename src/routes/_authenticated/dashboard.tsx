@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, AlertTriangle, Receipt, Plus, Wallet, PackageX } from "lucide-react";
+import { Package, AlertTriangle, Receipt, Plus, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserSettings } from "@/components/UserSettings";
 
@@ -38,20 +38,31 @@ function Dashboard() {
   const alerts = [...(data?.outOfStock ?? []), ...(data?.lowStock ?? [])];
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl">Olá, chef 👋</h1>
-          <p className="text-sm text-muted-foreground">Resumo da sua operação.</p>
+    <div>
+      <div className="bg-primary text-primary-foreground">
+        <div className="mx-auto max-w-6xl px-4 pb-20 pt-6 md:px-8 md:pb-24 md:pt-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-display text-3xl">Painel</h1>
+              <p className="text-sm text-primary-foreground/70">Resumo da sua operação.</p>
+            </div>
+            <Button asChild variant="secondary" className="hidden md:inline-flex">
+              <Link to="/purchases/new"><Plus className="mr-2 h-4 w-4" /> Nova compra</Link>
+            </Button>
+          </div>
+          <div className="mt-8">
+            <p className="text-sm text-primary-foreground/70">Valor em estoque</p>
+            <div className="mt-1 font-display text-6xl font-medium leading-none md:text-7xl">
+              {isLoading ? "—" : formatBRL(data?.stockValue ?? 0)}
+            </div>
+            <div className="mt-4 h-0.5 w-12 bg-tape" />
+          </div>
         </div>
-        <Button asChild className="hidden md:inline-flex">
-          <Link to="/purchases/new"><Plus className="mr-2 h-4 w-4" /> Nova compra</Link>
-        </Button>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto -mt-10 max-w-6xl px-4 pb-8 md:px-8">
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatCard icon={Package} label="Insumos cadastrados" value={isLoading ? "—" : String(data?.ingredients.length ?? 0)} accent="primary" />
-        <StatCard icon={Wallet} label="Valor em estoque" value={isLoading ? "—" : formatBRL(data?.stockValue ?? 0)} accent="accent" />
         <StatCard icon={AlertTriangle} label="Estoque baixo" value={isLoading ? "—" : String(data?.lowStock.length ?? 0)} accent="warning" />
         <StatCard icon={PackageX} label="Sem estoque" value={isLoading ? "—" : String(data?.outOfStock.length ?? 0)} accent="danger" />
       </div>
@@ -66,7 +77,7 @@ function Dashboard() {
                 <li key={i.id} className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-2">
                     <span>{i.name}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${out ? "bg-destructive/15 text-destructive" : "bg-[color:var(--color-warning)]/15 text-[color:var(--color-warning)]"}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${out ? "bg-destructive/10 text-destructive" : "bg-warning/15 text-warning-foreground"}`}>
                       {out ? "sem estoque" : "baixo"}
                     </span>
                   </div>
@@ -88,25 +99,25 @@ function Dashboard() {
       <div className="mt-8">
         <UserSettings />
       </div>
+      </div>
     </div>
-
   );
 }
 
 
 function StatCard({ icon: Icon, label, value, accent }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; accent: "primary" | "warning" | "accent" | "danger" }) {
-  const bg =
-    accent === "primary" ? "bg-primary/10 text-primary"
-    : accent === "warning" ? "bg-[color:var(--color-warning)]/15 text-[color:var(--color-warning)]"
-    : accent === "danger" ? "bg-destructive/15 text-destructive"
-    : "bg-accent/15 text-accent";
+  // Só o número muda de cor quando pede atenção; o resto do cartão fica neutro
+  const tone =
+    accent === "warning" ? "text-warning"
+    : accent === "danger" ? "text-destructive"
+    : "text-foreground";
   return (
-    <div className="rounded-xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${bg}`}><Icon className="h-4 w-4" /></span>
+    <div className="rounded-lg border bg-card p-5 shadow-[var(--shadow-soft)]">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span className="text-sm">{label}</span>
+        <Icon className="h-4 w-4" />
       </div>
-      <div className="mt-3 font-display text-3xl">{value}</div>
+      <div className={`mt-3 font-display text-4xl font-medium leading-none ${tone}`}>{value}</div>
     </div>
   );
 }

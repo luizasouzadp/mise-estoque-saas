@@ -305,7 +305,7 @@ function PricingPage() {
                 className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                   cat.avgCmv > idealCmv
                     ? "bg-destructive/15 text-destructive"
-                    : "bg-green-500/15 text-green-600 dark:text-green-400"
+                    : "bg-success/15 text-success dark:text-success"
                 }`}
               >
                 {cat.avgCmv.toFixed(1)}%
@@ -429,7 +429,7 @@ function PricingPage() {
                             above
                               ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
                               : below
-                                ? "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400"
+                                ? "border-success/40 bg-success/10 text-success dark:text-success"
                                 : ""
                           }
                         >

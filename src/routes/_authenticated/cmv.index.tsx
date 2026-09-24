@@ -339,7 +339,7 @@ function CmvPage() {
                       <TableCell className="text-right">{BRL.format(Number(r.total_cost))}</TableCell>
                       <TableCell className="text-right">{BRL.format(Number(r.revenue))}</TableCell>
                       <TableCell className="text-right">
-                        <Badge variant={bad ? "destructive" : "default"} className={bad ? "" : "bg-emerald-600 hover:bg-emerald-600"}>
+                        <Badge variant={bad ? "destructive" : "default"} className={bad ? "" : "bg-success hover:bg-success"}>
                           {pct.toFixed(2)}%
                         </Badge>
                       </TableCell>
@@ -409,7 +409,7 @@ function Stat({
     highlight === "bad"
       ? "text-destructive"
       : highlight === "good"
-        ? "text-emerald-600"
+        ? "text-success"
         : "text-foreground";
   return (
     <div className="rounded-lg border p-3">
@@ -911,7 +911,7 @@ function TheoreticalCompareDialog({
             {realRevenue > 0 && theoreticalCost > 0 && (
               <div
                 className={`rounded-lg border p-3 text-sm ${
-                  diff > 0 ? "border-destructive/40 text-destructive" : "border-emerald-600/40 text-emerald-700"
+                  diff > 0 ? "border-destructive/40 text-destructive" : "border-success/40 text-success"
                 }`}
               >
                 Diferença: <strong>{diff > 0 ? "+" : ""}{diff.toFixed(2)} p.p.</strong>{" "}
@@ -1006,7 +1006,7 @@ function IngredientDiffsTable({
       <div className="flex items-baseline justify-between">
         <h3 className="font-medium text-sm">Saída real x teórica por insumo</h3>
         <span className="text-xs text-muted-foreground">
-          Impacto líquido: <strong className={totalCostDiff > 0 ? "text-destructive" : "text-emerald-700"}>{BRL.format(totalCostDiff)}</strong>
+          Impacto líquido: <strong className={totalCostDiff > 0 ? "text-destructive" : "text-success"}>{BRL.format(totalCostDiff)}</strong>
         </span>
       </div>
       <p className="text-xs text-muted-foreground">
@@ -1035,7 +1035,7 @@ function IngredientDiffsTable({
                 (r.pctDiff === null || Math.abs(r.pctDiff) >= 5);
               const bad = r.diff > 0;
               return (
-                <TableRow key={r.id} className={isFlagged ? (bad ? "bg-destructive/5" : "bg-emerald-500/5") : ""}>
+                <TableRow key={r.id} className={isFlagged ? (bad ? "bg-destructive/5" : "bg-success/5") : ""}>
                   <TableCell className="font-medium">{r.name}</TableCell>
                   <TableCell className="text-right">
                     {QTY_FMT.format(r.theoretical)} {r.unit}
@@ -1043,18 +1043,18 @@ function IngredientDiffsTable({
                   <TableCell className="text-right">
                     {QTY_FMT.format(r.real)} {r.unit}
                   </TableCell>
-                  <TableCell className={`text-right ${bad ? "text-destructive" : r.diff < 0 ? "text-emerald-700" : ""}`}>
+                  <TableCell className={`text-right ${bad ? "text-destructive" : r.diff < 0 ? "text-success" : ""}`}>
                     {r.diff > 0 ? "+" : ""}{QTY_FMT.format(r.diff)} {r.unit}
                   </TableCell>
                   <TableCell className="text-right">
                     {r.pctDiff === null ? "—" : `${r.pctDiff > 0 ? "+" : ""}${r.pctDiff.toFixed(1)}%`}
                   </TableCell>
-                  <TableCell className={`text-right ${r.costDiff > 0 ? "text-destructive" : r.costDiff < 0 ? "text-emerald-700" : ""}`}>
+                  <TableCell className={`text-right ${r.costDiff > 0 ? "text-destructive" : r.costDiff < 0 ? "text-success" : ""}`}>
                     {r.costDiff > 0 ? "+" : ""}{BRL.format(r.costDiff)}
                   </TableCell>
                   <TableCell className="text-right">
                     {isFlagged && (
-                      <Badge variant={bad ? "destructive" : "default"} className={bad ? "" : "bg-emerald-600 hover:bg-emerald-600"}>
+                      <Badge variant={bad ? "destructive" : "default"} className={bad ? "" : "bg-success hover:bg-success"}>
                         {bad ? "Furo" : "Sobra"}
                       </Badge>
                     )}

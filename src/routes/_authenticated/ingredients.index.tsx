@@ -695,7 +695,7 @@ function IngredientsList() {
                               <td className="py-1.5 px-2">{p.category ?? "—"}</td>
                               <td className="py-1.5 px-2">
                                 {!p.existingId ? (
-                                  <span className="text-emerald-700 dark:text-emerald-400">Novo insumo</span>
+                                  <span className="text-success dark:text-success">Novo insumo</span>
                                 ) : changed ? (
                                   <span>Estoque: {p.currentStock} → {p.stock}</span>
                                 ) : (

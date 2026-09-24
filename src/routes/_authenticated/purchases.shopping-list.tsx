@@ -237,7 +237,7 @@ function ShoppingListPage() {
         {projLoading ? (
           <div className="rounded-lg border p-6 text-sm text-muted-foreground">Calculando…</div>
         ) : alertRows.length === 0 ? (
-          <div className="rounded-lg border border-emerald-600/40 bg-emerald-50/40 p-6 text-sm text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 flex items-center gap-2">
+          <div className="rounded-lg border border-success/40 bg-success/10 p-6 text-sm text-success dark:bg-success/15 dark:text-success flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
             Nenhum insumo em risco no momento.
           </div>

@@ -611,7 +611,7 @@ function MenuAnalysisDetail() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
-          <QuadrantList title="Campeões" desc="Vende muito + alta margem" color="bg-green-500/15 text-green-700 dark:text-green-400" items={matrix.quadrants.champ} />
+          <QuadrantList title="Campeões" desc="Vende muito + alta margem" color="bg-success/15 text-success dark:text-success" items={matrix.quadrants.champ} />
           <QuadrantList title="Tesouros escondidos" desc="Vende pouco + alta margem" color="bg-blue-500/15 text-blue-700 dark:text-blue-400" items={matrix.quadrants.hidden} />
           <QuadrantList title="Queridinhos" desc="Vende muito + baixa margem" color="bg-amber-500/15 text-amber-700 dark:text-amber-400" items={matrix.quadrants.dog} />
           <QuadrantList title="Problemas" desc="Vende pouco + baixa margem" color="bg-red-500/15 text-red-700 dark:text-red-400" items={matrix.quadrants.problem} />
@@ -672,7 +672,7 @@ function CmvRealKpi({ reportId, theoretical }: { reportId: string; theoretical: 
   const num = Number(val.replace(",", "."));
   const valid = val !== "" && Number.isFinite(num);
   const diff = valid ? num - theoretical : 0;
-  const diffColor = !valid ? "" : diff > 0 ? "text-red-600" : diff < 0 ? "text-green-600" : "text-muted-foreground";
+  const diffColor = !valid ? "" : diff > 0 ? "text-red-600" : diff < 0 ? "text-success" : "text-muted-foreground";
   return (
     <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
       <div className="text-xs text-muted-foreground">CMV real (%)</div>
