@@ -32,15 +32,17 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-tape: var(--tape);
   --color-tape-foreground: var(--tape-foreground);
+  --color-hero: var(--hero);
+  --color-hero-foreground: var(--hero-foreground);
   --color-ink: var(--ink);
   --color-ink-foreground: var(--ink-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-display: "Newsreader", Georgia, serif;
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --shadow-soft: 0 1px 2px oklch(0.2 0.03 255 / 0.05);
-  --shadow-card: 0 6px 20px oklch(0.2 0.03 255 / 0.08);
+  --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.25);
+  --shadow-card: 0 10px 30px oklch(0 0 0 / 0.35);
   /* Sem degradês: as utilidades antigas viram cor sólida */
   --gradient-primary: linear-gradient(var(--primary), var(--primary));
   --gradient-gold: linear-gradient(var(--tape), var(--tape));
@@ -48,7 +50,9 @@
 }
 
 :root {
-  --radius: 0.375rem;
+  --radius: 0.5rem;
+  --hero: oklch(0.37 0.08 255);
+  --hero-foreground: oklch(0.99 0.003 250);
   /* Profissional: cinza-azulado claro, azul-petróleo escuro, toque de latão */
   --background: oklch(0.97 0.004 250);
   --foreground: oklch(0.22 0.03 255);
@@ -80,33 +84,37 @@
 }
 
 .dark {
-  --background: oklch(0.18 0.02 255);
-  --foreground: oklch(0.95 0.005 250);
-  --card: oklch(0.22 0.025 255);
-  --card-foreground: oklch(0.95 0.005 250);
-  --popover: oklch(0.22 0.025 255);
-  --popover-foreground: oklch(0.95 0.005 250);
-  --primary: oklch(0.72 0.1 250);
-  --primary-foreground: oklch(0.18 0.02 255);
-  --secondary: oklch(0.28 0.03 255);
-  --secondary-foreground: oklch(0.95 0.005 250);
-  --muted: oklch(0.27 0.025 255);
-  --muted-foreground: oklch(0.73 0.02 250);
-  --accent: oklch(0.3 0.035 255);
-  --accent-foreground: oklch(0.95 0.005 250);
-  --destructive: oklch(0.7 0.18 26);
+  color-scheme: dark;
+  /* Azul-noite: fundo escuro, cartões um degrau mais claros, azul vivo e latão */
+  --background: oklch(0.2 0.032 262);
+  --foreground: oklch(0.96 0.006 250);
+  --card: oklch(0.25 0.036 262);
+  --card-foreground: oklch(0.96 0.006 250);
+  --popover: oklch(0.27 0.038 262);
+  --popover-foreground: oklch(0.96 0.006 250);
+  --primary: oklch(0.7 0.14 255);
+  --primary-foreground: oklch(0.16 0.03 262);
+  --secondary: oklch(0.31 0.045 262);
+  --secondary-foreground: oklch(0.96 0.006 250);
+  --muted: oklch(0.28 0.038 262);
+  --muted-foreground: oklch(0.75 0.025 255);
+  --accent: oklch(0.32 0.05 262);
+  --accent-foreground: oklch(0.96 0.006 250);
+  --destructive: oklch(0.7 0.19 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.72 0.12 155);
-  --success-foreground: oklch(0.18 0.02 255);
-  --warning: oklch(0.78 0.14 72);
-  --warning-foreground: oklch(0.2 0.04 60);
-  --tape: oklch(0.8 0.1 85);
+  --success: oklch(0.75 0.14 155);
+  --success-foreground: oklch(0.16 0.03 262);
+  --warning: oklch(0.82 0.15 78);
+  --warning-foreground: oklch(0.9 0.08 85);
+  --tape: oklch(0.83 0.11 85);
   --tape-foreground: oklch(0.2 0.04 70);
-  --ink: oklch(0.14 0.02 255);
-  --ink-foreground: oklch(0.95 0.005 250);
-  --border: oklch(1 0 0 / 12%);
+  --hero: oklch(0.42 0.15 262);
+  --hero-foreground: oklch(0.99 0.003 250);
+  --ink: oklch(0.15 0.026 262);
+  --ink-foreground: oklch(0.96 0.006 250);
+  --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.72 0.1 250);
+  --ring: oklch(0.7 0.14 255);
 }
 
 @layer base {
@@ -123,8 +131,8 @@
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
-    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-weight: 700;
   }
 }
 
@@ -152,10 +160,10 @@
   font-weight: 600;
 }
 
-/* Nome da marca, escrito em letra com serifa */
+/* Nome da marca */
 @utility wordmark {
   font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   line-height: 1;
 }

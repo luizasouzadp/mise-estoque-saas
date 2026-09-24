@@ -39,23 +39,23 @@ function Dashboard() {
 
   return (
     <div>
-      <div className="bg-primary text-primary-foreground">
-        <div className="mx-auto max-w-6xl px-4 pb-20 pt-6 md:px-8 md:pb-24 md:pt-8">
+      <div className="bg-hero text-hero-foreground">
+        <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-8 md:pb-20 md:pt-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-display text-3xl">Painel</h1>
-              <p className="text-sm text-primary-foreground/70">Resumo da sua operação.</p>
+              <h1 className="font-display text-2xl md:text-3xl">Painel</h1>
+              <p className="text-sm text-hero-foreground/70">Resumo da sua operação.</p>
             </div>
-            <Button asChild variant="secondary" className="hidden md:inline-flex">
+            <Button asChild className="hidden bg-white text-[oklch(0.25_0.06_262)] hover:bg-white/90 md:inline-flex">
               <Link to="/purchases/new"><Plus className="mr-2 h-4 w-4" /> Nova compra</Link>
             </Button>
           </div>
-          <div className="mt-8">
-            <p className="text-sm text-primary-foreground/70">Valor em estoque</p>
-            <div className="mt-1 font-display text-6xl font-medium leading-none md:text-7xl">
+          <div className="mt-6">
+            <p className="text-sm text-hero-foreground/70">Valor em estoque</p>
+            <div className="mt-1 font-display text-3xl font-bold tracking-tight md:text-4xl">
               {isLoading ? "—" : formatBRL(data?.stockValue ?? 0)}
             </div>
-            <div className="mt-4 h-0.5 w-12 bg-tape" />
+            <div className="mt-3 h-0.5 w-10 bg-tape" />
           </div>
         </div>
       </div>
@@ -117,7 +117,7 @@ function StatCard({ icon: Icon, label, value, accent }: { icon: React.ComponentT
         <span className="text-sm">{label}</span>
         <Icon className="h-4 w-4" />
       </div>
-      <div className={`mt-3 font-display text-4xl font-medium leading-none ${tone}`}>{value}</div>
+      <div className={`mt-3 font-display text-3xl font-bold leading-none tracking-tight ${tone}`}>{value}</div>
     </div>
   );
 }

@@ -470,6 +470,6 @@ function SummaryCard({ tone, label, count, desc }: { tone: "destructive" | "warn
 function StatusBadge({ status }: { status: ProjectedRow["status"] }) {
   if (status === "zerado") return <Badge variant="destructive">Zerado</Badge>;
   if (status === "abaixo_minimo") return <Badge variant="destructive">Abaixo do mínimo</Badge>;
-  if (status === "proximo_minimo") return <Badge variant="outline" className="text-amber-700 border-amber-500/60">Próximo</Badge>;
+  if (status === "proximo_minimo") return <Badge variant="outline" className="text-amber-700 dark:text-amber-400 border-amber-500/60">Próximo</Badge>;
   return <Badge variant="secondary">OK</Badge>;
 }
