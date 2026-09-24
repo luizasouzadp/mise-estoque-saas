@@ -35,7 +35,7 @@ import {
   History,
   X,
 } from "lucide-react";
-import { normalizeName } from "@/lib/utils";
+import { fmtStock, normalizeName } from "@/lib/utils";
 import { loadStockHistory, parseLocal, stockAt } from "@/lib/stock-history";
 
 export const Route = createFileRoute("/_authenticated/ingredients/")({
@@ -563,7 +563,7 @@ function IngredientsList() {
                   </div>
                   <div className="mt-4 flex items-end justify-between">
                     <div>
-                      <div className="font-display text-2xl">{cur.toFixed(2)}</div>
+                      <div className="font-display text-2xl">{fmtStock(cur)}</div>
                       <div className="text-xs text-muted-foreground">{i.unit} {min > 0 && <>· mín {min.toFixed(2)}</>}</div>
                     </div>
                     <div className="text-right text-xs text-muted-foreground">

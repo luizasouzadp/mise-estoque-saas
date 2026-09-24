@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Package, AlertTriangle, Receipt, Plus, Wallet, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserSettings } from "@/components/UserSettings";
+import { fmtStock } from "@/lib/utils";
 
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -72,7 +73,7 @@ function Dashboard() {
                     </span>
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    {Number(i.current_stock).toFixed(2)} {i.unit} (mín {Number(i.min_stock).toFixed(2)})
+                    {fmtStock(Number(i.current_stock))} {i.unit} (mín {Number(i.min_stock).toFixed(2)})
                   </span>
                 </li>
               );

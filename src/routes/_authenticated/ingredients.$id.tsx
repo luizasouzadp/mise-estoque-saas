@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, normalizeName } from "@/lib/utils";
+import { cn, fmtStock, normalizeName } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { convertIngredientUnit } from "@/lib/ingredient-unit.functions";
 
@@ -293,7 +293,7 @@ function IngredientDetail() {
   }
 
   function openAdjust() {
-    setAdjustValue(Number(data?.current_stock ?? 0).toFixed(3));
+    setAdjustValue(fmtStock(Number(data?.current_stock ?? 0), 3));
     setAdjustNotes("");
     setAdjustOpen(true);
   }
@@ -406,7 +406,7 @@ function IngredientDetail() {
           <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
             Estoque <Pencil className="h-3 w-3 opacity-60 group-hover:opacity-100" />
           </div>
-          <div className="mt-1 font-display text-lg">{currentStock.toFixed(3)} {data.unit}</div>
+          <div className="mt-1 font-display text-lg">{fmtStock(currentStock, 3)} {data.unit}</div>
         </button>
         <Stat label="Custo médio" value={`R$ ${Number(data.avg_cost).toFixed(2)}`} />
         <Stat label="Última compra" value={`R$ ${Number(data.last_cost).toFixed(2)}`} />
@@ -433,7 +433,7 @@ function IngredientDetail() {
                 autoFocus
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Atual: {currentStock.toFixed(3)} {data.unit}
+                Atual: {fmtStock(currentStock, 3)} {data.unit}
                 {adjustValue !== "" && isFinite(Number(String(adjustValue).replace(",", "."))) && (
                   <> · Diferença: {(Number(String(adjustValue).replace(",", ".")) - currentStock).toFixed(3)} {data.unit}</>
                 )}
