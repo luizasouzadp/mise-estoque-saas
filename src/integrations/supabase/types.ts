@@ -1178,6 +1178,7 @@ export type Database = {
           created_at: string
           id: string
           ideal_cmv: number
+          internal_code: string
           name: string
           status: string
         }
@@ -1185,6 +1186,7 @@ export type Database = {
           created_at?: string
           id?: string
           ideal_cmv?: number
+          internal_code?: string
           name: string
           status?: string
         }
@@ -1192,6 +1194,7 @@ export type Database = {
           created_at?: string
           id?: string
           ideal_cmv?: number
+          internal_code?: string
           name?: string
           status?: string
         }

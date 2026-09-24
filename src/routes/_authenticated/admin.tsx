@@ -6,7 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { listRestaurants, setRestaurantStatus, createRestaurantClient } from "@/lib/admin.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Pencil, LogIn } from "lucide-react";
+import { listRestaurants, setRestaurantStatus, createRestaurantClient, renameRestaurant, impersonateRestaurant } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
@@ -23,7 +31,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Restaurant = { id: string; name: string; status: string };
+type Restaurant = { id: string; name: string; status: string; internal_code: string; ownerEmails: string[] };
 
 function AdminPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -33,10 +41,27 @@ function AdminPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Restaurant | null>(null);
+  const [editName, setEditName] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [search, setSearch] = useState("");
+  const [accessingId, setAccessingId] = useState<string | null>(null);
 
   const listFn = useServerFn(listRestaurants);
   const statusFn = useServerFn(setRestaurantStatus);
   const createFn = useServerFn(createRestaurantClient);
+  const renameFn = useServerFn(renameRestaurant);
+  const impersonateFn = useServerFn(impersonateRestaurant);
+
+  const filteredRestaurants = restaurants.filter((r) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      r.name.toLowerCase().includes(term) ||
+      r.internal_code.toLowerCase().includes(term) ||
+      r.ownerEmails.some((e) => e.toLowerCase().includes(term))
+    );
+  });
 
   async function refresh() {
     setLoading(true);
@@ -65,6 +90,42 @@ function AdminPage() {
     }
   }
 
+  function openEdit(r: Restaurant) {
+    setEditing(r);
+    setEditName(r.name);
+  }
+
+  async function saveRename(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    const name = editName.trim();
+    if (!name) return toast.error("Informe o nome do restaurante.");
+    setRenaming(true);
+    try {
+      await renameFn({ data: { restaurantId: editing.id, name } });
+      toast.success("Nome atualizado.");
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar nome");
+    } finally {
+      setRenaming(false);
+    }
+  }
+
+  async function accessAsRestaurant(r: Restaurant) {
+    if (!confirm(`Acessar a conta de "${r.name}"? Sua sessão de administradora nesta aba será substituída pela sessão do restaurante.`)) return;
+    setAccessingId(r.id);
+    try {
+      const { actionLink } = await impersonateFn({ data: { restaurantId: r.id, origin: window.location.origin } });
+      window.location.href = actionLink;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao acessar restaurante");
+    } finally {
+      setAccessingId(null);
+    }
+  }
+
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
@@ -89,30 +150,64 @@ function AdminPage() {
 
       <div className="rounded-xl border bg-card p-5">
         <h2 className="text-lg font-semibold">Restaurantes cadastrados</h2>
+        <Input
+          className="mt-3"
+          placeholder="Buscar por nome, código ou e-mail"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         {loading ? (
           <p className="mt-3 text-sm text-muted-foreground">Carregando...</p>
-        ) : restaurants.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">Nenhum restaurante cadastrado.</p>
+        ) : filteredRestaurants.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">Nenhum restaurante encontrado.</p>
         ) : (
           <div className="mt-3 space-y-2">
-            {restaurants.map((r) => (
+            {filteredRestaurants.map((r) => (
               <div key={r.id} className="flex items-center justify-between rounded-md border p-3">
                 <div>
                   <div className="font-medium">{r.name}</div>
-                  <div className="text-xs text-muted-foreground">{r.status}</div>
+                  <div className="text-xs text-muted-foreground">{r.status} · código {r.internal_code}</div>
+                  {r.ownerEmails.length > 0 && (
+                    <div className="text-xs text-muted-foreground">{r.ownerEmails.join(", ")}</div>
+                  )}
                 </div>
-                <Button
-                  size="sm"
-                  variant={r.status === "ativo" ? "destructive" : "default"}
-                  onClick={() => toggleStatus(r)}
-                >
-                  {r.status === "ativo" ? "Bloquear" : "Ativar"}
-                </Button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => accessAsRestaurant(r)} disabled={accessingId === r.id}>
+                    <LogIn className="mr-1 h-4 w-4" /> Acessar como este restaurante
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
+                    <Pencil className="mr-1 h-4 w-4" /> Editar nome
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={r.status === "ativo" ? "destructive" : "default"}
+                    onClick={() => toggleStatus(r)}
+                  >
+                    {r.status === "ativo" ? "Bloquear" : "Ativar"}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar nome do restaurante</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={saveRename} className="space-y-3">
+            <div>
+              <Label htmlFor="editName">Nome do restaurante</Label>
+              <Input id="editName" required value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={renaming}>{renaming ? "Salvando..." : "Salvar"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <form onSubmit={submitCreate} className="space-y-3 rounded-xl border bg-card p-5">
         <h2 className="text-lg font-semibold">Cadastrar novo restaurante-cliente</h2>

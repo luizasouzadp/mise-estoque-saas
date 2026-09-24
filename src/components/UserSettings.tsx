@@ -271,11 +271,32 @@ function ContactsManager() {
   );
 }
 
+function RestaurantCodeCard() {
+  const { data: code } = useQuery({
+    queryKey: ["restaurant-internal-code"],
+    queryFn: async () => {
+      const restaurantId = await getMyRestaurantId();
+      if (!restaurantId) return null;
+      const { data } = await supabase.from("restaurants").select("internal_code").eq("id", restaurantId).maybeSingle();
+      return data?.internal_code ?? null;
+    },
+  });
+  if (!code) return null;
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+      <p className="text-sm text-muted-foreground">Código do restaurante (informe este código se precisar de suporte)</p>
+      <p className="mt-1 font-mono text-lg font-semibold">{code}</p>
+    </div>
+  );
+}
+
 export function UserSettings() {
   const { isChef, isReceiver, loading } = useUserRoles();
   if (loading || isChef || isReceiver) return null;
 
   return (
+    <div className="space-y-4">
+    <RestaurantCodeCard />
     <div className="rounded-xl border bg-card p-5 shadow-[var(--shadow-soft)]">
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <Users className="h-5 w-5 text-primary" /> Configurações de usuários
@@ -293,6 +314,7 @@ export function UserSettings() {
         <TabsContent value="receiver" className="mt-4"><PeopleManager role="receiver" /></TabsContent>
         <TabsContent value="contacts" className="mt-4"><ContactsManager /></TabsContent>
       </Tabs>
+    </div>
     </div>
   );
 }
