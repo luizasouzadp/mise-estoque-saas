@@ -274,25 +274,27 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
   }
 
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)] space-y-3">
-      <div>
-        <p className="font-medium">{supplier.name}</p>
+    <div className="overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-soft)]">
+      <div className="bg-[oklch(0.32_0.09_262)] px-4 py-3 text-white">
+        <p className="font-display text-lg font-bold leading-tight">{supplier.name}</p>
         {(supplier.contact_name || supplier.phone) && (
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-white/75">
             {[supplier.contact_name, supplier.phone].filter(Boolean).join(" · ")}
           </p>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-        <p><span className="text-foreground">Dias de pedido:</span> {dowLabels(supplier.order_days)}</p>
-        <p><span className="text-foreground">Dias de entrega:</span> {dowLabels(supplier.delivery_days)}</p>
-        <p><span className="text-foreground">Prazo de entrega:</span> {supplier.lead_time_days != null ? `${supplier.lead_time_days} dias` : "Não definido"}</p>
-        <p><span className="text-foreground">Pedido mínimo:</span> {supplier.min_order_value != null ? `R$ ${supplier.min_order_value}` : "Não definido"}</p>
-      </div>
-      {supplier.notes && <p className="text-sm text-muted-foreground">{supplier.notes}</p>}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={openEdit}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
-        <Button variant="ghost" size="icon" onClick={remove} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+      <div className="space-y-3 p-4">
+        <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+          <p><span className="text-foreground">Dias de pedido:</span> {dowLabels(supplier.order_days)}</p>
+          <p><span className="text-foreground">Dias de entrega:</span> {dowLabels(supplier.delivery_days)}</p>
+          <p><span className="text-foreground">Prazo de entrega:</span> {supplier.lead_time_days != null ? `${supplier.lead_time_days} dias` : "Não definido"}</p>
+          <p><span className="text-foreground">Pedido mínimo:</span> {supplier.min_order_value != null ? `R$ ${supplier.min_order_value}` : "Não definido"}</p>
+        </div>
+        {supplier.notes && <p className="text-sm text-muted-foreground">{supplier.notes}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={openEdit}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
+          <Button variant="ghost" size="icon" onClick={remove} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+        </div>
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
