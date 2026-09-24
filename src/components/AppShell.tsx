@@ -88,7 +88,7 @@ export function AppShell() {
       {/* Mobile header */}
       <header className="flex h-14 items-center justify-between bg-ink px-4 text-ink-foreground md:hidden">
         <Logo tone="dark" size={28} />
-        <Button variant="ghost" size="icon" className="hover:bg-white/10 hover:text-ink-foreground" onClick={logout} aria-label="Sair">
+        <Button variant="ghost" size="icon" className="text-ink-foreground/80 hover:bg-white/10 hover:text-ink-foreground" onClick={logout} aria-label="Sair">
           <LogOut className="h-4 w-4" />
         </Button>
       </header>
