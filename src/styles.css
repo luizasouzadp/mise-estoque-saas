@@ -167,3 +167,22 @@
   letter-spacing: -0.03em;
   line-height: 1;
 }
+
+/* Campos de data e hora: no celular não podem passar da largura da caixa */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"] {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 767px) {
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.25rem;
+  }
+}

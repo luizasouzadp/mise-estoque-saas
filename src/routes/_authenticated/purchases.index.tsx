@@ -390,11 +390,11 @@ function PurchasesList() {
                 </datalist>
               </div>
             </div>
-            <div className="grid gap-2 md:w-44">
+            <div className="grid min-w-0 gap-2 md:w-44">
               <Label htmlFor="date-from">De</Label>
               <Input id="date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
             </div>
-            <div className="grid gap-2 md:w-44">
+            <div className="grid min-w-0 gap-2 md:w-44">
               <Label htmlFor="date-to">Até</Label>
               <Input id="date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>

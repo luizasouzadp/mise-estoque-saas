@@ -709,11 +709,11 @@ function ProductionsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
+          <div className="min-w-0">
             <Label className="text-xs">De</Label>
             <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
           </div>
-          <div>
+          <div className="min-w-0">
             <Label className="text-xs">Até</Label>
             <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
           </div>
