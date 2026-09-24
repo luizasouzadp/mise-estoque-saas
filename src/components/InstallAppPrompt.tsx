@@ -53,7 +53,7 @@ export function InstallAppPrompt() {
   if (!deferred && !showIosHint) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-24 z-[60] rounded-xl border bg-card p-4 shadow-[var(--shadow-card)] md:inset-x-auto md:right-6 md:bottom-6 md:w-96">
+    <div className="fixed inset-x-3 bottom-4 z-[60] rounded-xl border bg-card p-4 shadow-[var(--shadow-card)] md:inset-x-auto md:right-6 md:bottom-6 md:w-96">
       <button
         onClick={close}
         aria-label="Fechar"
