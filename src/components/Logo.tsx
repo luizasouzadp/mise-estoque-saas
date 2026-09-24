@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
  * Logotipo do Mise: cloche (cúpula de prato) com base dourada.
  * tone="light" para fundos claros, tone="dark" para fundos escuros ou azuis.
  */
-export function LogoMark({ tone = "dark", size = 32, className }: { tone?: "light" | "dark"; size?: number; className?: string }) {
+export function LogoMark({ tone = "light", size = 32, className }: { tone?: "light" | "dark"; size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" className={className}>
       <circle cx="32" cy="12.5" r="3.4" className="fill-tape" />
@@ -25,7 +25,7 @@ export function LogoMark({ tone = "dark", size = 32, className }: { tone?: "ligh
 }
 
 export function Logo({
-  tone = "dark",
+  tone = "light",
   size = 32,
   className,
   nameClassName,

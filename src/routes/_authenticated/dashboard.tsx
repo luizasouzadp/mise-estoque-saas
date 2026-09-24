@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, AlertTriangle, Receipt, Plus, PackageX } from "lucide-react";
+import { Package, AlertTriangle, Receipt, Plus, Wallet, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserSettings } from "@/components/UserSettings";
 
@@ -39,30 +39,20 @@ function Dashboard() {
 
   return (
     <div>
-      <div className="bg-hero text-hero-foreground">
-        <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-8 md:pb-20 md:pt-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="font-display text-2xl md:text-3xl">Painel</h1>
-              <p className="text-sm text-hero-foreground/70">Resumo da sua operação.</p>
-            </div>
-            <Button asChild className="hidden bg-white text-[oklch(0.25_0.06_262)] hover:bg-white/90 md:inline-flex">
-              <Link to="/purchases/new"><Plus className="mr-2 h-4 w-4" /> Nova compra</Link>
-            </Button>
-          </div>
-          <div className="mt-6">
-            <p className="text-sm text-hero-foreground/70">Valor em estoque</p>
-            <div className="mt-1 font-display text-3xl font-bold tracking-tight md:text-4xl">
-              {isLoading ? "—" : formatBRL(data?.stockValue ?? 0)}
-            </div>
-            <div className="mt-3 h-0.5 w-10 bg-tape" />
-          </div>
+      <div className="mx-auto max-w-6xl p-4 md:p-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl">Painel</h1>
+          <p className="text-sm text-muted-foreground">Resumo da sua operação.</p>
         </div>
+        <Button asChild className="hidden md:inline-flex">
+          <Link to="/purchases/new"><Plus className="mr-2 h-4 w-4" /> Nova compra</Link>
+        </Button>
       </div>
 
-      <div className="mx-auto -mt-10 max-w-6xl px-4 pb-8 md:px-8">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Package} label="Insumos cadastrados" value={isLoading ? "—" : String(data?.ingredients.length ?? 0)} accent="primary" />
+        <StatCard icon={Wallet} label="Valor em estoque" value={isLoading ? "—" : formatBRL(data?.stockValue ?? 0)} accent="primary" />
         <StatCard icon={AlertTriangle} label="Estoque baixo" value={isLoading ? "—" : String(data?.lowStock.length ?? 0)} accent="warning" />
         <StatCard icon={PackageX} label="Sem estoque" value={isLoading ? "—" : String(data?.outOfStock.length ?? 0)} accent="danger" />
       </div>
