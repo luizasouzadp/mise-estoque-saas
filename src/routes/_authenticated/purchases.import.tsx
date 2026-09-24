@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, AlertCircle, ZoomIn, Plus, Pencil } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { fileToCompressedDataUrl } from "@/lib/image-compress";
 import {
   parseInvoiceImage,
   suggestIngredientMatches,
@@ -168,7 +169,7 @@ function ImportPurchase() {
   const parseMut = useMutation({
     mutationFn: async () => {
       if (!files.length) throw new Error("Escolha ao menos uma foto da nota.");
-      const dataUrls = await Promise.all(files.map(fileToDataUrl));
+      const dataUrls = await Promise.all(files.map(fileToCompressedDataUrl));
       const parsed = await parseFn({ data: { imageDataUrls: dataUrls } });
       const suggested = await suggestFn({
         data: { raw_texts: parsed.items.map((i) => i.raw_text) },

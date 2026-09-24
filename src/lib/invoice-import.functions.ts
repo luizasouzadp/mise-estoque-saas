@@ -18,7 +18,8 @@ const ParsedInvoice = z.object({
   items: z.array(ItemSchema),
 });
 
-const GEMINI_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
+// Primeiro o modelo rápido e sabidamente disponível; os demais são reserva.
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const PROMPT = `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
@@ -105,20 +106,24 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
 
     const parts = [{ text: PROMPT }, ...urls.map(dataUrlToInlinePart)];
 
-    const requestBody = JSON.stringify({
-      contents: [{ role: "user", parts }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-      },
-    });
+    const buildBody = (model: string) =>
+      JSON.stringify({
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+          // Sem "pensar" longamente: a leitura da nota é uma tarefa direta e isso acelera muito.
+          ...(model === "gemini-2.5-flash" ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
+      });
 
     let res: Response | null = null;
     let lastBody = "";
-    // Tenta cada modelo, com retentativas em sobrecarga (429/5xx).
+    // Tenta cada modelo; em sobrecarga (5xx) repete uma vez, em limite (429) passa logo ao próximo.
     outer: for (const model of GEMINI_MODELS) {
-      for (let attempt = 0; attempt < 3; attempt++) {
+      const requestBody = buildBody(model);
+      for (let attempt = 0; attempt < 2; attempt++) {
         try {
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -133,16 +138,15 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
           );
         } catch {
           res = null;
-          await sleep(1500 * (attempt + 1));
+          await sleep(1000);
           continue;
         }
         if (res.ok) break outer;
         lastBody = await res.text().catch(() => "");
         console.error(`[Gemini/${model}] ${res.status}: ${lastBody.slice(0, 500)}`);
-        if (res.status === 404) break;
-        const retryable = res.status === 429 || res.status >= 500;
-        if (!retryable) break outer;
-        if (attempt < 2) await sleep(1500 * (attempt + 1));
+        if (res.status === 404 || res.status === 429) break;
+        if (res.status < 500) break outer;
+        if (attempt < 1) await sleep(1000);
       }
     }
 
