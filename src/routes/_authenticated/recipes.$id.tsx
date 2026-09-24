@@ -238,9 +238,13 @@ function RecipeDetail() {
 
   async function deleteRecipe() {
     if (!confirm("Excluir esta ficha técnica?")) return;
-    // Insumo espelho NÃO é removido aqui — só ao editar a ficha e marcar
-    // "Armazenada em estoque?" como "Não". Apenas desvincula a referência.
-    await supabase.from("ingredients").update({ source_recipe_id: null }).eq("source_recipe_id", id);
+    // Remove também o insumo espelho (pré-preparo), senão ele fica órfão no
+    // estoque e continua aparecendo como "sem estoque" no início.
+    const { error: mirrorErr } = await supabase.from("ingredients").delete().eq("source_recipe_id", id);
+    if (mirrorErr) {
+      // Insumo em uso em outro lugar (compras, outras fichas...): só desvincula.
+      await supabase.from("ingredients").update({ source_recipe_id: null }).eq("source_recipe_id", id);
+    }
     const { error } = await supabase.from("recipes").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Ficha excluída");
