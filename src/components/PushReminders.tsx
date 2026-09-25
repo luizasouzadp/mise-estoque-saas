@@ -157,11 +157,11 @@ export function PushReminders() {
   if (needsIosInstall) {
     return (
       <div className="rounded-lg border bg-muted/20 p-3 text-sm">
-        <p className="font-medium">Lembrete de dia de pedido</p>
+        <p className="font-medium">Avisos no celular</p>
         <p className="mt-1 text-xs text-muted-foreground">
           No iPhone, o Safari só permite notificações se o site for adicionado à tela de início primeiro:
           toque no ícone de compartilhar e depois em "Adicionar à Tela de Início". Depois, abra o app por esse
-          ícone (não pelo Safari normal) para ativar os lembretes.
+          ícone (não pelo Safari normal) para ativar os avisos.
         </p>
       </div>
     );
@@ -172,9 +172,9 @@ export function PushReminders() {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
       <div className="text-sm">
-        <p className="font-medium">Lembrete de dia de pedido</p>
+        <p className="font-medium">Avisos no celular</p>
         <p className="text-xs text-muted-foreground">
-          Ativa um aviso neste navegador nos dias marcados para pedir de cada fornecedor.
+          Ativa avisos neste aparelho: dia de pedido de cada fornecedor e, para o dono, nota nova aguardando entrada.
         </p>
       </div>
       <div className="flex gap-2">

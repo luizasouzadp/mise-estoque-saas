@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowLeft, PackageCheck, Send, Trash2, X, Pencil, Plus, CheckCircle2, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useUserRoles } from "@/hooks/use-roles";
+import { notifyNewInvoice } from "@/lib/push.functions";
 
 
 export const Route = createFileRoute("/_authenticated/purchases/orders")({
@@ -55,6 +57,7 @@ function formatBR(s: string | null | undefined) {
 
 function OrdersPage() {
   const qc = useQueryClient();
+  const notifyFn = useServerFn(notifyNewInvoice);
   const { isReceiver } = useUserRoles();
   const [looseOpen, setLooseOpen] = useState(false);
   const [looseSupplier, setLooseSupplier] = useState("");
@@ -349,6 +352,8 @@ function OrdersPage() {
         .in("id", ids);
       if (error) throw new Error(error.message);
 
+      // Avisa o dono no celular; se falhar, o recebimento já está salvo.
+      notifyFn({ data: { supplierName: receiveTarget.supplier === "Sem fornecedor" ? null : receiveTarget.supplier, receiptPath: uploadedPaths[0] } }).catch(() => {});
 
       toast.success("Recebimento registrado. Nota disponível em Compras.");
       setReceiveTarget(null);
@@ -410,15 +415,17 @@ function OrdersPage() {
         paths.push(path);
       }
       const { data: userRes } = await supabase.auth.getUser();
-      const { error } = await (supabase as any).from("pending_invoices").insert({
+      const { data: createdInv, error } = await (supabase as any).from("pending_invoices").insert({
         restaurant_id: restaurantId,
         supplier_name: looseSupplier.trim() || null,
         notes: looseNotes.trim() || null,
         image_paths: paths,
         status: "pending",
         created_by: userRes.user?.id ?? null,
-      });
+      }).select("id").single();
       if (error) throw new Error(error.message);
+      // Avisa o dono no celular; se falhar, a nota já está salva.
+      notifyFn({ data: { supplierName: looseSupplier.trim() || null, pendingInvoiceId: createdInv?.id } }).catch(() => {});
       toast.success("Nota enviada. Ficará pendente de entrada em Compras.");
       setLooseOpen(false);
       qc.invalidateQueries({ queryKey: ["pending-invoices"] });
