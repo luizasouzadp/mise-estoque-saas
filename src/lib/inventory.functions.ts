@@ -118,18 +118,21 @@ export const submitInventoryCount = createServerFn({ method: "POST" })
       .maybeSingle();
     if (restStatus?.status !== "ativo") throw new Error("Inventário indisponível");
 
-    const { data: items } = await supabaseAdmin
+    const { data: items, error: iErr } = await supabaseAdmin
       .from("inventory_items")
-      .select("id")
+      .select("id, inventory_id, ingredient_id, ingredient_name, unit")
       .eq("inventory_id", inv.id);
-    const validIds = new Set((items ?? []).map((i) => i.id));
+    if (iErr) throw new Error(iErr.message);
+    const itemMap = new Map((items ?? []).map((i) => [i.id, i]));
 
-    for (const c of data.counts) {
-      if (!validIds.has(c.itemId)) continue;
+    // Single bulk upsert: one update per item would exceed the Worker subrequest limit.
+    const rows = data.counts
+      .filter((c) => itemMap.has(c.itemId))
+      .map((c) => ({ ...itemMap.get(c.itemId)!, counted_qty: c.countedQty }));
+    if (rows.length > 0) {
       const { error: upErr } = await supabaseAdmin
         .from("inventory_items")
-        .update({ counted_qty: c.countedQty })
-        .eq("id", c.itemId);
+        .upsert(rows, { onConflict: "id" });
       if (upErr) throw new Error(upErr.message);
     }
     return { ok: true };
@@ -153,7 +156,7 @@ export const finalizeInventory = createServerFn({ method: "POST" })
 
     const { data: items, error: iErr } = await supabaseAdmin
       .from("inventory_items")
-      .select("id, ingredient_id, counted_qty")
+      .select("id, inventory_id, ingredient_id, ingredient_name, unit, expected_qty, counted_qty")
       .eq("inventory_id", data.inventoryId);
     if (iErr) throw new Error(iErr.message);
 
@@ -212,19 +215,17 @@ export const finalizeInventory = createServerFn({ method: "POST" })
 
     // Limpa todos os dados do link de inventário: zera contagens e
     // atualiza expected_qty para o estoque recém-calculado.
-    const { error: rErr } = await supabaseAdmin
-      .from("inventory_items")
-      .update({ counted_qty: null })
-      .eq("inventory_id", data.inventoryId);
-    if (rErr) throw new Error(rErr.message);
-
-    for (const [ingredientId, total] of totals) {
-      const { error: eqErr } = await supabaseAdmin
+    // Single bulk upsert to stay under the Worker subrequest limit.
+    const resetRows = (items ?? []).map(({ counted_qty: _c, ...it }) => ({
+      ...it,
+      counted_qty: null,
+      expected_qty: totals.get(it.ingredient_id) ?? it.expected_qty,
+    }));
+    if (resetRows.length > 0) {
+      const { error: rErr } = await supabaseAdmin
         .from("inventory_items")
-        .update({ expected_qty: total })
-        .eq("inventory_id", data.inventoryId)
-        .eq("ingredient_id", ingredientId);
-      if (eqErr) throw new Error(eqErr.message);
+        .upsert(resetRows, { onConflict: "id" });
+      if (rErr) throw new Error(rErr.message);
     }
 
     const { error: doneErr } = await supabaseAdmin
