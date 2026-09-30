@@ -163,15 +163,18 @@ function AdminPage() {
         ) : (
           <div className="mt-3 space-y-2">
             {filteredRestaurants.map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-md border p-3">
-                <div>
+              <div
+                key={r.id}
+                className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
                   <div className="font-medium">{r.name}</div>
                   <div className="text-xs text-muted-foreground">{r.status} · código {r.internal_code}</div>
                   {r.ownerEmails.length > 0 && (
-                    <div className="text-xs text-muted-foreground">{r.ownerEmails.join(", ")}</div>
+                    <div className="break-all text-xs text-muted-foreground">{r.ownerEmails.join(", ")}</div>
                   )}
                 </div>
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
                   <Button size="sm" variant="outline" onClick={() => accessAsRestaurant(r)} disabled={accessingId === r.id}>
                     <LogIn className="mr-1 h-4 w-4" /> Acessar como este restaurante
                   </Button>
