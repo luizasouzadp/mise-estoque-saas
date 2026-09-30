@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { recipeUnitCosts } from "@/lib/recipe-costs";
 
 const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -125,17 +126,23 @@ export const createSalesReport = createServerFn({ method: "POST" })
     };
     const lookup = new Map<string, Resolved>();
 
-    for (const r of recipes ?? []) {
+    // Only cost the recipes that actually appear in the report.
+    const reportCodes = new Set(data.rows.map((row) => row.product_code.trim()));
+    const soldRecipes = (recipes ?? []).filter((r) => reportCodes.has(String(r.product_code).trim()));
+    const costs = await recipeUnitCosts(
+      supabase,
+      soldRecipes.map((r) => r.id),
+    );
+    for (const r of soldRecipes) {
       const code = String(r.product_code).trim();
       if (!code) continue;
-      const { data: uc } = await supabase.rpc("recipe_unit_cost", { _recipe_id: r.id });
       lookup.set(code, {
         source: "recipe",
         id: r.id,
         name: r.name,
         category: r.menu_category,
         price: Number(r.current_price ?? 0),
-        cost: Number(uc ?? 0),
+        cost: costs.get(r.id) ?? 0,
       });
     }
     for (const p of (products as any[]) ?? []) {

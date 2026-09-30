@@ -2,6 +2,37 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyClient = any;
+type AnyRow = Record<string, any> & { id: string };
+
+// Reads every matching row (PostgREST caps each response at 1000 rows).
+async function fetchAllRows(
+  client: AnyClient,
+  table: string,
+  filter: (q: AnyClient) => AnyClient,
+): Promise<AnyRow[]> {
+  const out: AnyRow[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await filter(client.from(table).select("*"))
+      .order("id")
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if (!data || data.length < pageSize) return out;
+  }
+}
+
+// Writes full rows back by id. These tables have no BEFORE INSERT triggers, so
+// the conflict path fires the same triggers as a plain update.
+async function upsertRows(client: AnyClient, table: string, rows: AnyRow[]) {
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await client.from(table).upsert(rows.slice(i, i + 500), { onConflict: "id" });
+    if (error) throw new Error(error.message);
+  }
+}
+
 /**
  * Converts an ingredient to a new unit, applying `factor` such that
  * 1 oldUnit = `factor` newUnits. Quantities are multiplied, per-unit
@@ -50,60 +81,56 @@ export const convertIngredientUnit = createServerFn({ method: "POST" })
     const oldUnit = ing.unit;
     if (oldUnit === newUnit) return { ok: true, changed: false };
 
+    // Rows are read in full and written back with one bulk upsert per table:
+    // one update per row would exceed the Worker subrequest limit for
+    // ingredients with a long history.
+
     // 1) stock_movements: multiply quantity by factor, divide unit_cost
-    const { data: mvs } = await supabaseAdmin
-      .from("stock_movements")
-      .select("id, quantity, unit_cost")
-      .eq("ingredient_id", ingredientId);
-    for (const m of mvs ?? []) {
-      await supabaseAdmin
-        .from("stock_movements")
-        .update({
-          quantity: Number(m.quantity) * factor,
-          unit_cost: m.unit_cost == null ? null : Number(m.unit_cost) / factor,
-        })
-        .eq("id", m.id);
-    }
+    const mvs = await fetchAllRows(supabaseAdmin, "stock_movements", (q) => q.eq("ingredient_id", ingredientId));
+    await upsertRows(
+      supabaseAdmin,
+      "stock_movements",
+      mvs.map((m) => ({
+        ...m,
+        quantity: Number(m.quantity) * factor,
+        unit_cost: m.unit_cost == null ? null : Number(m.unit_cost) / factor,
+      })),
+    );
 
     // 2) purchases: multiply quantity, divide unit_cost (total_cost unchanged)
-    const { data: pus } = await supabaseAdmin
-      .from("purchases")
-      .select("id, quantity, unit_cost")
-      .eq("ingredient_id", ingredientId);
-    for (const p of pus ?? []) {
-      await supabaseAdmin
-        .from("purchases")
-        .update({
-          quantity: Number(p.quantity) * factor,
-          unit_cost: Number(p.unit_cost) / factor,
-        })
-        .eq("id", p.id);
-    }
+    const pus = await fetchAllRows(supabaseAdmin, "purchases", (q) => q.eq("ingredient_id", ingredientId));
+    await upsertRows(
+      supabaseAdmin,
+      "purchases",
+      pus.map((p) => ({
+        ...p,
+        quantity: Number(p.quantity) * factor,
+        unit_cost: Number(p.unit_cost) / factor,
+      })),
+    );
 
     // 3) recipe_items where unit matches old unit
-    const { data: ris } = await supabaseAdmin
-      .from("recipe_items")
-      .select("id, quantity, unit")
-      .eq("ingredient_id", ingredientId)
-      .eq("unit", oldUnit);
-    for (const r of ris ?? []) {
-      await supabaseAdmin
-        .from("recipe_items")
-        .update({ quantity: Number(r.quantity) * factor, unit: newUnit })
-        .eq("id", r.id);
-    }
+    const ris = await fetchAllRows(supabaseAdmin, "recipe_items", (q) =>
+      q.eq("ingredient_id", ingredientId).eq("unit", oldUnit),
+    );
+    await upsertRows(
+      supabaseAdmin,
+      "recipe_items",
+      ris.map((r) => ({ ...r, quantity: Number(r.quantity) * factor, unit: newUnit })),
+    );
 
     // 4) inventory_items
-    const { data: invs } = await supabaseAdmin
-      .from("inventory_items")
-      .select("id, expected_qty, counted_qty")
-      .eq("ingredient_id", ingredientId);
-    for (const it of invs ?? []) {
-      const upd: { unit: string; expected_qty?: number; counted_qty?: number } = { unit: newUnit };
-      if (it.expected_qty != null) upd.expected_qty = Number(it.expected_qty) * factor;
-      if (it.counted_qty != null) upd.counted_qty = Number(it.counted_qty) * factor;
-      await supabaseAdmin.from("inventory_items").update(upd).eq("id", it.id);
-    }
+    const invs = await fetchAllRows(supabaseAdmin, "inventory_items", (q) => q.eq("ingredient_id", ingredientId));
+    await upsertRows(
+      supabaseAdmin,
+      "inventory_items",
+      invs.map((it) => ({
+        ...it,
+        unit: newUnit,
+        expected_qty: it.expected_qty == null ? it.expected_qty : Number(it.expected_qty) * factor,
+        counted_qty: it.counted_qty == null ? it.counted_qty : Number(it.counted_qty) * factor,
+      })),
+    );
 
     // 5) ingredient itself: min_stock scaled, costs divided, unit updated.
     // current_stock already updated by triggers from movement/purchase updates.

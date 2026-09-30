@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
+import { recipeUnitCosts } from "@/lib/recipe-costs";
 
 export default defineTool({
   name: "calculate_food_cost",
@@ -48,9 +49,12 @@ export default defineTool({
       price: number;
       food_cost_percent: number | null;
     }[] = [];
+    const costs = await recipeUnitCosts(
+      supabase,
+      (recipes ?? []).map((r) => r.id),
+    );
     for (const r of recipes ?? []) {
-      const { data: unit } = await supabase.rpc("recipe_unit_cost", { _recipe_id: r.id });
-      const cost = Number(unit ?? 0);
+      const cost = costs.get(r.id) ?? 0;
       const price = r.current_price != null ? Number(r.current_price) : 0;
       const fc = price > 0 ? (cost / price) * 100 : null;
       out.push({

@@ -450,31 +450,44 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
         .upsert(aliasRows, { onConflict: "ingredient_id,from_unit" });
     }
 
-    // Learn text -> ingredient matches.
+    // Learn text -> ingredient matches: one read + one bulk upsert, since a
+    // query per invoice line would exceed the Worker subrequest limit.
+    const learned = new Map<string, { ingredient_id: string; hits: number }>();
+    const keys = Array.from(
+      new Set(data.items.map((it) => normalizeText(it.raw_text)).filter(Boolean)),
+    );
+    if (keys.length) {
+      const { data: existing } = await supabase
+        .from("purchase_import_matches")
+        .select("raw_text_normalized, hits, ingredient_id")
+        .eq("restaurant_id", restaurantId)
+        .in("raw_text_normalized", keys);
+      for (const e of existing ?? []) {
+        learned.set(e.raw_text_normalized, { ingredient_id: e.ingredient_id, hits: e.hits ?? 0 });
+      }
+    }
+    const touched = new Set<string>();
     for (const it of data.items) {
       const nkey = normalizeText(it.raw_text);
       if (!nkey) continue;
-      const { data: existing } = await supabase
-        .from("purchase_import_matches")
-        .select("id, hits, ingredient_id")
-        .eq("raw_text_normalized", nkey)
-        .maybeSingle();
-      if (existing && existing.ingredient_id === it.ingredient_id) {
-        await supabase
-          .from("purchase_import_matches")
-          .update({ hits: (existing.hits ?? 0) + 1, last_used_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      } else {
-        if (existing) {
-          await supabase.from("purchase_import_matches").delete().eq("id", existing.id);
-        }
-        await supabase.from("purchase_import_matches").insert({
+      const prev = learned.get(nkey);
+      // Same ingredient as learned before: count one more hit; otherwise restart at 1.
+      const hits = prev && prev.ingredient_id === it.ingredient_id ? prev.hits + 1 : 1;
+      learned.set(nkey, { ingredient_id: it.ingredient_id, hits });
+      touched.add(nkey);
+    }
+    if (touched.size) {
+      const now = new Date().toISOString();
+      await supabase.from("purchase_import_matches").upsert(
+        Array.from(touched, (nkey) => ({
           restaurant_id: restaurantId,
           raw_text_normalized: nkey,
-          ingredient_id: it.ingredient_id,
-          hits: 1,
-        });
-      }
+          ingredient_id: learned.get(nkey)!.ingredient_id,
+          hits: learned.get(nkey)!.hits,
+          last_used_at: now,
+        })),
+        { onConflict: "restaurant_id,raw_text_normalized" },
+      );
     }
 
     return { ok: true, count: rows.length, purchase_ids: purchaseIds };
