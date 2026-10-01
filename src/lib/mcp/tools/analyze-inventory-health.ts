@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
-import { dailyConsumptionAll, emptySeries } from "../lib/consumption";
+import { dailyConsumptionAll, effectiveStockAll, emptySeries, loadRecipeGraph } from "../lib/consumption";
 import { depletionForecast } from "../lib/forecast";
 
 export default defineTool({
@@ -30,8 +30,11 @@ export default defineTool({
 
     // Consumo de todos os insumos numa busca só (evita 2 consultas por insumo).
     let consumption: Map<string, ReturnType<typeof emptySeries>>;
+    let effective: Map<string, number>;
     try {
-      consumption = await dailyConsumptionAll(supabase, 30);
+      const graph = await loadRecipeGraph(supabase);
+      effective = effectiveStockAll(graph);
+      consumption = await dailyConsumptionAll(supabase, 30, graph);
     } catch (e) {
       return err(e instanceof Error ? e.message : String(e));
     }
@@ -52,7 +55,7 @@ export default defineTool({
         });
       }
       const series = consumption.get(i.id) ?? emptySeries(30);
-      const f = depletionForecast(stock, series, 3);
+      const f = depletionForecast(effective.get(i.id) ?? stock, series, 3);
       if (f.days_remaining != null && f.days_remaining <= 7) {
         critical.push({
           id: i.id,

@@ -1,7 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
-import { dailyConsumption } from "../lib/consumption";
+import { dailyConsumption, effectiveStock } from "../lib/consumption";
 import { depletionForecast, DEFAULT_LEAD_TIME_DAYS, DEFAULT_SAFETY_DAYS } from "../lib/forecast";
 
 export default defineTool({
@@ -25,10 +25,12 @@ export default defineTool({
       .maybeSingle();
     if (error) return err(error.message);
     if (!ing) return err("Insumo não encontrado.");
+    // Estoque efetivo: inclui o insumo que já está dentro dos pré-preparos em estoque.
+    const effStock = (await effectiveStock(supabase, ingredient_id)) ?? Number(ing.current_stock ?? 0);
     const series = await dailyConsumption(supabase, ingredient_id, 60);
     const lead = lead_time_days ?? DEFAULT_LEAD_TIME_DAYS;
     const safety = safety_days ?? DEFAULT_SAFETY_DAYS;
-    const f = depletionForecast(Number(ing.current_stock ?? 0), series, lead);
+    const f = depletionForecast(effStock, series, lead);
     let restockDate: string | null = null;
     let daysUntilOrder: number | null = null;
     if (f.days_remaining != null) {
@@ -41,6 +43,7 @@ export default defineTool({
     return ok({
       ingredient: { id: ing.id, name: ing.name, unit: ing.unit },
       current_stock: Number(ing.current_stock),
+      effective_stock: effStock,
       lead_time_days: lead,
       safety_days: safety,
       forecast: f,
