@@ -1,5 +1,5 @@
 // Pure helpers to compute the next order/delivery date for a supplier
-// based on the weekly agenda cadastrada (dias de pedido/entrega + lead time).
+// based on the weekly agenda cadastrada (dias de pedido/entrega; lead time só sem dias de entrega).
 // Day convention: 0=domingo … 6=sábado (mesma de Date.getUTCDay()).
 
 export type SupplierSchedule = {
@@ -63,43 +63,30 @@ export function computeSchedule(
   const daysToOrder = orderDays.length ? (daysUntilNextDow(today, orderDays) ?? 0) : 0;
   const orderDate = addDaysUTC(today, daysToOrder);
 
-  // Entrega: se há lead_time_days, aplica direto; senão, próxima delivery_day após o pedido.
-  let deliveryDate: Date | null = null;
-  if (lead !== null && lead >= 0) {
-    deliveryDate = addDaysUTC(orderDate, lead);
+  // Entrega de um pedido feito em `order`:
+  // - com delivery_days: o PRIMEIRO dia de entrega depois do dia do pedido (lead_time ignorado);
+  // - sem delivery_days: pedido + lead_time_days;
+  // - sem nenhum dos dois: mesmo dia do pedido.
+  const deliveryFor = (order: Date): Date => {
     if (deliveryDays.length) {
-      // Ajusta para o próximo delivery_day a partir do resultado.
-      const shift = daysUntilNextDow(deliveryDate, deliveryDays) ?? 0;
-      deliveryDate = addDaysUTC(deliveryDate, shift);
+      const dayAfter = addDaysUTC(order, 1);
+      return addDaysUTC(dayAfter, daysUntilNextDow(dayAfter, deliveryDays) ?? 0);
     }
-  } else if (deliveryDays.length) {
-    const shift = daysUntilNextDow(addDaysUTC(orderDate, 1), deliveryDays) ?? 0;
-    deliveryDate = addDaysUTC(addDaysUTC(orderDate, 1), shift);
-  } else {
-    // só order_days conhecido: assume entrega no mesmo dia do pedido.
-    deliveryDate = orderDate;
-  }
+    if (lead !== null && lead >= 0) return addDaysUTC(order, lead);
+    return order;
+  };
 
-  // Próxima entrega DEPOIS dessa: pedido seguinte + delivery.
+  const deliveryDate: Date = deliveryFor(orderDate);
+
+  // Próxima entrega DEPOIS dessa: pedido seguinte + entrega.
   let nextNextDelivery: Date | null = null;
   if (orderDays.length) {
-    const nextOrderShift = daysUntilNextDow(addDaysUTC(orderDate, 1), orderDays) ?? 7;
-    const nextOrderDate = addDaysUTC(addDaysUTC(orderDate, 1), nextOrderShift);
-    if (lead !== null && lead >= 0) {
-      nextNextDelivery = addDaysUTC(nextOrderDate, lead);
-      if (deliveryDays.length) {
-        const s = daysUntilNextDow(nextNextDelivery, deliveryDays) ?? 0;
-        nextNextDelivery = addDaysUTC(nextNextDelivery, s);
-      }
-    } else if (deliveryDays.length) {
-      const s = daysUntilNextDow(addDaysUTC(nextOrderDate, 1), deliveryDays) ?? 0;
-      nextNextDelivery = addDaysUTC(addDaysUTC(nextOrderDate, 1), s);
-    } else {
-      nextNextDelivery = nextOrderDate;
-    }
-  } else if (deliveryDays.length && deliveryDate) {
-    const s = daysUntilNextDow(addDaysUTC(deliveryDate, 1), deliveryDays) ?? 7;
-    nextNextDelivery = addDaysUTC(addDaysUTC(deliveryDate, 1), s);
+    const afterOrder = addDaysUTC(orderDate, 1);
+    const nextOrderDate = addDaysUTC(afterOrder, daysUntilNextDow(afterOrder, orderDays) ?? 7);
+    nextNextDelivery = deliveryFor(nextOrderDate);
+  } else if (deliveryDays.length) {
+    const afterDelivery = addDaysUTC(deliveryDate, 1);
+    nextNextDelivery = addDaysUTC(afterDelivery, daysUntilNextDow(afterDelivery, deliveryDays) ?? 7);
   }
 
   const coverageDays = nextNextDelivery

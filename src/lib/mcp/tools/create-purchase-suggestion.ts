@@ -19,7 +19,7 @@ export default defineTool({
   name: "create_purchase_suggestion",
   title: "Sugestão de lista de compras",
   description:
-    "Gera a lista de compras agrupada por fornecedor cadastrado (supplier_id). Fornecedor de cada insumo: fornecedor padrão → fornecedor principal do insumo → último fornecedor do histórico de compras (nome resolvido para o cadastro) → 'Sem fornecedor'. Itens produzidos internamente (pré-preparos/resultado de ficha) ficam de fora. Para insumos usados em pré-preparos, usa estoque efetivo (estoque do insumo + estoque dos pré-preparos × quantidade na ficha) e consumo explodido das fichas. Quando o fornecedor tem agenda semanal (order_days/delivery_days), cobre o consumo até a próxima entrega DEPOIS da mais próxima; sem agenda, usa horizon_days (padrão 15).",
+    "Gera a lista de compras agrupada por fornecedor cadastrado (supplier_id). Fornecedor de cada insumo: fornecedor padrão → fornecedor principal do insumo → último fornecedor do histórico de compras (nome resolvido para o cadastro) → 'Sem fornecedor'. Itens produzidos internamente (pré-preparos/resultado de ficha) ficam de fora. Para insumos usados em pré-preparos, usa estoque efetivo (estoque do insumo + estoque dos pré-preparos × quantidade na ficha) e consumo explodido das fichas. Quando o fornecedor tem agenda semanal (order_days/delivery_days), cobre o consumo até a próxima entrega DEPOIS da mais próxima (entrega = primeiro dia de entrega depois do pedido; lead_time_days só quando não há delivery_days); sem agenda, usa horizon_days (padrão 15). Previsão = consumo médio diário × coverage_days (sazonalidade por dia da semana opcional).",
   inputSchema: {
     horizon_days: z
       .number()
@@ -33,9 +33,15 @@ export default defineTool({
       .optional()
       .describe("Se true, apenas itens abaixo do mínimo ou com risco de ruptura no horizonte."),
     safety_days: z.number().int().min(0).max(30).optional(),
+    use_weekday_seasonality: z
+      .boolean()
+      .optional()
+      .describe(
+        "Padrão false: previsão = consumo médio diário × dias de cobertura. Ligue só quando o consumo for lançado diariamente (ex.: vendas do Saipos).",
+      ),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ horizon_days, only_critical, safety_days }, ctx) => {
+  handler: async ({ horizon_days, only_critical, safety_days, use_weekday_seasonality }, ctx) => {
     if (!ctx.isAuthenticated()) return notAuthed();
     const supabase = supabaseForUser(ctx);
     const defaultHorizon = horizon_days ?? 15;
@@ -238,6 +244,7 @@ export default defineTool({
         series,
         bucket.coverage_days,
         safety_days ?? DEFAULT_SAFETY_DAYS,
+        use_weekday_seasonality ?? false,
       );
       if (s.suggested_qty <= 0) continue;
       const daysRemaining = s.avg_daily > 0 ? effStock / s.avg_daily : Infinity;
@@ -283,6 +290,7 @@ export default defineTool({
     const payload = {
       today: today.toISOString().slice(0, 10),
       default_horizon_days: defaultHorizon,
+      use_weekday_seasonality: use_weekday_seasonality ?? false,
       total_estimated_cost: total,
       total_items: totalItems,
       excluded_internal_items: skippedInternal,

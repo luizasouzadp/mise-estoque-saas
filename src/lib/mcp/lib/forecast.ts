@@ -66,6 +66,7 @@ export function suggestPurchaseQty(
   daily: DailyOut[],
   horizonDays: number,
   safetyDays = DEFAULT_SAFETY_DAYS,
+  useWeekdaySeasonality = false,
 ): {
   avg_daily: number;
   forecast_consumption: number;
@@ -75,19 +76,21 @@ export function suggestPurchaseQty(
 } {
   const qty = daily.map((d) => d.qty);
   const avg = mean(qty);
-  const seasonal = seasonalityByDow(daily);
 
-  // If we have per-DOW averages, sum expected qty for the next `horizonDays` starting today
-  let forecast = 0;
-  if (seasonal.some((v) => v > 0)) {
-    const start = new Date();
-    for (let i = 0; i < horizonDays; i++) {
-      const dow = (start.getUTCDay() + i) % 7;
-      const v = seasonal[dow];
-      forecast += Number.isFinite(v) && v > 0 ? v : avg;
+  // Padrão: forecast = consumo médio diário × dias de cobertura.
+  // A sazonalidade por dia da semana só faz sentido com consumo lançado todo dia
+  // (ex.: vendas do Saipos); com consumo só no domingo (contagem) ela distorce a previsão.
+  let forecast = avg * horizonDays;
+  if (useWeekdaySeasonality) {
+    const seasonal = seasonalityByDow(daily);
+    if (seasonal.some((v) => v > 0)) {
+      forecast = 0;
+      const start = new Date();
+      for (let i = 0; i < horizonDays; i++) {
+        const v = seasonal[(start.getUTCDay() + i) % 7];
+        forecast += Number.isFinite(v) ? v : avg;
+      }
     }
-  } else {
-    forecast = avg * horizonDays;
   }
 
   const safety = Math.max(avg * safetyDays, minStock);

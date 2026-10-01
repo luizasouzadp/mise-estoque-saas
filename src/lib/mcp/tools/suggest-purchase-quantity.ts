@@ -8,14 +8,20 @@ export default defineTool({
   name: "suggest_purchase_quantity",
   title: "Sugerir quantidade de compra",
   description:
-    "Sugere quanto comprar de um insumo para cobrir um horizonte (padrão 15 dias) considerando consumo histórico, sazonalidade por dia da semana, estoque atual, mínimo e estoque de segurança.",
+    "Sugere quanto comprar de um insumo para cobrir um horizonte (padrão 15 dias) considerando consumo histórico (previsão = consumo médio diário × horizon_days; sazonalidade por dia da semana opcional), estoque efetivo, mínimo e estoque de segurança.",
   inputSchema: {
     ingredient_id: z.string().uuid(),
     horizon_days: z.number().int().min(1).max(60).optional().describe("Padrão 15."),
     safety_days: z.number().int().min(0).max(30).optional(),
+    use_weekday_seasonality: z
+      .boolean()
+      .optional()
+      .describe(
+        "Padrão false: previsão = consumo médio diário × dias de cobertura. Ligue só quando o consumo for lançado diariamente (ex.: vendas do Saipos).",
+      ),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ ingredient_id, horizon_days, safety_days }, ctx) => {
+  handler: async ({ ingredient_id, horizon_days, safety_days, use_weekday_seasonality }, ctx) => {
     if (!ctx.isAuthenticated()) return notAuthed();
     const supabase = supabaseForUser(ctx);
     const { data: ing, error } = await supabase
@@ -35,6 +41,7 @@ export default defineTool({
       series,
       horizon,
       safety_days ?? DEFAULT_SAFETY_DAYS,
+      use_weekday_seasonality ?? false,
     );
     const cost = Number(ing.avg_cost ?? 0) || Number(ing.last_cost ?? 0);
     return ok({
@@ -43,6 +50,8 @@ export default defineTool({
       effective_stock: effStock,
       min_stock: Number(ing.min_stock),
       horizon_days: horizon,
+      coverage_days: horizon,
+      use_weekday_seasonality: use_weekday_seasonality ?? false,
       safety_days: safety_days ?? DEFAULT_SAFETY_DAYS,
       ...s,
       estimated_cost: Number((s.suggested_qty * cost).toFixed(2)),

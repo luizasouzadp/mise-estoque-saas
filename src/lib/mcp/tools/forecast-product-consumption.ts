@@ -8,14 +8,20 @@ export default defineTool({
   name: "forecast_product_consumption",
   title: "Prever consumo futuro",
   description:
-    "Projeta o consumo futuro (por dia, semana e mês) de um ingrediente com base em média histórica e sazonalidade por dia da semana.",
+    "Projeta o consumo futuro (por dia, semana e mês) de um ingrediente com base na média histórica (consumo médio diário × dias). Sazonalidade por dia da semana é opcional (use_weekday_seasonality).",
   inputSchema: {
     ingredient_id: z.string().uuid(),
     horizon_days: z.number().int().min(1).max(180).optional().describe("Padrão 30."),
     history_days: z.number().int().min(14).max(180).optional().describe("Padrão 60."),
+    use_weekday_seasonality: z
+      .boolean()
+      .optional()
+      .describe(
+        "Padrão false. Ligue só quando o consumo for lançado diariamente (ex.: vendas do Saipos).",
+      ),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ ingredient_id, horizon_days, history_days }, ctx) => {
+  handler: async ({ ingredient_id, horizon_days, history_days, use_weekday_seasonality }, ctx) => {
     if (!ctx.isAuthenticated()) return notAuthed();
     const supabase = supabaseForUser(ctx);
     const h = horizon_days ?? 30;
@@ -28,7 +34,7 @@ export default defineTool({
       const d = new Date(start);
       d.setUTCDate(start.getUTCDate() + i);
       const dow = d.getUTCDay();
-      const v = seasonal[dow] > 0 ? seasonal[dow] : avg;
+      const v = use_weekday_seasonality && seasonal.some((x) => x > 0) ? seasonal[dow] : avg;
       daily.push({ date: d.toISOString().slice(0, 10), expected_qty: Number(v.toFixed(3)) });
     }
     const totalHorizon = daily.reduce((a, d) => a + d.expected_qty, 0);
