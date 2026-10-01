@@ -26,6 +26,7 @@ import getSupplierProducts from "./tools/get-supplier-products";
 import createSupplier from "./tools/create-supplier";
 import updateSupplier from "./tools/update-supplier";
 import updateIngredientSupplier from "./tools/update-ingredient-supplier";
+import updateIngredientMinStock from "./tools/update-ingredient-min-stock";
 import createPurchaseSuggestion from "./tools/create-purchase-suggestion";
 import createPurchaseOrder from "./tools/create-purchase-order";
 import listPurchaseOrders from "./tools/list-purchase-orders";
@@ -89,6 +90,7 @@ export default defineMcp({
     createSupplier,
     updateSupplier,
     updateIngredientSupplier,
+    updateIngredientMinStock,
     createPurchaseSuggestion,
     createPurchaseOrder,
     listPurchaseOrders,
