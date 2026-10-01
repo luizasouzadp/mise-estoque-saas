@@ -28,6 +28,7 @@ import updateSupplier from "./tools/update-supplier";
 import updateIngredientSupplier from "./tools/update-ingredient-supplier";
 import createPurchaseSuggestion from "./tools/create-purchase-suggestion";
 import createPurchaseOrder from "./tools/create-purchase-order";
+import listPurchaseOrders from "./tools/list-purchase-orders";
 import simulateRecipeProduction from "./tools/simulate-recipe-production";
 import produceRecipe from "./tools/produce-recipe";
 import calculateRecipeCost from "./tools/calculate-recipe-cost";
@@ -90,6 +91,7 @@ export default defineMcp({
     updateIngredientSupplier,
     createPurchaseSuggestion,
     createPurchaseOrder,
+    listPurchaseOrders,
     // Produção
     simulateRecipeProduction,
     produceRecipe,
