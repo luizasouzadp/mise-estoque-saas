@@ -4,7 +4,9 @@ export type DailyOut = { date: string; qty: number };
 
 /**
  * Returns daily "out" quantities for an ingredient over the last N days.
- * Union of: stock_movements(type=out, reason != 'Inventário') + production_items.
+ * Union of: stock_movements(type=out) + production_items.
+ * Inclui as saídas geradas pelas contagens ("Inventário · ..."): para quem controla
+ * o estoque por contagem, essa diferença é o próprio consumo.
  * Zero-filled for days with no activity.
  */
 export async function dailyConsumption(
@@ -32,7 +34,6 @@ export async function dailyConsumption(
 
   const byDay = new Map<string, number>();
   for (const m of mv ?? []) {
-    if (typeof m.reason === "string" && m.reason.toLowerCase().startsWith("inventário")) continue;
     const d = new Date(m.occurred_at as string).toISOString().slice(0, 10);
     byDay.set(d, (byDay.get(d) ?? 0) + Number(m.quantity ?? 0));
   }
@@ -117,7 +118,6 @@ export async function dailyConsumptionAll(
     m.set(day, (m.get(day) ?? 0) + qty);
   };
   for (const m of mv) {
-    if (typeof m.reason === "string" && m.reason.toLowerCase().startsWith("inventário")) continue;
     add(m.ingredient_id, new Date(m.occurred_at).toISOString().slice(0, 10), Number(m.quantity ?? 0));
   }
   for (const p of pi) {

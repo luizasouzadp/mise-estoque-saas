@@ -6,7 +6,7 @@ export default defineTool({
   name: "calculate_cmv",
   title: "CMV do período",
   description:
-    "Retorna o CMV (Custo da Mercadoria Vendida) do período. Se houver cmv_report cadastrado, usa o existente; caso contrário calcula on-the-fly usando as saídas de estoque (excluindo ajustes de inventário) × custo médio.",
+    "Retorna o CMV (Custo da Mercadoria Vendida) do período. Se houver cmv_report cadastrado, usa o existente; caso contrário calcula on-the-fly usando as saídas de estoque (inclusive as diferenças apuradas nas contagens de inventário) × custo médio.",
   inputSchema: {
     period_start: z.string().describe("YYYY-MM-DD"),
     period_end: z.string().describe("YYYY-MM-DD"),
@@ -43,7 +43,6 @@ export default defineTool({
     let totalCost = 0;
     const byIng = new Map<string, { name: string; qty: number; cost: number }>();
     for (const r of (mv ?? []) as unknown as Row[]) {
-      if (r.reason?.toLowerCase().startsWith("inventário")) continue;
       if (!r.ingredients.composes_cmv) continue;
       const unitCost = Number(r.ingredients.avg_cost) || Number(r.ingredients.last_cost) || 0;
       const c = Number(r.quantity) * unitCost;

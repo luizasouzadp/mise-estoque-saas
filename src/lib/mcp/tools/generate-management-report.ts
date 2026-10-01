@@ -71,7 +71,6 @@ export default defineTool({
     const consAgg = new Map<string, { name: string; qty: number; cost: number }>();
     let totalConsumptionCost = 0;
     for (const m of (outs ?? []) as unknown as OR[]) {
-      if (m.reason?.toLowerCase().startsWith("inventário")) continue;
       if (!m.ingredients.composes_cmv) continue;
       const c = (Number(m.ingredients.avg_cost) || Number(m.ingredients.last_cost) || 0) * Number(m.quantity);
       totalConsumptionCost += c;

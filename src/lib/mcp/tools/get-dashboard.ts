@@ -63,7 +63,6 @@ export default defineTool({
     type PM = { quantity: number; reason: string | null; ingredients: { avg_cost: number; last_cost: number; composes_cmv: boolean } };
     let periodConsumptionCost = 0;
     for (const m of (periodMv ?? []) as unknown as PM[]) {
-      if (m.reason?.toLowerCase().startsWith("inventário")) continue;
       if (!m.ingredients.composes_cmv) continue;
       const c = Number(m.ingredients.avg_cost) || Number(m.ingredients.last_cost) || 0;
       periodConsumptionCost += Number(m.quantity) * c;
