@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
-import { dailyConsumption } from "../lib/consumption";
+import { dailyConsumptionAll, emptySeries } from "../lib/consumption";
 import { depletionForecast } from "../lib/forecast";
 
 export default defineTool({
@@ -28,9 +28,14 @@ export default defineTool({
       details?: Record<string, unknown>;
     }[] = [];
 
-    // Sample forecasts for top-30 by name (avoid too many queries)
-    const sample = list.slice(0, 50);
-    for (const i of sample) {
+    // Consumo de todos os insumos numa busca só (evita 2 consultas por insumo).
+    let consumption: Map<string, ReturnType<typeof emptySeries>>;
+    try {
+      consumption = await dailyConsumptionAll(supabase, 30);
+    } catch (e) {
+      return err(e instanceof Error ? e.message : String(e));
+    }
+    for (const i of list) {
       const stock = Number(i.current_stock ?? 0);
       const min = Number(i.min_stock ?? 0);
       if (stock <= 0) {
@@ -46,7 +51,7 @@ export default defineTool({
           details: { current_stock: stock, min_stock: min },
         });
       }
-      const series = await dailyConsumption(supabase, i.id, 30);
+      const series = consumption.get(i.id) ?? emptySeries(30);
       const f = depletionForecast(stock, series, 3);
       if (f.days_remaining != null && f.days_remaining <= 7) {
         critical.push({
@@ -76,7 +81,7 @@ export default defineTool({
 
     return ok({
       score,
-      total_items_evaluated: sample.length,
+      total_items_evaluated: list.length,
       total_items: totalItems,
       critical_issues: critical.sort((a, b) => {
         const ord = { alta: 0, media: 1, baixa: 2 } as const;

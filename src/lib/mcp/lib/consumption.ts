@@ -58,3 +58,99 @@ export async function dailyConsumption(
 export function totalOut(series: DailyOut[]): number {
   return series.reduce((a, d) => a + d.qty, 0);
 }
+
+const PAGE = 1000;
+
+// Busca todas as linhas de uma consulta em páginas (a API devolve no máximo 1000 por vez).
+export async function fetchAll<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE) return out;
+  }
+}
+
+/**
+ * Igual a `dailyConsumption`, mas para todos os insumos do restaurante de uma vez.
+ * Faz poucas consultas no total (em vez de 2 por insumo), evitando estourar o
+ * limite de requisições por chamada do Cloudflare Worker.
+ */
+export async function dailyConsumptionAll(
+  supabase: SupabaseClient,
+  days: number,
+): Promise<Map<string, DailyOut[]>> {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - days);
+  const sinceIso = since.toISOString();
+
+  type MvRow = { ingredient_id: string; quantity: number; occurred_at: string; reason: string | null };
+  type PiRow = { ingredient_id: string; quantity: number; productions: { produced_at: string } | null };
+
+  const [mv, pi] = await Promise.all([
+    fetchAll<MvRow>((from, to) =>
+      supabase
+        .from("stock_movements")
+        .select("ingredient_id, quantity, occurred_at, reason")
+        .eq("type", "out")
+        .gte("occurred_at", sinceIso)
+        .order("id")
+        .range(from, to) as unknown as PromiseLike<{ data: MvRow[] | null; error: { message: string } | null }>,
+    ),
+    fetchAll<PiRow>((from, to) =>
+      supabase
+        .from("production_items")
+        .select("ingredient_id, quantity, productions!inner(produced_at)")
+        .gte("productions.produced_at", sinceIso)
+        .order("id")
+        .range(from, to) as unknown as PromiseLike<{ data: PiRow[] | null; error: { message: string } | null }>,
+    ),
+  ]);
+
+  const byIng = new Map<string, Map<string, number>>();
+  const add = (ingId: string, day: string, qty: number) => {
+    let m = byIng.get(ingId);
+    if (!m) byIng.set(ingId, (m = new Map()));
+    m.set(day, (m.get(day) ?? 0) + qty);
+  };
+  for (const m of mv) {
+    if (typeof m.reason === "string" && m.reason.toLowerCase().startsWith("inventário")) continue;
+    add(m.ingredient_id, new Date(m.occurred_at).toISOString().slice(0, 10), Number(m.quantity ?? 0));
+  }
+  for (const p of pi) {
+    const producedAt = p.productions?.produced_at;
+    if (!producedAt) continue;
+    add(p.ingredient_id, new Date(producedAt).toISOString().slice(0, 10), Number(p.quantity ?? 0));
+  }
+
+  const dayKeys: string[] = [];
+  const cursor = new Date(since);
+  const today = new Date();
+  while (cursor <= today) {
+    dayKeys.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const result = new Map<string, DailyOut[]>();
+  for (const [ingId, m] of byIng) {
+    result.set(ingId, dayKeys.map((date) => ({ date, qty: m.get(date) ?? 0 })));
+  }
+  return result;
+}
+
+/** Série zerada para insumos sem nenhum consumo no período. */
+export function emptySeries(days: number): DailyOut[] {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - days);
+  const series: DailyOut[] = [];
+  const cursor = new Date(since);
+  const today = new Date();
+  while (cursor <= today) {
+    series.push({ date: cursor.toISOString().slice(0, 10), qty: 0 });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return series;
+}

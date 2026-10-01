@@ -1,7 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
-import { dailyConsumption } from "../lib/consumption";
+import { dailyConsumptionAll, emptySeries, fetchAll } from "../lib/consumption";
 import { suggestPurchaseQty, DEFAULT_SAFETY_DAYS } from "../lib/forecast";
 import { computeSchedule } from "../lib/supplier-schedule";
 
@@ -53,14 +53,28 @@ export default defineTool({
     for (const s of (suppliersData ?? []) as SupplierRow[]) suppliersById.set(s.id, s);
 
     // Fallback: último fornecedor do histórico por ingrediente (compat).
-    const ids = (ings ?? []).map((i) => i.id);
-    const { data: lastPurchases } = await supabase
-      .from("purchases")
-      .select("ingredient_id, supplier, purchased_at")
-      .in("ingredient_id", ids)
-      .order("purchased_at", { ascending: false });
+    // Sem filtro por lista de ids (a URL ficaria grande demais); o RLS já limita ao restaurante.
+    type PurchaseRow = { ingredient_id: string; supplier: string | null; purchased_at: string };
+    let lastPurchases: PurchaseRow[];
+    let consumption: Map<string, ReturnType<typeof emptySeries>>;
+    try {
+      [lastPurchases, consumption] = await Promise.all([
+        fetchAll<PurchaseRow>((from, to) =>
+          supabase
+            .from("purchases")
+            .select("ingredient_id, supplier, purchased_at")
+            .not("supplier", "is", null)
+            .order("purchased_at", { ascending: false })
+            .order("id")
+            .range(from, to) as unknown as PromiseLike<{ data: PurchaseRow[] | null; error: { message: string } | null }>,
+        ),
+        dailyConsumptionAll(supabase, 60),
+      ]);
+    } catch (e) {
+      return err(e instanceof Error ? e.message : String(e));
+    }
     const lastSupplierName = new Map<string, string>();
-    for (const p of lastPurchases ?? []) {
+    for (const p of lastPurchases) {
       if (!lastSupplierName.has(p.ingredient_id) && p.supplier) {
         lastSupplierName.set(p.ingredient_id, p.supplier);
       }
@@ -136,7 +150,7 @@ export default defineTool({
       const stock = Number(i.current_stock ?? 0);
       const min = Number(i.min_stock ?? 0);
       const bucket = bucketFor(i);
-      const series = await dailyConsumption(supabase, i.id, 60);
+      const series = consumption.get(i.id) ?? emptySeries(60);
       const s = suggestPurchaseQty(
         stock,
         min,

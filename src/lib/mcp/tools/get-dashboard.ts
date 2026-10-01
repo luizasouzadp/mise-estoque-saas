@@ -1,7 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
-import { dailyConsumption } from "../lib/consumption";
+import { dailyConsumptionAll, emptySeries } from "../lib/consumption";
 import { depletionForecast } from "../lib/forecast";
 
 export default defineTool({
@@ -69,11 +69,17 @@ export default defineTool({
       periodConsumptionCost += Number(m.quantity) * c;
     }
 
-    // Near depletion — sample top 40 items with some stock
-    const sample = list.filter((i) => Number(i.current_stock) > 0).slice(0, 40);
+    // Near depletion — consumo de todos os insumos numa busca só (evita 2 consultas por insumo).
+    let consumption: Map<string, ReturnType<typeof emptySeries>>;
+    try {
+      consumption = await dailyConsumptionAll(supabase, 30);
+    } catch (e) {
+      return err(e instanceof Error ? e.message : String(e));
+    }
+    const sample = list.filter((i) => Number(i.current_stock) > 0);
     const nearDepletion: { id: string; name: string; days_remaining: number; risk: string }[] = [];
     for (const i of sample) {
-      const series = await dailyConsumption(supabase, i.id, 30);
+      const series = consumption.get(i.id) ?? emptySeries(30);
       const f = depletionForecast(Number(i.current_stock), series, 3);
       if (f.days_remaining != null && f.days_remaining <= 7) {
         nearDepletion.push({
