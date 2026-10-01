@@ -12,7 +12,8 @@ export default defineTool({
     const supabase = supabaseForUser(ctx);
     const { data, error } = await supabase
       .from("ingredients")
-      .select("id, name, unit, current_stock, min_stock, avg_cost");
+      .select("id, name, unit, current_stock, min_stock, avg_cost")
+      .eq("is_active", true);
     if (error) return err(error.message);
     const items = (data ?? [])
       .filter((r) => Number(r.current_stock ?? 0) < Number(r.min_stock ?? 0))
@@ -23,9 +24,6 @@ export default defineTool({
         ),
       }))
       .sort((a, b) => b.deficit - a.deficit);
-    return ok(
-      { count: items.length, items },
-      JSON.stringify({ count: items.length, items }, null, 2),
-    );
+    return ok({ count: items.length, items });
   },
 });

@@ -88,13 +88,14 @@ function InventoryDetail() {
       if (gIds.length) {
         const { data: members } = await supabase
           .from("ingredient_group_members")
-          .select("group_id, ingredient_id, ingredients!inner(id, name, unit)")
+          .select("group_id, ingredient_id, ingredients!inner(id, name, unit, is_active)")
           .in("group_id", gIds);
         const existing = new Set(
           (items ?? []).map((it) => `${it.group_id}:${it.ingredient_id}`),
         );
-        type M = { group_id: string; ingredient_id: string; ingredients: { id: string; name: string; unit: string } };
+        type M = { group_id: string; ingredient_id: string; ingredients: { id: string; name: string; unit: string; is_active: boolean | null } };
         const toInsert = ((members ?? []) as M[])
+          .filter((m) => m.ingredients.is_active !== false)
           .filter((m) => !existing.has(`${m.group_id}:${m.ingredient_id}`))
           .map((m) => ({
             inventory_id: id,
@@ -117,6 +118,13 @@ function InventoryDetail() {
 
       const { data: allGroups } = await supabase
         .from("ingredient_groups").select("id, name").order("name");
+
+      // Itens inativos ficam fora da contagem (as linhas são mantidas e
+      // voltam a aparecer se o item for reativado).
+      const { data: inactive } = await supabase
+        .from("ingredients").select("id").eq("is_active", false);
+      const inactiveIds = new Set((inactive ?? []).map((i) => i.id));
+      items = (items ?? []).filter((it) => !inactiveIds.has(it.ingredient_id));
 
 
       return { inv, items: items ?? [], groups: groups ?? [], allGroups: allGroups ?? [], groupIds: gIds };
@@ -207,13 +215,13 @@ function InventoryDetail() {
         );
         const { data: members } = await supabase
           .from("ingredient_group_members")
-          .select("group_id, ingredient_id, ingredients!inner(id, name, unit, current_stock, restaurant_id)")
+          .select("group_id, ingredient_id, ingredients!inner(id, name, unit, current_stock, restaurant_id, is_active)")
           .in("group_id", toAdd);
-        type Ing = { id: string; name: string; unit: string; current_stock: number; restaurant_id: string };
+        type Ing = { id: string; name: string; unit: string; current_stock: number; restaurant_id: string; is_active: boolean | null };
         const rows: Array<{ inventory_id: string; ingredient_id: string; ingredient_name: string; unit: string; expected_qty: number; group_id: string }> = [];
         for (const m of members ?? []) {
           const ing = (m as { ingredients: Ing }).ingredients;
-          if (!ing || ing.restaurant_id !== data.inv.restaurant_id) continue;
+          if (!ing || ing.restaurant_id !== data.inv.restaurant_id || ing.is_active === false) continue;
           rows.push({
             inventory_id: id,
             ingredient_id: ing.id,

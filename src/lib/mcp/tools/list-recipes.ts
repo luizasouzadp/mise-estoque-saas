@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { cleanNumbers } from "../lib/supabase-for-user";
 
 function supabaseForUser(ctx: ToolContext) {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
@@ -54,8 +55,8 @@ export default defineTool({
     );
 
     return {
-      content: [{ type: "text", text: JSON.stringify(enriched, null, 2) }],
-      structuredContent: { items: enriched },
+      content: [{ type: "text", text: JSON.stringify(cleanNumbers(enriched), null, 2) }],
+      structuredContent: { items: cleanNumbers(enriched) },
     };
   },
 });

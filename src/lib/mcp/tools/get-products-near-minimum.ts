@@ -22,7 +22,8 @@ export default defineTool({
     const supabase = supabaseForUser(ctx);
     const { data, error } = await supabase
       .from("ingredients")
-      .select("id, name, unit, current_stock, min_stock");
+      .select("id, name, unit, current_stock, min_stock")
+      .eq("is_active", true);
     if (error) return err(error.message);
     const items = (data ?? [])
       .filter((r) => {

@@ -15,7 +15,7 @@ export default defineTool({
     if (!ctx.isAuthenticated()) return notAuthed();
     const supabase = supabaseForUser(ctx);
     const [{ data: ings, error: e1 }, { data: mv, error: e2 }] = await Promise.all([
-      supabase.from("ingredients").select("id, name, unit, current_stock"),
+      supabase.from("ingredients").select("id, name, unit, current_stock").eq("is_active", true),
       supabase
         .from("stock_movements")
         .select("ingredient_id, type, quantity")

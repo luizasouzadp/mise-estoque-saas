@@ -21,6 +21,7 @@ export default defineTool({
       supabase
         .from("ingredients")
         .select("id, name, unit, current_stock, avg_cost, last_cost")
+        .eq("is_active", true)
         .gt("current_stock", 0),
       supabase
         .from("stock_movements")

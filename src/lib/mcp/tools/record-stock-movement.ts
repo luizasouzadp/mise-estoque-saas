@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { cleanNumbers } from "../lib/supabase-for-user";
 
 function supabaseForUser(ctx: ToolContext) {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
@@ -49,8 +50,8 @@ export default defineTool({
       .single();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
-      content: [{ type: "text", text: `Movimentação registrada: ${JSON.stringify(data)}` }],
-      structuredContent: { movement: data },
+      content: [{ type: "text", text: `Movimentação registrada: ${JSON.stringify(cleanNumbers(data))}` }],
+      structuredContent: { movement: cleanNumbers(data) },
     };
   },
 });

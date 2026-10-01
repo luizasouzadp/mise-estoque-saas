@@ -34,7 +34,8 @@ export default defineTool({
 
     const { data: ings, error } = await supabase
       .from("ingredients")
-      .select("id, name, unit, current_stock, min_stock, avg_cost, last_cost, default_supplier_id");
+      .select("id, name, unit, current_stock, min_stock, avg_cost, last_cost, default_supplier_id")
+      .eq("is_active", true);
     if (error) return err(error.message);
 
     const { data: suppliersData } = await supabase
@@ -183,6 +184,6 @@ export default defineTool({
       total_items: totalItems,
       groups: grouped,
     };
-    return ok(payload, JSON.stringify(payload, null, 2));
+    return ok(payload);
   },
 });

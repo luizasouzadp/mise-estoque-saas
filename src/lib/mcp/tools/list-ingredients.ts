@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { cleanNumbers } from "../lib/supabase-for-user";
 
 function supabaseForUser(ctx: ToolContext) {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
@@ -13,7 +14,7 @@ export default defineTool({
   name: "list_ingredients",
   title: "Listar insumos",
   description:
-    "Lista os insumos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria, custo médio/último e fornecedor padrão (quando definido). Aceita busca por nome e filtro opcional apenas de itens em baixo estoque (aplicado no banco). O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
+    "Lista os insumos ativos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria, custo médio/último e fornecedor padrão (quando definido). Aceita busca por nome e filtro opcional apenas de itens em baixo estoque. O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
   inputSchema: {
     search: z.string().trim().optional().describe("Filtro por nome (case-insensitive)."),
     low_stock_only: z
@@ -34,13 +35,20 @@ export default defineTool({
       .select(
         "id, name, unit, category, current_stock, min_stock, avg_cost, last_cost, composes_cmv, default_supplier_id, default_supplier:suppliers!ingredients_default_supplier_id_fkey(id, name)",
       )
+      .eq("is_active", true)
       .order("name")
-      .limit(effectiveLimit);
+      // O banco não compara duas colunas pela API; com low_stock_only o filtro
+      // é feito aqui, então buscamos todos os ativos antes de aplicar o limite.
+      .limit(low_stock_only ? 5000 : effectiveLimit);
     if (search) q = q.ilike("name", `%${search}%`);
-    if (low_stock_only) q = q.filter("current_stock", "lt", "min_stock");
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const rows = data ?? [];
+    const filtered = low_stock_only
+      ? (data ?? [])
+          .filter((r) => Number(r.current_stock ?? 0) < Number(r.min_stock ?? 0))
+          .slice(0, effectiveLimit)
+      : (data ?? []);
+    const rows = cleanNumbers(filtered);
     return {
       content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
       structuredContent: { items: rows },

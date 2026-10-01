@@ -13,6 +13,7 @@ export default defineTool({
     const { data, error } = await supabase
       .from("ingredients")
       .select("id, name, unit, current_stock, min_stock")
+      .eq("is_active", true)
       .lte("current_stock", 0)
       .order("name");
     if (error) return err(error.message);

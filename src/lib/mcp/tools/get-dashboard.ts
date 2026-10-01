@@ -20,7 +20,8 @@ export default defineTool({
 
     const { data: ings, error } = await supabase
       .from("ingredients")
-      .select("id, name, unit, current_stock, min_stock, avg_cost, last_cost");
+      .select("id, name, unit, current_stock, min_stock, avg_cost, last_cost")
+      .eq("is_active", true);
     if (error) return err(error.message);
     const list = ings ?? [];
 

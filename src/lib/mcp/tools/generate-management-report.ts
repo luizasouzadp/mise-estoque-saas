@@ -24,7 +24,7 @@ export default defineTool({
       { data: outs },
       { data: cmv },
     ] = await Promise.all([
-      supabase.from("ingredients").select("id, name, current_stock, min_stock, avg_cost, last_cost"),
+      supabase.from("ingredients").select("id, name, current_stock, min_stock, avg_cost, last_cost").eq("is_active", true),
       supabase
         .from("purchases")
         .select("ingredient_id, quantity, total_cost, supplier, ingredients!inner(name)")

@@ -55,22 +55,23 @@ function NewInventory() {
 
       const { data: members, error: mErr } = await supabase
         .from("ingredient_group_members")
-        .select("group_id, ingredient_id, ingredients!inner(id, name, unit, current_stock, restaurant_id)")
+        .select("group_id, ingredient_id, ingredients!inner(id, name, unit, current_stock, restaurant_id, is_active)")
         .in("group_id", groupIds);
       if (mErr) throw mErr;
 
       type Ing = { id: string; name: string; unit: string; current_stock: number };
       const byGroup = new Map<string, Ing[]>();
       for (const m of members ?? []) {
-        const ing = (m as { ingredients: Ing & { restaurant_id: string } }).ingredients;
-        if (!ing || ing.restaurant_id !== restaurantId) continue;
+        const ing = (m as { ingredients: Ing & { restaurant_id: string; is_active: boolean | null } }).ingredients;
+        // Itens inativos não entram na contagem.
+        if (!ing || ing.restaurant_id !== restaurantId || ing.is_active === false) continue;
         if (!byGroup.has(m.group_id)) byGroup.set(m.group_id, []);
         byGroup.get(m.group_id)!.push({ id: ing.id, name: ing.name, unit: ing.unit, current_stock: Number(ing.current_stock) || 0 });
       }
       const empty = groupIds.find((g) => !byGroup.get(g)?.length);
       if (empty) {
         const gn = (groups ?? []).find((g) => g.id === empty)?.name ?? "grupo";
-        throw new Error(`O grupo "${gn}" não tem insumos vinculados`);
+        throw new Error(`O grupo "${gn}" não tem insumos ativos vinculados`);
       }
 
       const { data: inv, error: invErr } = await supabase.from("inventories").insert({

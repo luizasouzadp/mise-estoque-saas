@@ -19,7 +19,7 @@ export default defineTool({
     let q = supabase
       .from("ingredients")
       .select(
-        "id, name, unit, category, current_stock, min_stock, avg_cost, last_cost, default_supplier_id, default_supplier:suppliers!ingredients_default_supplier_id_fkey(id, name)",
+        "id, name, unit, category, is_active, current_stock, min_stock, avg_cost, last_cost, default_supplier_id, default_supplier:suppliers!ingredients_default_supplier_id_fkey(id, name)",
       );
     if (ingredient_id) q = q.eq("id", ingredient_id);
     else if (name) q = q.ilike("name", `%${name}%`);

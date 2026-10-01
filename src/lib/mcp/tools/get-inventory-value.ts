@@ -16,7 +16,8 @@ export default defineTool({
     const supabase = supabaseForUser(ctx);
     const { data, error } = await supabase
       .from("ingredients")
-      .select("name, category, current_stock, avg_cost, last_cost");
+      .select("name, category, current_stock, avg_cost, last_cost")
+      .eq("is_active", true);
     if (error) return err(error.message);
     const rows = data ?? [];
     let total = 0;

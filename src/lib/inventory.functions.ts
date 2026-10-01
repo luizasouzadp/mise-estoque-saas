@@ -32,14 +32,15 @@ export const getInventoryByToken = createServerFn({ method: "GET" })
         supabaseAdmin.from("inventory_items")
           .select("group_id, ingredient_id").eq("inventory_id", inv.id),
         supabaseAdmin.from("ingredient_group_members")
-          .select("group_id, ingredient_id, ingredients!inner(id, name, unit)")
+          .select("group_id, ingredient_id, ingredients!inner(id, name, unit, is_active)")
           .in("group_id", invGroupIds),
       ]);
       const existing = new Set(
         (existingItems ?? []).map((it) => `${it.group_id}:${it.ingredient_id}`),
       );
-      type M = { group_id: string; ingredient_id: string; ingredients: { id: string; name: string; unit: string } };
+      type M = { group_id: string; ingredient_id: string; ingredients: { id: string; name: string; unit: string; is_active: boolean | null } };
       const toInsert = ((members ?? []) as M[])
+        .filter((m) => m.ingredients.is_active !== false)
         .filter((m) => !existing.has(`${m.group_id}:${m.ingredient_id}`))
         .map((m) => ({
           inventory_id: inv.id,
@@ -67,12 +68,16 @@ export const getInventoryByToken = createServerFn({ method: "GET" })
     // so the "Sistema" value matches reality at the moment of counting.
     const ingIds = Array.from(new Set((items ?? []).map((i) => i.ingredient_id).filter(Boolean)));
     const stockMap = new Map<string, number>();
+    const inactiveIds = new Set<string>();
     if (ingIds.length > 0) {
       const { data: stocks } = await supabaseAdmin
         .from("ingredients")
-        .select("id, current_stock")
+        .select("id, current_stock, is_active")
         .in("id", ingIds);
-      for (const s of stocks ?? []) stockMap.set(s.id, Number(s.current_stock ?? 0));
+      for (const s of stocks ?? []) {
+        stockMap.set(s.id, Number(s.current_stock ?? 0));
+        if (s.is_active === false) inactiveIds.add(s.id);
+      }
     }
 
     return {
@@ -80,7 +85,8 @@ export const getInventoryByToken = createServerFn({ method: "GET" })
       inventoryName: inv.name ?? "Inventário",
       inventoryStatus: inv.status,
       restaurantName: rest?.name ?? "Restaurante",
-      items: (items ?? []).map((i) => ({
+      // Itens inativos não aparecem para quem está contando.
+      items: (items ?? []).filter((i) => !inactiveIds.has(i.ingredient_id)).map((i) => ({
         ...i,
         expected_qty: stockMap.get(i.ingredient_id) ?? Number(i.expected_qty ?? 0),
         groupName: i.group_id ? (gmap.get(i.group_id) ?? "Sem grupo") : "Sem grupo",
@@ -160,10 +166,18 @@ export const finalizeInventory = createServerFn({ method: "POST" })
       .eq("inventory_id", data.inventoryId);
     if (iErr) throw new Error(iErr.message);
 
+    const ingIds = Array.from(new Set((items ?? []).map((i) => i.ingredient_id)));
+    const { data: inactiveRows, error: actErr } = ingIds.length
+      ? await supabaseAdmin.from("ingredients").select("id").in("id", ingIds).eq("is_active", false)
+      : { data: [], error: null };
+    if (actErr) throw new Error(actErr.message);
+    const inactiveIds = new Set((inactiveRows ?? []).map((i) => i.id));
+
+    // Itens inativos são ignorados: não alteram o estoque ao fechar a contagem.
     const totals = new Map<string, number>();
     let counted = false;
     for (const it of items ?? []) {
-      if (it.counted_qty == null) continue;
+      if (it.counted_qty == null || inactiveIds.has(it.ingredient_id)) continue;
       counted = true;
       totals.set(it.ingredient_id, (totals.get(it.ingredient_id) ?? 0) + Number(it.counted_qty));
     }

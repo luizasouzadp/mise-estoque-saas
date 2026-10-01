@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { cleanNumbers } from "../lib/supabase-for-user";
 
 function supabaseForUser(ctx: ToolContext) {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
@@ -72,7 +73,7 @@ export default defineTool({
     const total_cost = enrichedItems.reduce((s, i: any) => s + Number(i.line_cost ?? 0), 0);
     const unit_cost = Number(recipe.yield_qty) > 0 ? total_cost / Number(recipe.yield_qty) : 0;
 
-    const result = { recipe, items: enrichedItems, total_cost, unit_cost };
+    const result = cleanNumbers({ recipe, items: enrichedItems, total_cost, unit_cost });
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       structuredContent: result,
