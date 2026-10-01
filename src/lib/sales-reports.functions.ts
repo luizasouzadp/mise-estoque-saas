@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { recipeUnitCosts } from "@/lib/recipe-costs";
 
-const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"];
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function callGemini(apiKey: string, prompt: string): Promise<string> {
@@ -34,6 +34,8 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
       lastBody = await res.text().catch(() => "");
       lastStatus = res.status;
       console.error(`[Gemini/insights/${model}] ${res.status}: ${lastBody.slice(0, 800)}`);
+      // Modelo indisponível para a chave (404): tenta o próximo da lista.
+      if (res.status === 404) break;
       const retryable = res.status === 429 || res.status >= 500;
       if (!retryable) break outer;
       if (attempt < 2) await sleep(1500 * (attempt + 1));
