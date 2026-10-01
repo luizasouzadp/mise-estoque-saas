@@ -36,10 +36,14 @@ import calculateCmv from "./tools/calculate-cmv";
 import getDashboard from "./tools/get-dashboard";
 import generateManagementReport from "./tools/generate-management-report";
 
-const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
+// Em produção (Cloudflare) vem de `vars` no wrangler.jsonc; o VITE_* só existia no Lovable.
+const projectRef =
+  (typeof process !== "undefined" ? process.env.SUPABASE_PROJECT_ID : undefined) ??
+  import.meta.env.VITE_SUPABASE_PROJECT_ID ??
+  "project-ref-unset";
 
-// Recurso de IA (MCP) desligado por enquanto a pedido da Luiza — mude para `true` para reativar.
-const MCP_ENABLED = false;
+// Recurso de IA (MCP) — mude para `false` para desligar sem apagar as ferramentas.
+const MCP_ENABLED = true;
 
 export default defineMcp({
   name: "mise-mcp",
