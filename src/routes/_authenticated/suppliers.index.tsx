@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { PushReminders } from "@/components/PushReminders";
+import { SUPPLIER_FREQUENCIES, frequencyLabel, type SupplierFrequency } from "@/lib/supplier-frequency";
 import { toast } from "sonner";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
@@ -35,10 +36,11 @@ type Supplier = {
   phone: string | null;
   delivery_days: number[] | null;
   order_days: number[] | null;
-  lead_time_days: number | null;
   min_order_value: number | null;
   notes: string | null;
   notify_on_order_day: boolean;
+  order_frequency: SupplierFrequency | null;
+  min_coverage_days: number | null;
 };
 
 type SupplierFormValues = {
@@ -47,10 +49,11 @@ type SupplierFormValues = {
   phone: string;
   orderDays: number[];
   deliveryDays: number[];
-  lead: string;
   minOrder: string;
   notes: string;
   notifyOnOrderDay: boolean;
+  frequency: SupplierFrequency | null;
+  minCoverage: string;
 };
 
 const emptySupplierForm: SupplierFormValues = {
@@ -59,10 +62,11 @@ const emptySupplierForm: SupplierFormValues = {
   phone: "",
   orderDays: [],
   deliveryDays: [],
-  lead: "",
   minOrder: "",
   notes: "",
   notifyOnOrderDay: false,
+  frequency: null,
+  minCoverage: "",
 };
 
 function DayToggleGroup({ label, value, onChange }: { label: string; value: number[]; onChange: (arr: number[]) => void }) {
@@ -109,14 +113,26 @@ function SupplierFormFields({ values, onChange }: { values: SupplierFormValues; 
         </label>
       </div>
       <DayToggleGroup label="Dias de entrega" value={values.deliveryDays} onChange={(deliveryDays) => onChange({ ...values, deliveryDays })} />
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Prazo de entrega (dias)</Label>
-          <Input type="number" min="0" value={values.lead} onChange={(e) => onChange({ ...values, lead: e.target.value })} />
+      <div>
+        <Label className="text-xs">Frequência</Label>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {SUPPLIER_FREQUENCIES.map((f) => (
+            <button key={f.v} type="button"
+              onClick={() => onChange({ ...values, frequency: values.frequency === f.v ? null : f.v })}
+              className={`rounded-md border px-2 py-1 text-xs ${values.frequency === f.v ? "bg-primary text-primary-foreground" : "bg-background"}`}>
+              {f.l}
+            </button>
+          ))}
         </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs">Pedido mínimo (R$)</Label>
           <Input type="number" min="0" step="0.01" value={values.minOrder} onChange={(e) => onChange({ ...values, minOrder: e.target.value })} />
+        </div>
+        <div>
+          <Label className="text-xs">Cobertura mínima (dias)</Label>
+          <Input type="number" min="0" step="1" value={values.minCoverage} onChange={(e) => onChange({ ...values, minCoverage: e.target.value })} />
         </div>
       </div>
       <div>
@@ -134,7 +150,7 @@ function SuppliersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id, name, contact_name, phone, delivery_days, order_days, lead_time_days, min_order_value, notes, notify_on_order_day")
+        .select("id, name, contact_name, phone, delivery_days, order_days, min_order_value, notes, notify_on_order_day, order_frequency, min_coverage_days")
         .order("name");
       if (error) throw error;
       return (data ?? []) as Supplier[];
@@ -166,10 +182,11 @@ function SuppliersPage() {
       phone: cleanedPhone || null,
       order_days: form.orderDays,
       delivery_days: form.deliveryDays,
-      lead_time_days: form.lead === "" ? null : Number(form.lead),
       min_order_value: form.minOrder === "" ? null : Number(form.minOrder),
       notes: form.notes.trim() || null,
       notify_on_order_day: form.notifyOnOrderDay,
+      order_frequency: form.frequency,
+      min_coverage_days: form.minCoverage === "" ? null : Math.round(Number(form.minCoverage)),
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -220,10 +237,11 @@ function supplierToFormValues(supplier: Supplier): SupplierFormValues {
     phone: supplier.phone ?? "",
     orderDays: supplier.order_days ?? [],
     deliveryDays: supplier.delivery_days ?? [],
-    lead: supplier.lead_time_days?.toString() ?? "",
     minOrder: supplier.min_order_value?.toString() ?? "",
     notes: supplier.notes ?? "",
     notifyOnOrderDay: supplier.notify_on_order_day,
+    frequency: supplier.order_frequency,
+    minCoverage: supplier.min_coverage_days?.toString() ?? "",
   };
 }
 
@@ -253,10 +271,11 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
       phone: cleanedPhone || null,
       order_days: values.orderDays,
       delivery_days: values.deliveryDays,
-      lead_time_days: values.lead === "" ? null : Number(values.lead),
       min_order_value: values.minOrder === "" ? null : Number(values.minOrder),
       notes: values.notes.trim() || null,
       notify_on_order_day: values.notifyOnOrderDay,
+      order_frequency: values.frequency,
+      min_coverage_days: values.minCoverage === "" ? null : Math.round(Number(values.minCoverage)),
     }).eq("id", supplier.id);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -287,8 +306,9 @@ function SupplierCard({ supplier, onChanged }: { supplier: Supplier; onChanged: 
         <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
           <p><span className="text-foreground">Dias de pedido:</span> {dowLabels(supplier.order_days)}</p>
           <p><span className="text-foreground">Dias de entrega:</span> {dowLabels(supplier.delivery_days)}</p>
-          <p><span className="text-foreground">Prazo de entrega:</span> {supplier.lead_time_days != null ? `${supplier.lead_time_days} dias` : "Não definido"}</p>
           <p><span className="text-foreground">Pedido mínimo:</span> {supplier.min_order_value != null ? `R$ ${supplier.min_order_value}` : "Não definido"}</p>
+          <p><span className="text-foreground">Frequência:</span> {frequencyLabel(supplier.order_frequency)}</p>
+          <p><span className="text-foreground">Cobertura mínima:</span> {supplier.min_coverage_days != null ? `${supplier.min_coverage_days} dias` : "Não definida"}</p>
         </div>
         {supplier.notes && <p className="text-sm text-muted-foreground">{supplier.notes}</p>}
         <div className="flex justify-end gap-2">

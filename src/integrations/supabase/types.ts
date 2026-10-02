@@ -1417,11 +1417,14 @@ export type Database = {
           delivery_days: number[]
           id: string
           lead_time_days: number | null
+          min_coverage_days: number | null
           min_order_value: number | null
           name: string
           notes: string | null
           notify_on_order_day: boolean
           order_days: number[]
+          order_frequency: string | null
+          order_interval_days: number | null
           phone: string | null
           restaurant_id: string
           tax_id: string | null
@@ -1434,11 +1437,14 @@ export type Database = {
           delivery_days?: number[]
           id?: string
           lead_time_days?: number | null
+          min_coverage_days?: number | null
           min_order_value?: number | null
           name: string
           notes?: string | null
           notify_on_order_day?: boolean
           order_days?: number[]
+          order_frequency?: string | null
+          order_interval_days?: never
           phone?: string | null
           restaurant_id: string
           tax_id?: string | null
@@ -1451,11 +1457,14 @@ export type Database = {
           delivery_days?: number[]
           id?: string
           lead_time_days?: number | null
+          min_coverage_days?: number | null
           min_order_value?: number | null
           name?: string
           notes?: string | null
           notify_on_order_day?: boolean
           order_days?: number[]
+          order_frequency?: string | null
+          order_interval_days?: never
           phone?: string | null
           restaurant_id?: string
           tax_id?: string | null
