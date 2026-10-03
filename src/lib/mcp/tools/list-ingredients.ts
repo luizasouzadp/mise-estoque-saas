@@ -14,7 +14,7 @@ export default defineTool({
   name: "list_ingredients",
   title: "Listar insumos",
   description:
-    "Lista os insumos ativos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria, custo médio/último e fornecedor padrão (quando definido). Aceita busca por nome e filtro opcional apenas de itens em baixo estoque. O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
+    "Lista os insumos ativos do restaurante do usuário autenticado, com estoque atual, mínimo, unidade, categoria, custo médio/último, fornecedor padrão (quando definido) e embalagem de compra (purchase_pack_qty na unidade do insumo, purchase_pack_name). Aceita busca por nome e filtro opcional apenas de itens em baixo estoque. O parâmetro limit é opcional; quando low_stock_only=true o teto padrão é 500 para não recortar a lista de itens críticos.",
   inputSchema: {
     search: z.string().trim().optional().describe("Filtro por nome (case-insensitive)."),
     low_stock_only: z
@@ -33,7 +33,7 @@ export default defineTool({
     let q = supabase
       .from("ingredients")
       .select(
-        "id, name, unit, category, current_stock, min_stock, avg_cost, last_cost, composes_cmv, default_supplier_id, default_supplier:suppliers!ingredients_default_supplier_id_fkey(id, name)",
+        "id, name, unit, category, current_stock, min_stock, avg_cost, last_cost, composes_cmv, purchase_pack_qty, purchase_pack_name, default_supplier_id, default_supplier:suppliers!ingredients_default_supplier_id_fkey(id, name)",
       )
       .eq("is_active", true)
       .order("name")

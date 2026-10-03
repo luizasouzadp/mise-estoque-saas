@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
+import { toIngredientUnit } from "../lib/packs";
 
 type Row = {
   id: string;
@@ -14,7 +15,12 @@ type Row = {
   notes: string | null;
   created_at: string;
   received_at: string | null;
-  ingredient: { name: string } | null;
+  ingredient: {
+    name: string;
+    unit: string;
+    purchase_pack_qty: number | null;
+    purchase_pack_name: string | null;
+  } | null;
 };
 
 // YYYY-MM-DD no fuso do restaurante (Brasil), para comparar com expected_at.
@@ -26,7 +32,7 @@ export default defineTool({
   name: "list_purchase_orders",
   title: "Listar encomendas",
   description:
-    "Lista as encomendas (pedidos feitos a fornecedores) da página Encomendas, agrupadas por fornecedor, com insumo, quantidade, unidade, data prevista de entrega e observações. Por padrão mostra só as pendentes (já pedidas e ainda não recebidas) e marca as atrasadas (data prevista antes de hoje). Use antes de sugerir compras para não pedir de novo o que já está a caminho.",
+    "Lista as encomendas (pedidos feitos a fornecedores) da página Encomendas, agrupadas por fornecedor, com insumo, quantidade, unidade (e a quantidade convertida para a unidade do insumo, inclusive pela embalagem de compra), data prevista de entrega e observações. Por padrão mostra só as pendentes (já pedidas e ainda não recebidas) e marca as atrasadas (data prevista antes de hoje). Use antes de sugerir compras para não pedir de novo o que já está a caminho.",
   inputSchema: {
     status: z
       .enum(["pending", "received", "cancelled", "all"])
@@ -59,7 +65,7 @@ export default defineTool({
     let q = supabase
       .from("purchase_orders")
       .select(
-        "id, supplier_id, supplier_name, ingredient_id, quantity, unit, expected_at, status, notes, created_at, received_at, ingredient:ingredients(name)",
+        "id, supplier_id, supplier_name, ingredient_id, quantity, unit, expected_at, status, notes, created_at, received_at, ingredient:ingredients(name, unit, purchase_pack_qty, purchase_pack_name)",
       )
       .order("expected_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -94,6 +100,17 @@ export default defineTool({
         ingredient: r.ingredient?.name ?? null,
         quantity: Number(r.quantity),
         unit: r.unit,
+        // Na unidade do insumo (1 caixa de mussarela = 30 kg, pela embalagem cadastrada).
+        ...(r.ingredient
+          ? (() => {
+              const c = toIngredientUnit(Number(r.quantity), r.unit, r.ingredient);
+              return {
+                quantity_in_ingredient_unit: c.qty,
+                ingredient_unit: r.ingredient.unit,
+                unit_conversion: c.converted_by,
+              };
+            })()
+          : {}),
         expected_at: expected,
         overdue: isOverdue,
         status: r.status,

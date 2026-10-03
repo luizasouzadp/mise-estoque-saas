@@ -337,6 +337,8 @@ export type Database = {
           last_cost: number
           min_stock: number
           name: string
+          purchase_pack_name: string | null
+          purchase_pack_qty: number | null
           restaurant_id: string
           source_recipe_id: string | null
           unit: string
@@ -355,6 +357,8 @@ export type Database = {
           last_cost?: number
           min_stock?: number
           name: string
+          purchase_pack_name?: string | null
+          purchase_pack_qty?: number | null
           restaurant_id: string
           source_recipe_id?: string | null
           unit?: string
@@ -373,6 +377,8 @@ export type Database = {
           last_cost?: number
           min_stock?: number
           name?: string
+          purchase_pack_name?: string | null
+          purchase_pack_qty?: number | null
           restaurant_id?: string
           source_recipe_id?: string | null
           unit?: string
@@ -1416,6 +1422,7 @@ export type Database = {
           created_by: string | null
           delivery_days: number[]
           id: string
+          is_active: boolean
           lead_time_days: number | null
           min_coverage_days: number | null
           min_order_value: number | null
@@ -1426,7 +1433,9 @@ export type Database = {
           order_frequency: string | null
           order_interval_days: number | null
           phone: string | null
+          possible_interval_days: number | null
           restaurant_id: string
+          safety_days: number
           tax_id: string | null
           updated_at: string
         }
@@ -1436,6 +1445,7 @@ export type Database = {
           created_by?: string | null
           delivery_days?: number[]
           id?: string
+          is_active?: boolean
           lead_time_days?: number | null
           min_coverage_days?: number | null
           min_order_value?: number | null
@@ -1446,7 +1456,9 @@ export type Database = {
           order_frequency?: string | null
           order_interval_days?: never
           phone?: string | null
+          possible_interval_days?: number | null
           restaurant_id: string
+          safety_days?: number
           tax_id?: string | null
           updated_at?: string
         }
@@ -1456,6 +1468,7 @@ export type Database = {
           created_by?: string | null
           delivery_days?: number[]
           id?: string
+          is_active?: boolean
           lead_time_days?: number | null
           min_coverage_days?: number | null
           min_order_value?: number | null
@@ -1466,7 +1479,9 @@ export type Database = {
           order_frequency?: string | null
           order_interval_days?: never
           phone?: string | null
+          possible_interval_days?: number | null
           restaurant_id?: string
+          safety_days?: number
           tax_id?: string | null
           updated_at?: string
         }
