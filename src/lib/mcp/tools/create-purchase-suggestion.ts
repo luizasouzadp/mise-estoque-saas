@@ -5,7 +5,7 @@ import {
   dailyConsumptionAll,
   effectiveStockAll,
   fetchAll,
-  isInternallyProduced,
+  internalReason,
   loadRecipeGraph,
   normalizeName,
 } from "../lib/consumption";
@@ -141,8 +141,9 @@ export default defineTool({
     let counts: CountRow[];
     let consumption: Awaited<ReturnType<typeof dailyConsumptionAll>>;
     let effective: Map<string, number>;
+    let graph: Awaited<ReturnType<typeof loadRecipeGraph>>;
     try {
-      const graph = await loadRecipeGraph(supabase);
+      graph = await loadRecipeGraph(supabase);
       effective = effectiveStockAll(graph);
       [ings, suppliers, purchases, links, pendingOrders, counts, consumption] = await Promise.all([
         fetchAll<IngRow>(
@@ -283,17 +284,18 @@ export default defineTool({
     type Group = { key: string; supplier: PlannerSupplier; items: PlannerItem[]; sources: Map<string, string> };
     const groups = new Map<string, Group>();
     const noConsumption: string[] = [];
-    let skippedInternal = 0;
-    let skippedInactiveSupplier = 0;
+    const excludedInternal: { name: string; reason: string }[] = [];
+    const excludedInactiveSupplier: string[] = [];
     for (const i of ings) {
       if (i.is_active === false) continue;
-      if (isInternallyProduced(i)) {
-        skippedInternal++;
+      const internal = internalReason(i, graph);
+      if (internal) {
+        excludedInternal.push({ name: i.name, reason: internal });
         continue;
       }
       const res = resolveSupplier(i);
       if (!res) {
-        skippedInactiveSupplier++;
+        excludedInactiveSupplier.push(i.name);
         continue;
       }
       const { sup, name, source } = res;
@@ -375,7 +377,7 @@ export default defineTool({
         .filter((d) => d.order && (!only_critical || d.critical || d.available_stock < d.min_stock))
         .sort((a, b) => (a.days_until_out ?? Infinity) - (b.days_until_out ?? Infinity));
       const waiting = all
-        .filter((d) => !d.order && (d.avg_daily > 0 || d.min_stock > 0 || d.on_order > 0))
+        .filter((d) => !d.order)
         .sort((a, b) => (a.days_until_out ?? Infinity) - (b.days_until_out ?? Infinity));
 
       const subtotal = Number(toOrder.reduce((a, d) => a + d.estimated_cost, 0).toFixed(2));
@@ -390,7 +392,6 @@ export default defineTool({
           ? nextOrderPreview(g.supplier, sch, g.items, decisions, defaultHorizon)
           : null;
 
-      if (!toOrder.length && !(showWaiting && waiting.length) && !preview?.items.length) continue;
       out.push({
         supplier_id: g.supplier.id,
         supplier: g.supplier.name,
@@ -436,8 +437,12 @@ export default defineTool({
       total_estimated_cost: Number(ordering.reduce((a, g) => a + g.subtotal, 0).toFixed(2)),
       suppliers_to_order: ordering.map((g) => g.supplier),
       total_items: ordering.reduce((a, g) => a + g.items.length, 0),
-      excluded_internal_items: skippedInternal,
-      excluded_inactive_supplier_items: skippedInactiveSupplier,
+      excluded_internal_items: excludedInternal.length,
+      excluded_inactive_supplier_items: excludedInactiveSupplier.length,
+      excluded: {
+        internal: excludedInternal.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+        inactive_supplier: excludedInactiveSupplier.sort((a, b) => a.localeCompare(b, "pt-BR")),
+      },
       attention: {
         no_consumption_and_no_minimum: noConsumption.sort((a, b) => a.localeCompare(b, "pt-BR")),
         order_unit_warnings: unitWarnings,

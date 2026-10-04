@@ -101,19 +101,18 @@ export function supplierSchedule(
       : Math.max(0, s.lead_time_days ?? 0);
   const lead = leadFor(orderDate);
 
-  const gapToNextOrderDay = orderDays.length
-    ? 1 + daysUntilDow(addDays(orderDate, 1), orderDays)
-    : null;
+  // Intervalo da frequência: semanal 7, quinzenal 14, mensal 30, sob demanda 1.
   const preferred = s.preferred_interval_days ?? null;
+  const frequencyInterval = s.order_frequency === "on_demand" ? 1 : preferred;
+  // Possível: o cadastrado; senão, com dias de pedido → 7 (pode pedir toda semana);
+  // senão, o intervalo da frequência.
   const possible =
-    s.possible_interval_days ??
-    gapToNextOrderDay ??
-    (s.order_frequency === "on_demand" ? 1 : (preferred ?? 7));
+    s.possible_interval_days ?? (orderDays.length ? 7 : (frequencyInterval ?? 7));
 
   const nextOpportunityOrder = addDays(orderDate, possible);
   const nextOpportunityDelivery = addDays(nextOpportunityOrder, leadFor(nextOpportunityOrder));
 
-  const effPreferred = preferred ?? gapToNextOrderDay;
+  const effPreferred = preferred ?? (orderDays.length ? 7 : null);
   const minCov = Math.max(0, s.min_coverage_days ?? 0);
   const coverage =
     effPreferred != null

@@ -18,17 +18,20 @@ export async function syncRecipeStockIngredient(args: {
   // Busca insumo existente vinculado
   let { data: existing } = await supabase
     .from("ingredients")
-    .select("id")
+    .select("id, category")
     .eq("source_recipe_id", recipeId)
     .maybeSingle();
 
-  // Fallback: revincula insumo órfão de mesmo nome no mesmo restaurante
-  if (!existing) {
+  // Fallback: revincula insumo espelho órfão (categoria "sub-receita") de mesmo nome.
+  // Só para ficha em estoque e nunca um insumo comprado: antes, salvar o prato
+  // "Iscas de alcatra" ligava (e tentava apagar) o insumo comprado de mesmo nome.
+  if (!existing && isStocked) {
     const { data: orphan } = await supabase
       .from("ingredients")
-      .select("id")
+      .select("id, category")
       .eq("restaurant_id", restaurantId)
       .ilike("name", name)
+      .eq("category", "sub-receita")
       .is("source_recipe_id", null)
       .maybeSingle();
     if (orphan) {
@@ -62,6 +65,15 @@ export async function syncRecipeStockIngredient(args: {
       });
     }
   } else if (existing) {
-    await supabase.from("ingredients").delete().eq("id", existing.id);
+    if (existing.category === "sub-receita") {
+      // Espelho criado pelo sistema: remove (ou só desvincula, se estiver em uso).
+      const { error } = await supabase.from("ingredients").delete().eq("id", existing.id);
+      if (error) {
+        await supabase.from("ingredients").update({ source_recipe_id: null }).eq("id", existing.id);
+      }
+    } else {
+      // Insumo comprado ligado por engano: só desvincula, não apaga.
+      await supabase.from("ingredients").update({ source_recipe_id: null }).eq("id", existing.id);
+    }
   }
 }

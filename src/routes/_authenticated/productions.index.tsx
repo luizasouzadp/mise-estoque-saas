@@ -308,6 +308,7 @@ function ProductionsPage() {
         .select("id")
         .eq("restaurant_id", restaurantId)
         .ilike("name", q.recipeName)
+        .eq("category", "sub-receita")
         .is("source_recipe_id", null)
         .maybeSingle();
       if (byName) {

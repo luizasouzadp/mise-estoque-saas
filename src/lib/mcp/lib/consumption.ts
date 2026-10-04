@@ -57,6 +57,7 @@ type GraphIngredient = {
 
 type GraphRecipe = {
   id: string;
+  is_stocked: boolean | null;
   yield_qty: number | null;
   yield_unit: string | null;
   recipe_items: Array<{
@@ -70,6 +71,8 @@ type GraphRecipe = {
 
 export type RecipeGraph = {
   ingredients: Map<string, GraphIngredient>;
+  /** Insumos que são de fato resultado de uma ficha (pré-preparos em estoque). */
+  prepIds: Set<string>;
   /** pré-preparo → (insumo da ficha → quantidade por 1 unidade do pré-preparo) */
   bom: Map<string, Map<string, number>>;
   /** insumo → pré-preparos que o usam, com a quantidade por unidade do pré-preparo */
@@ -85,14 +88,26 @@ function normalize(s: string | null | undefined): string {
     .trim();
 }
 
-/** Itens produzidos internamente: resultado de uma ficha ou categoria "pré-preparo". */
-export function isInternallyProduced(i: {
-  source_recipe_id?: string | null;
-  category?: string | null;
-}): boolean {
-  if (i.source_recipe_id) return true;
-  const c = normalize(i.category);
-  return c === "pre preparo" || c === "pre preparos";
+const INTERNAL_CATEGORIES = new Set(["pre preparo", "pre preparos", "sub receita", "sub receitas"]);
+
+/**
+ * Por que o item é produzido internamente (pré-preparo ou resultado de uma ficha), ou null.
+ * Com o grafo, só conta o vínculo com ficha válido (ver `loadRecipeGraph`).
+ */
+export function internalReason(
+  i: { id?: string; source_recipe_id?: string | null; category?: string | null },
+  graph?: RecipeGraph,
+): string | null {
+  if (INTERNAL_CATEGORIES.has(normalize(i.category))) return `categoria "${i.category}"`;
+  if (graph ? !!i.id && graph.prepIds.has(i.id) : !!i.source_recipe_id) return "resultado de uma ficha";
+  return null;
+}
+
+export function isInternallyProduced(
+  i: { id?: string; source_recipe_id?: string | null; category?: string | null },
+  graph?: RecipeGraph,
+): boolean {
+  return internalReason(i, graph) !== null;
 }
 
 export async function loadRecipeGraph(supabase: SupabaseClient): Promise<RecipeGraph> {
@@ -108,7 +123,7 @@ export async function loadRecipeGraph(supabase: SupabaseClient): Promise<RecipeG
       supabase
         .from("recipes")
         .select(
-          "id, yield_qty, yield_unit, recipe_items!recipe_items_recipe_id_fkey(item_type, ingredient_id, sub_recipe_id, quantity, unit)",
+          "id, is_stocked, yield_qty, yield_unit, recipe_items!recipe_items_recipe_id_fkey(item_type, ingredient_id, sub_recipe_id, quantity, unit)",
         )
         .order("id")
         .range(from, to) as unknown as PromiseLike<QueryResult<GraphRecipe>>,
@@ -117,8 +132,18 @@ export async function loadRecipeGraph(supabase: SupabaseClient): Promise<RecipeG
 
   const ingredients = new Map(ingList.map((i) => [i.id, i]));
   const recipeMap = new Map(recipes.map((r) => [r.id, r]));
+  // Vínculo insumo → ficha só vale se a ficha fica em estoque e não usa o próprio insumo.
+  // Protege contra vínculos errados (ex.: prato "Iscas de alcatra" do cardápio ligado ao
+  // insumo comprado de mesmo nome), que tirariam o insumo da lista de compras.
+  const prepIds = new Set<string>();
   const stockedRecipeToIng = new Map<string, string>();
-  for (const i of ingList) if (i.source_recipe_id) stockedRecipeToIng.set(i.source_recipe_id, i.id);
+  for (const i of ingList) {
+    const r = i.source_recipe_id ? recipeMap.get(i.source_recipe_id) : undefined;
+    if (!r || r.is_stocked === false) continue;
+    if ((r.recipe_items ?? []).some((it) => it.ingredient_id === i.id)) continue;
+    prepIds.add(i.id);
+    stockedRecipeToIng.set(r.id, i.id);
+  }
 
   // Converte para a unidade do insumo quando possível (kg↔g, L↔ml); senão usa como está.
   const toUnit = (qty: number, from: string | null, to: string | undefined) =>
@@ -153,7 +178,7 @@ export async function loadRecipeGraph(supabase: SupabaseClient): Promise<RecipeG
   const bom = new Map<string, Map<string, number>>();
   const parents = new Map<string, Array<{ prep: string; factor: number }>>();
   for (const prep of ingList) {
-    if (!prep.source_recipe_id) continue;
+    if (!prep.source_recipe_id || !prepIds.has(prep.id)) continue;
     const r = recipeMap.get(prep.source_recipe_id);
     if (!r) continue;
     const yieldInPrepUnit = toUnit(Number(r.yield_qty ?? 1) || 1, r.yield_unit, prep.unit) || 1;
@@ -168,7 +193,7 @@ export async function loadRecipeGraph(supabase: SupabaseClient): Promise<RecipeG
       parents.set(child, list);
     }
   }
-  return { ingredients, bom, parents };
+  return { ingredients, prepIds, bom, parents };
 }
 
 /**
