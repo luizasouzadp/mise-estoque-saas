@@ -170,7 +170,15 @@ function ImportPurchase() {
     mutationFn: async () => {
       if (!files.length) throw new Error("Escolha ao menos uma foto da nota.");
       const dataUrls = await Promise.all(files.map(fileToCompressedDataUrl));
-      const parsed = await parseFn({ data: { imageDataUrls: dataUrls } });
+      const parsed = await parseFn({ data: { imageDataUrls: dataUrls } }).catch((e: Error) => {
+        // "Load failed" / "Failed to fetch": a conexão caiu antes da resposta.
+        if (/load failed|failed to fetch|networkerror/i.test(e?.message ?? "")) {
+          throw new Error(
+            "A conexão caiu enquanto a IA lia a nota. Confira a internet, mantenha o app aberto e tente de novo.",
+          );
+        }
+        throw e;
+      });
       const suggested = await suggestFn({
         data: { raw_texts: parsed.items.map((i) => i.raw_text) },
       });

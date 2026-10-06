@@ -18,8 +18,12 @@ const ParsedInvoice = z.object({
   items: z.array(ItemSchema),
 });
 
-// Primeiro o modelo rápido e sabidamente disponível; os demais são reserva.
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash"];
+// Modelos atuais primeiro; o 2.5 fica de reserva (o Google já recusa ele para algumas chaves).
+const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+// O celular (Safari) desiste da conexão por volta de 60s e mostra "Load failed";
+// por isso cada tentativa e o total precisam terminar antes disso.
+const ATTEMPT_TIMEOUT_MS = 40_000;
+const TOTAL_BUDGET_MS = 50_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const PROMPT = `Extraia todos os itens desta nota fiscal brasileira (NFC-e, cupom fiscal ou nota de fornecedor em papel). A nota pode ter várias páginas — considere TODAS as imagens em conjunto como uma única nota.
@@ -114,16 +118,21 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
           // Sem "pensar" longamente: a leitura da nota é uma tarefa direta e isso acelera muito.
-          ...(model === "gemini-2.5-flash" ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          thinkingConfig:
+            model === "gemini-2.5-flash" ? { thinkingBudget: 0 } : { thinkingLevel: "minimal" },
         },
       });
 
     let res: Response | null = null;
     let lastBody = "";
+    let timedOut = false;
+    const startedAt = Date.now();
     // Tenta cada modelo; em sobrecarga (5xx) repete uma vez, em limite (429) passa logo ao próximo.
     outer: for (const model of GEMINI_MODELS) {
       const requestBody = buildBody(model);
       for (let attempt = 0; attempt < 2; attempt++) {
+        const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+        if (remaining < 5_000) break outer;
         try {
           res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -134,10 +143,17 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
                 "x-goog-api-key": apiKey,
               },
               body: requestBody,
+              signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT_MS, remaining)),
             },
           );
-        } catch {
+        } catch (e) {
           res = null;
+          // Demorou demais: não adianta repetir o mesmo modelo, passa ao próximo.
+          if ((e as Error)?.name === "TimeoutError") {
+            timedOut = true;
+            console.error(`[Gemini/${model}] tempo esgotado`);
+            break;
+          }
           await sleep(1000);
           continue;
         }
@@ -151,6 +167,11 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
     }
 
     if (!res) {
+      if (timedOut) {
+        throw new Error(
+          "A IA do Google demorou demais para ler a nota. Tente novamente em instantes ou envie menos fotos por vez.",
+        );
+      }
       throw new Error("Não foi possível conectar à API do Google. Tente novamente.");
     }
 
