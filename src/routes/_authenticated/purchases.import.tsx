@@ -21,8 +21,8 @@ import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, Alert
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { fileToCompressedDataUrl } from "@/lib/image-compress";
+import { readInvoice } from "@/lib/invoice-read.client";
 import {
-  parseInvoiceImage,
   suggestIngredientMatches,
   saveImportedPurchase,
 } from "@/lib/invoice-import.functions";
@@ -51,7 +51,6 @@ function ImportPurchase() {
   const search = Route.useSearch();
   const fromOrderReceipt = search.fromOrderReceipt;
   const pendingInvoiceId = search.pendingInvoiceId;
-  const parseFn = useServerFn(parseInvoiceImage);
   const suggestFn = useServerFn(suggestIngredientMatches);
   const saveFn = useServerFn(saveImportedPurchase);
 
@@ -170,15 +169,7 @@ function ImportPurchase() {
     mutationFn: async () => {
       if (!files.length) throw new Error("Escolha ao menos uma foto da nota.");
       const dataUrls = await Promise.all(files.map(fileToCompressedDataUrl));
-      const parsed = await parseFn({ data: { imageDataUrls: dataUrls } }).catch((e: Error) => {
-        // "Load failed" / "Failed to fetch": a conexão caiu antes da resposta.
-        if (/load failed|failed to fetch|networkerror/i.test(e?.message ?? "")) {
-          throw new Error(
-            "A conexão caiu enquanto a IA lia a nota. Confira a internet, mantenha o app aberto e tente de novo.",
-          );
-        }
-        throw e;
-      });
+      const parsed = await readInvoice(dataUrls);
       const suggested = await suggestFn({
         data: { raw_texts: parsed.items.map((i) => i.raw_text) },
       });
