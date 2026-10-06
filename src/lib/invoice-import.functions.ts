@@ -3,19 +3,40 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 // -------- Parse invoice image via Google Gemini (chave própria do usuário) --------
+// Os modelos mais novos às vezes omitem campos vazios ou mandam números como texto
+// ("3,50"); aceita tudo isso em vez de recusar a nota inteira.
+const num = z.preprocess((v) => {
+  if (v === undefined || v === null || v === "") return null;
+  if (typeof v === "string") {
+    const n = Number(v.replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
+  return v;
+}, z.number().nullable());
+const str = z.preprocess(
+  (v) => (v === undefined || v === null ? null : typeof v === "number" ? String(v) : v),
+  z.string().nullable(),
+);
 const ItemSchema = z.object({
   raw_text: z.string(),
-  quantity: z.number().nullable(),
-  unit: z.string().nullable(),
-  unit_price: z.number().nullable(),
-  total: z.number().nullable(),
+  quantity: num,
+  unit: str,
+  unit_price: num,
+  total: num,
 });
 const ParsedInvoice = z.object({
-  supplier: z.string().nullable(),
-  tax_id: z.string().nullable(),
-  purchased_at: z.string().nullable(),
-  invoice_total: z.number().nullable().optional(),
-  items: z.array(ItemSchema),
+  supplier: str,
+  tax_id: str,
+  purchased_at: str,
+  invoice_total: num,
+  items: z.preprocess(
+    // Descarta linhas sem descrição em vez de falhar a nota toda.
+    (v) =>
+      Array.isArray(v)
+        ? v.filter((it) => it && typeof it.raw_text === "string" && it.raw_text.trim())
+        : v,
+    z.array(ItemSchema),
+  ),
 });
 
 // Modelos atuais primeiro; o 2.5 fica de reserva (o Google já recusa ele para algumas chaves).
@@ -221,7 +242,8 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
 
     const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
     if (!text.trim()) {
-      throw new Error("Não consegui ler a nota. Tente uma foto mais nítida ou reenquadre.");
+      console.error("[Gemini] resposta vazia:", JSON.stringify(json).slice(0, 800));
+      throw new Error("A IA não devolveu nenhum texto da nota. Tente uma foto mais nítida ou reenquadre.");
     }
 
     let raw: unknown;
@@ -242,7 +264,7 @@ export const parseInvoiceImage = createServerFn({ method: "POST" })
 
     const parsed = ParsedInvoice.safeParse(raw);
     if (!parsed.success) {
-      console.error("[Gemini] resposta fora do schema:", parsed.error.message);
+      console.error("[Gemini] resposta fora do schema:", parsed.error.message, text.slice(0, 800));
       throw new Error("Não consegui ler a nota. Tente uma foto mais nítida ou reenquadre.");
     }
     if (!parsed.data.items.length) {
