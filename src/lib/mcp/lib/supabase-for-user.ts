@@ -52,3 +52,20 @@ export function ok<T>(structured: T, summary?: string) {
     structuredContent: clean as Record<string, unknown>,
   };
 }
+
+/** Dias da semana em que o restaurante fecha (0=domingo … 6=sábado). Sem a coluna → []. */
+export async function getClosedWeekdays(
+  supabase: SupabaseClient,
+  userId: string | null | undefined,
+): Promise<number[]> {
+  const restaurantId = userId ? await getRestaurantId(supabase, userId) : null;
+  if (!restaurantId) return [];
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("closed_weekdays")
+    .eq("id", restaurantId)
+    .maybeSingle();
+  if (error) return [];
+  const days = (data as { closed_weekdays?: number[] | null } | null)?.closed_weekdays;
+  return Array.isArray(days) ? days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : [];
+}

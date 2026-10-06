@@ -1,9 +1,12 @@
 // Regra da lista de compras automática (doc "Lista de compras automática – Hangar").
 //
 //   cobertura = prazo + intervalo preferido (ou a cobertura mínima, o que for maior)
-//   precisa pedir? estoque disponível < consumo × (até o pedido + prazo + intervalo possível
-//                  + segurança), ou vai ficar abaixo do mínimo antes dessa entrega
-//   quanto = consumo × cobertura + mínimo − disponível, arredondado PARA CIMA pela embalagem
+//   precisa pedir? disponível < mínimo, ou dias até acabar < dias até a entrega do próximo
+//                  pedido possível + segurança
+//   quanto = max(consumo da cobertura − disponível, mínimo − disponível, 0),
+//            arredondado PARA CIMA pela embalagem
+//   Dias fechados (closed_weekdays) não consomem: o consumo médio é por dia aberto e as
+//   contas de consumo andam no calendário pulando os dias fechados.
 //
 // Funções puras (sem banco), para poder testar com exemplos.
 
@@ -54,6 +57,8 @@ export type Schedule = {
   safety_days: number;
   coverage_days: number;
   coverage_end_date: string;
+  /** Dias da semana em que o restaurante não abre (0=domingo … 6=sábado). */
+  closed_weekdays: number[];
 };
 
 const DAY = 86400000;
@@ -79,12 +84,56 @@ function daysUntilDow(from: Date, dows: number[]): number {
   return Math.min(...dows.map((d) => (d - base + 7) % 7));
 }
 
+// ---------- Dias abertos ----------
+
+function isOpenDay(d: Date, closed: number[]): boolean {
+  return !closed.includes(d.getUTCDay());
+}
+
+/** Dias abertos em [start, start + days) (start = YYYY-MM-DD, contado desde o início do dia). */
+export function openDaysIn(start: string, days: number, closed: number[]): number {
+  const base = parseDate(start);
+  let n = 0;
+  for (let i = 0; i < Math.max(0, Math.round(days)); i++) if (isOpenDay(addDays(base, i), closed)) n++;
+  return n;
+}
+
+/** Consumo médio por DIA ABERTO de uma série diária (YYYY-MM-DD → quantidade). */
+export function avgPerOpenDay(series: { date: string; qty: number }[], closed: number[]): number {
+  const open = series.filter((d) => isOpenDay(parseDate(d.date), closed)).length;
+  const total = series.reduce((a, d) => a + d.qty, 0);
+  return open > 0 ? total / open : 0;
+}
+
+/**
+ * Dias de calendário (com fração) até o estoque acabar, a partir do início de `start`,
+ * consumindo `avg` só nos dias abertos. null = sem consumo.
+ */
+export function daysUntilOutCalendar(
+  available: number,
+  avg: number,
+  start: string,
+  closed: number[],
+): number | null {
+  if (avg <= 0 || closed.length >= 7) return null;
+  let remaining = Math.max(0, available);
+  const base = parseDate(start);
+  for (let i = 0; i < 3660; i++) {
+    if (!isOpenDay(addDays(base, i), closed)) continue;
+    // Tolerância: somar dia a dia acumula resíduos (12 dias exatos não viram 11,9999).
+    if (remaining < avg - 1e-9 * Math.max(1, avg)) return i + Math.max(0, remaining) / avg;
+    remaining -= avg;
+  }
+  return 3660;
+}
+
 /** Agenda do fornecedor vista de `asOf` (YYYY-MM-DD). */
 export function supplierSchedule(
   s: PlannerSupplier,
   asOf: string,
   defaultHorizon: number,
   safetyOverride?: number,
+  closedWeekdays: number[] = [],
 ): Schedule {
   const today = parseDate(asOf);
   const orderDays = validDows(s.order_days);
@@ -132,6 +181,7 @@ export function supplierSchedule(
     safety_days: safetyOverride ?? s.safety_days ?? 2,
     coverage_days: coverage,
     coverage_end_date: isoDate(addDays(today, coverage)),
+    closed_weekdays: validDows(closedWeekdays),
   };
 }
 
@@ -151,6 +201,10 @@ export type ItemDecision = {
   on_order: number;
   available_stock: number;
   days_until_out: number | null;
+  /** Dia em que o estoque acaba (consumindo só nos dias abertos). */
+  depletion_date: string | null;
+  /** Consumo previsto na cobertura (só dias abertos). */
+  coverage_consumption: number;
   min_stock: number;
   order: boolean;
   need_qty: number;
@@ -163,40 +217,52 @@ export type ItemDecision = {
   estimated_cost: number;
   decision_reason: string;
   /** Vai acabar antes da entrega deste pedido. */
-  critical: boolean;
+  runs_out_before_delivery: boolean;
 };
 
 /** Estoque disponível e decisão de um item para a agenda do fornecedor. */
 export function decideItem(item: PlannerItem, sch: Schedule): ItemDecision {
   const avg = Math.max(0, item.avg_daily);
+  const closed = sch.closed_weekdays;
   const daysSinceCount =
     item.last_count_date != null ? Math.max(0, daysBetween(item.last_count_date, sch.as_of_date)) : null;
-  // Contagem de domingo − consumo estimado dos dias que passaram (o estoque efetivo já
-  // inclui as compras lançadas desde a contagem e o que está em pré-preparo).
-  const estimated = Math.max(0, item.effective_stock - avg * (daysSinceCount ?? 0));
+  // Contagem − consumo dos dias ABERTOS entre a contagem e hoje. O dia da contagem e o de
+  // hoje não entram (a estimativa é do início do dia). O estoque efetivo já inclui as
+  // compras lançadas desde a contagem e o que está em pré-preparo.
+  const openSinceCount =
+    item.last_count_date != null && daysSinceCount != null && daysSinceCount > 1
+      ? openDaysIn(isoDate(addDays(parseDate(item.last_count_date), 1)), daysSinceCount - 1, closed)
+      : 0;
+  const estimated = Math.max(0, item.effective_stock - avg * openSinceCount);
   const onOrder = item.orders
     .filter((o) => o.expected_at == null || o.expected_at.slice(0, 10) <= sch.coverage_end_date)
     .reduce((a, o) => a + o.qty, 0);
   const available = estimated + onOrder;
-  const daysUntilOut = avg > 0 ? available / avg : null;
+  const daysUntilOut = daysUntilOutCalendar(available, avg, sch.as_of_date, closed);
+  const depletionDate =
+    daysUntilOut != null ? isoDate(addDays(parseDate(sch.as_of_date), Math.floor(daysUntilOut))) : null;
 
   const reach = sch.days_to_next_opportunity_delivery;
-  const byConsumption = avg > 0 && available < avg * (reach + sch.safety_days);
-  const byMin = item.min_stock > 0 && available - avg * reach < item.min_stock;
-  const needQty = avg * sch.coverage_days + item.min_stock - available;
-  const order = (byConsumption || byMin) && needQty > 0;
+  const belowMin = item.min_stock > 0 && available < item.min_stock;
+  const runsOut = daysUntilOut != null && daysUntilOut < reach + sch.safety_days;
+  const coverageConsumption = avg * openDaysIn(sch.as_of_date, sch.coverage_days, closed);
+  const needQty = Math.max(coverageConsumption - available, item.min_stock - available, 0);
+  const order = (belowMin || runsOut) && needQty > 0;
 
   const rounded = order ? roundToPack(needQty, item) : roundToPack(0, item);
   const onOrderTxt = onOrder > 0 ? ` (já conta ${fmt(onOrder)} ${item.unit} encomendados)` : "";
+  const outTxt = depletionDate ? ` (acaba ${depletionDate.slice(8, 10)}/${depletionDate.slice(5, 7)})` : "";
   let reason: string;
-  if (order && byConsumption) {
-    reason = `aguenta ${fmt(daysUntilOut ?? 0)} dias${onOrderTxt}; a entrega do próximo pedido possível é em ${reach} dias + ${sch.safety_days} de segurança → pedir para ${sch.coverage_days} dias`;
+  if (order && runsOut) {
+    reason = `aguenta ${fmt(daysUntilOut ?? 0)} dias${outTxt}${onOrderTxt}; a entrega do próximo pedido possível é em ${reach} dias + ${sch.safety_days} de segurança → pedir para ${sch.coverage_days} dias`;
   } else if (order) {
-    reason = `vai ficar abaixo do mínimo (${fmt(item.min_stock)} ${item.unit}) antes da entrega do próximo pedido possível, em ${reach} dias${onOrderTxt} → pedir para ${sch.coverage_days} dias + mínimo`;
+    reason = `abaixo do mínimo (${fmt(available)} de ${fmt(item.min_stock)} ${item.unit})${onOrderTxt} → pedir até o mínimo ou ${sch.coverage_days} dias de consumo, o que for maior`;
+  } else if (belowMin || runsOut) {
+    reason = `acaba antes da próxima entrega possível, mas o disponível já cobre os ${sch.coverage_days} dias de cobertura${onOrderTxt} → não pedir`;
   } else if (avg <= 0) {
     reason = `sem consumo registrado e acima do mínimo${onOrderTxt} → não pedir`;
   } else {
-    reason = `aguenta ${fmt(daysUntilOut ?? 0)} dias${onOrderTxt}, próxima entrega possível em ${reach} (+${sch.safety_days} de segurança) → esperar`;
+    reason = `aguenta ${fmt(daysUntilOut ?? 0)} dias${outTxt}${onOrderTxt}, próxima entrega possível em ${reach} (+${sch.safety_days} de segurança) → esperar`;
   }
 
   const unitCost = Math.max(0, item.unit_cost);
@@ -213,6 +279,8 @@ export function decideItem(item: PlannerItem, sch: Schedule): ItemDecision {
     on_order: onOrder,
     available_stock: available,
     days_until_out: daysUntilOut != null ? Number(daysUntilOut.toFixed(1)) : null,
+    depletion_date: depletionDate,
+    coverage_consumption: r3(coverageConsumption),
     min_stock: item.min_stock,
     order,
     need_qty: order ? needQty : 0,
@@ -224,7 +292,7 @@ export function decideItem(item: PlannerItem, sch: Schedule): ItemDecision {
     unit_cost: unitCost,
     estimated_cost: Number((rounded.qty * unitCost).toFixed(2)),
     decision_reason: reason,
-    critical: avg > 0 && available < avg * (sch.days_to_order + sch.lead_days),
+    runs_out_before_delivery: daysUntilOut != null && daysUntilOut < sch.days_to_order + sch.lead_days,
   };
 }
 
@@ -316,8 +384,8 @@ export function nextOrderPreview(
 ) {
   const interval = sch.preferred_interval_days ?? sch.possible_interval_days;
   const nextOrderDate = isoDate(addDays(parseDate(sch.next_order_date), interval));
-  const nextSch = supplierSchedule(s, nextOrderDate, defaultHorizon, sch.safety_days);
-  const elapsed = daysBetween(sch.as_of_date, nextOrderDate);
+  const nextSch = supplierSchedule(s, nextOrderDate, defaultHorizon, sch.safety_days, sch.closed_weekdays);
+  const elapsedOpen = openDaysIn(sch.as_of_date, daysBetween(sch.as_of_date, nextOrderDate), sch.closed_weekdays);
   const out: Array<Pick<ItemDecision, "ingredient_id" | "name" | "unit" | "qty" | "packs" | "pack_name" | "order_text" | "estimated_cost" | "decision_reason">> = [];
   for (const item of items) {
     const now = decisions.get(item.ingredient_id);
@@ -325,7 +393,7 @@ export function nextOrderPreview(
     // Situação projetada no dia do próximo pedido.
     const projected: PlannerItem = {
       ...item,
-      effective_stock: Math.max(0, now.available_stock - item.avg_daily * elapsed),
+      effective_stock: Math.max(0, now.available_stock - item.avg_daily * elapsedOpen),
       last_count_date: null,
       orders: [],
     };

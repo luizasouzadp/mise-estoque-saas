@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
+import { supabaseForUser, getClosedWeekdays, notAuthed, err, ok } from "../lib/supabase-for-user";
 import {
   dailyConsumptionAll,
   effectiveStockAll,
@@ -11,6 +11,7 @@ import {
 } from "../lib/consumption";
 import { toIngredientUnit, type PackInfo } from "../lib/packs";
 import {
+  avgPerOpenDay,
   decideItem,
   fillToMinimum,
   nextOrderPreview,
@@ -67,7 +68,9 @@ export default defineTool({
     only_critical: z
       .boolean()
       .optional()
-      .describe("Se true, só itens que acabam antes da entrega deste pedido ou abaixo do mínimo."),
+      .describe(
+        "Se true, só os fornecedores com algo a pedir agora. A decisão de pedir é a mesma do campo order de cada item.",
+      ),
     safety_days: z
       .number()
       .int()
@@ -90,6 +93,9 @@ export default defineTool({
     const asOf = as_of_date ?? todaySaoPaulo();
     const defaultHorizon = horizon_days ?? 15;
     const showWaiting = include_waiting ?? true;
+
+    // Dias em que o restaurante fecha (não consomem estoque).
+    const closedWeekdays = await getClosedWeekdays(supabase, ctx.getUserId());
 
     type IngRow = {
       id: string;
@@ -338,7 +344,8 @@ export default defineTool({
         groups.set(key, g);
       }
       const series = consumption.get(i.id);
-      const avg = series ? series.slice(-CONSUMPTION_DAYS).reduce((a, d) => a + d.qty, 0) / CONSUMPTION_DAYS : 0;
+      // Consumo da janela ÷ dias ABERTOS da janela.
+      const avg = series ? avgPerOpenDay(series.slice(-CONSUMPTION_DAYS), closedWeekdays) : 0;
       const stock = Number(i.current_stock ?? 0);
       const min = Number(i.min_stock ?? 0);
       if (avg <= 0 && min <= 0) noConsumption.push(i.name);
@@ -369,13 +376,15 @@ export default defineTool({
     };
     const out: OutGroup[] = [];
     for (const g of groups.values()) {
-      const sch = supplierSchedule(g.supplier, asOf, defaultHorizon, safety_days);
+      const sch = supplierSchedule(g.supplier, asOf, defaultHorizon, safety_days, closedWeekdays);
       const decisions = new Map<string, ItemDecision>();
       for (const item of g.items) decisions.set(item.ingredient_id, decideItem(item, sch));
       const all = Array.from(decisions.values());
+      // Todo item fica em items (pedir) ou em waiting (esperar), nunca some.
       const toOrder = all
-        .filter((d) => d.order && (!only_critical || d.critical || d.available_stock < d.min_stock))
+        .filter((d) => d.order)
         .sort((a, b) => (a.days_until_out ?? Infinity) - (b.days_until_out ?? Infinity));
+      if (only_critical && !toOrder.length) continue;
       const waiting = all
         .filter((d) => !d.order)
         .sort((a, b) => (a.days_until_out ?? Infinity) - (b.days_until_out ?? Infinity));
@@ -414,7 +423,10 @@ export default defineTool({
               unit: d.unit,
               available_stock: d.available_stock,
               on_order: d.on_order,
+              avg_daily: d.avg_daily,
+              min_stock: d.min_stock,
               days_until_out: d.days_until_out,
+              depletion_date: d.depletion_date,
               decision_reason: d.decision_reason,
             }))
           : undefined,
@@ -433,6 +445,7 @@ export default defineTool({
     return ok({
       as_of_date: asOf,
       consumption_window_days: CONSUMPTION_DAYS,
+      closed_weekdays: closedWeekdays,
       default_horizon_days: defaultHorizon,
       total_estimated_cost: Number(ordering.reduce((a, g) => a + g.subtotal, 0).toFixed(2)),
       suppliers_to_order: ordering.map((g) => g.supplier),

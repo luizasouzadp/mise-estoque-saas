@@ -1181,6 +1181,7 @@ export type Database = {
       }
       restaurants: {
         Row: {
+          closed_weekdays: number[]
           created_at: string
           id: string
           ideal_cmv: number
@@ -1189,6 +1190,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          closed_weekdays?: number[]
           created_at?: string
           id?: string
           ideal_cmv?: number
@@ -1197,6 +1199,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          closed_weekdays?: number[]
           created_at?: string
           id?: string
           ideal_cmv?: number
