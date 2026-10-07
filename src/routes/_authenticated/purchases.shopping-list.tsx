@@ -23,6 +23,9 @@ export const Route = createFileRoute("/_authenticated/purchases/shopping-list")(
 });
 
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+type SupplierInfo = { primary: string | null; secondary: string[]; unitCost: number | null };
 
 type ProjectedRow = {
   ingredient_id: string;
@@ -135,6 +138,45 @@ function ShoppingListPage() {
     queryFn: async () => {
       const { data } = await supabase.from("suppliers").select("id, name, phone").order("name");
       return ((data ?? []) as { id: string; name: string; phone: string | null }[]).filter((s) => s.phone);
+    },
+  });
+
+  // Fornecedor principal (ou o da última compra, se não houver) + secundários
+  // e o preço unitário da última compra de cada insumo.
+  const { data: supplierInfo } = useQuery<Map<string, SupplierInfo>>({
+    queryKey: ["shopping-list-supplier-info"],
+    queryFn: async () => {
+      const [ingRes, linkRes, lastRes] = await Promise.all([
+        supabase.from("ingredients").select("id, last_cost, avg_cost"),
+        supabase.from("ingredient_suppliers").select("ingredient_id, is_primary, suppliers(name)"),
+        supabase.from("purchases").select("ingredient_id, supplier").not("supplier", "is", null)
+          .order("purchased_at", { ascending: false }).limit(2000),
+      ]);
+      const map = new Map<string, SupplierInfo>();
+      const get = (id: string) => {
+        let v = map.get(id);
+        if (!v) { v = { primary: null, secondary: [], unitCost: null }; map.set(id, v); }
+        return v;
+      };
+      for (const i of (ingRes.data ?? []) as { id: string; last_cost: number | null; avg_cost: number | null }[]) {
+        const cost = Number(i.last_cost) > 0 ? Number(i.last_cost) : Number(i.avg_cost) > 0 ? Number(i.avg_cost) : null;
+        get(i.id).unitCost = cost;
+      }
+      for (const l of (linkRes.data ?? []) as { ingredient_id: string; is_primary: boolean; suppliers: { name: string } | null }[]) {
+        const name = l.suppliers?.name;
+        if (!name) continue;
+        const v = get(l.ingredient_id);
+        if (l.is_primary) v.primary = name;
+        else v.secondary.push(name);
+      }
+      for (const p of (lastRes.data ?? []) as { ingredient_id: string; supplier: string | null }[]) {
+        const v = get(p.ingredient_id);
+        if (!v.primary && p.supplier?.trim()) v.primary = p.supplier.trim();
+      }
+      for (const v of map.values()) {
+        v.secondary = v.secondary.filter((n) => n !== v.primary).sort((a, b) => a.localeCompare(b));
+      }
+      return map;
     },
   });
 
@@ -257,6 +299,8 @@ function ShoppingListPage() {
                   <TableHead>Insumo</TableHead>
                   <TableHead className="text-right">Estoque atual</TableHead>
                   <TableHead className="text-right">Mínimo</TableHead>
+                  <TableHead>Fornecedor</TableHead>
+                  <TableHead className="text-right">Valor unit.</TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -270,6 +314,8 @@ function ShoppingListPage() {
                       {QTY.format(Number(r.current_stock))} {r.unit}
                     </TableCell>
                     <TableCell className="text-right">{QTY.format(Number(r.min_stock))} {r.unit}</TableCell>
+                    <TableCell><SupplierCell info={supplierInfo?.get(r.ingredient_id)} /></TableCell>
+                    <TableCell className="text-right whitespace-nowrap"><UnitCost info={supplierInfo?.get(r.ingredient_id)} unit={r.unit} /></TableCell>
                     <TableCell><StatusBadge status={r.status} /></TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <Button variant="outline" size="sm" onClick={() => addToList(r)}>
@@ -289,6 +335,7 @@ function ShoppingListPage() {
         open={showList}
         onClose={() => setShowList(false)}
         items={list}
+        supplierInfo={supplierInfo}
         onQtyChange={updateItemQty}
         onRemove={removeItem}
         onSend={() => setWaPickOpen(true)}
@@ -383,18 +430,19 @@ function ShoppingListPage() {
 }
 
 function ListDialog({
-  open, onClose, items, onQtyChange, onRemove, onSend,
+  open, onClose, items, supplierInfo, onQtyChange, onRemove, onSend,
 }: {
   open: boolean;
   onClose: () => void;
   items: ListItem[];
+  supplierInfo: Map<string, SupplierInfo> | undefined;
   onQtyChange: (ingredient_id: string, qty: number) => void;
   onRemove: (ingredient_id: string) => void;
   onSend: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Lista de compras</DialogTitle>
         </DialogHeader>
@@ -406,6 +454,8 @@ function ListDialog({
               <TableHeader>
                 <TableRow>
                   <TableHead>Insumo</TableHead>
+                  <TableHead>Fornecedor</TableHead>
+                  <TableHead className="text-right">Valor unit.</TableHead>
                   <TableHead className="text-right">Quantidade</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -414,6 +464,8 @@ function ListDialog({
                 {items.map((it) => (
                   <TableRow key={it.ingredient_id}>
                     <TableCell className="font-medium">{it.name}</TableCell>
+                    <TableCell><SupplierCell info={supplierInfo?.get(it.ingredient_id)} /></TableCell>
+                    <TableCell className="text-right whitespace-nowrap"><UnitCost info={supplierInfo?.get(it.ingredient_id)} unit={it.unit} /></TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Input
@@ -449,6 +501,25 @@ function ListDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function SupplierCell({ info }: { info: SupplierInfo | undefined }) {
+  if (!info?.primary) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="min-w-[8rem]">
+      <div className="text-sm">{info.primary}</div>
+      {info.secondary.length > 0 && (
+        <div className="text-xs text-muted-foreground" title="Fornecedores secundários">
+          Secundário: {info.secondary.join(", ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UnitCost({ info, unit }: { info: SupplierInfo | undefined; unit: string }) {
+  if (info?.unitCost == null) return <span className="text-xs text-muted-foreground">—</span>;
+  return <span className="text-sm">{BRL.format(info.unitCost)}<span className="text-xs text-muted-foreground">/{unit}</span></span>;
 }
 
 function SummaryCard({ tone, label, count, desc }: { tone: "destructive" | "warning"; label: string; count: number; desc: string }) {
