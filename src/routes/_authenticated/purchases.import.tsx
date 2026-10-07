@@ -21,7 +21,7 @@ import { ArrowLeft, Camera, Image as ImageIcon, Trash2, Loader2, Sparkles, Alert
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { fileToCompressedDataUrl } from "@/lib/image-compress";
-import { readInvoice } from "@/lib/invoice-read.client";
+import { readInvoice } from "@/lib/invoice-reader";
 import {
   suggestIngredientMatches,
   saveImportedPurchase,
