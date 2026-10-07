@@ -72,6 +72,9 @@ function ImportPurchase() {
   const [saving, setSaving] = useState(false);
   const [existingInvoicePaths, setExistingInvoicePaths] = useState<string[]>([]);
   const [autoLoading, setAutoLoading] = useState(false);
+  // Lançamento manual olhando a foto da nota (sem IA).
+  const [manualMode, setManualMode] = useState(false);
+  const [photoHidden, setPhotoHidden] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -248,6 +251,14 @@ function ImportPurchase() {
   }
 
 
+  // Começa o lançamento manual na própria tela, mantendo as fotos da nota
+  // visíveis e já anexadas à compra.
+  function startManual() {
+    setManualMode(true);
+    setPhotoHidden(false);
+    if (items.length === 0) addManualItem();
+  }
+
   // When user changes ingredient or unit, auto-fill factor from alias map if known.
   function onIngredientChange(item: ReviewItem, newId: string) {
     const aliasFactor = aliasMap.get(`${newId}::${item.unit_nota.toUpperCase()}`);
@@ -379,10 +390,21 @@ function ImportPurchase() {
       </p>
 
       <div className="mt-4 flex gap-2 rounded-lg border bg-muted/30 p-1">
-        <Button type="button" variant="ghost" className="flex-1" size="sm" onClick={() => nav({ to: "/purchases/new" })}>
+        <Button
+          type="button"
+          variant={manualMode ? "default" : "ghost"}
+          className="flex-1"
+          size="sm"
+          disabled={autoLoading}
+          onClick={() => {
+            // Com foto da nota (pendente ou recém-enviada): lança aqui mesmo, vendo a foto.
+            if (files.length > 0) startManual();
+            else nav({ to: "/purchases/new" });
+          }}
+        >
           <Pencil className="mr-2 h-4 w-4" /> Adicionar manualmente
         </Button>
-        <Button type="button" className="flex-1" size="sm">
+        <Button type="button" variant={manualMode ? "ghost" : "default"} className="flex-1" size="sm">
           <Camera className="mr-2 h-4 w-4" /> Adicionar por foto da nota
         </Button>
       </div>
@@ -474,7 +496,21 @@ function ImportPurchase() {
                 <><Sparkles className="mr-2 h-4 w-4" /> Ler nota com IA</>
               )}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={startManual}
+              disabled={files.length === 0 || parseMut.isPending}
+              className="w-full sm:w-auto"
+            >
+              <Pencil className="mr-2 h-4 w-4" /> Lançar manualmente vendo a foto
+            </Button>
           </div>
+          {autoLoading && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando a foto da nota…
+            </p>
+          )}
 
           {parseMut.isError && (
             <p className="text-sm text-destructive">{(parseMut.error as Error).message}</p>
@@ -503,10 +539,58 @@ function ImportPurchase() {
             </div>
           </div>
 
+          {manualMode && previews.length > 0 && (
+            <div className="sticky top-16 z-30 rounded-xl border bg-card p-2 shadow-[var(--shadow-soft)] md:top-4">
+              <div className="flex items-center justify-between gap-2 px-1 pb-2">
+                <span className="text-sm font-medium">
+                  Foto da nota{previews.length > 1 ? ` · página ${zoomIndex + 1} de ${previews.length}` : ""}
+                </span>
+                <div className="flex items-center gap-1">
+                  {!photoHidden && (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setZoomOpen(true)} title="Ampliar">
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setPhotoHidden((v) => !v)}>
+                    {photoHidden ? "Mostrar" : "Esconder"}
+                  </Button>
+                </div>
+              </div>
+              {!photoHidden && (
+                <>
+                  <div className="max-h-[40vh] overflow-auto rounded-md border bg-muted/30 md:max-h-[55vh]">
+                    <img
+                      src={previews[zoomIndex] ?? previews[0]}
+                      alt={`Página ${zoomIndex + 1} da nota`}
+                      className="mx-auto w-full max-w-none"
+                    />
+                  </div>
+                  {previews.length > 1 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {previews.map((src, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setZoomIndex(i)}
+                          className={`overflow-hidden rounded border ${i === zoomIndex ? "ring-2 ring-primary" : ""}`}
+                        >
+                          <img src={src} alt={`Página ${i + 1}`} className="h-10 w-10 object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-1 px-1 text-xs text-muted-foreground">
+                    A foto será salva como anexo desta compra.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-semibold">Itens da nota ({items.length})</h2>
-              {previews.length > 0 && (
+              {previews.length > 0 && !manualMode && (
                 <div className="flex shrink-0 items-center gap-1">
                   {previews.map((src, i) => (
                     <button
