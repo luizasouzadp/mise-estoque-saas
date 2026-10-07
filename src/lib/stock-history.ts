@@ -129,6 +129,7 @@ export async function loadStockHistory(): Promise<{
   }
 
   for (const m of stockMv) {
+    if (Number(m.quantity) === 0) continue;
     const isProduction = (m.notes ?? "").startsWith("production:");
     const prodId = isProduction ? (m.notes ?? "").slice("production:".length) : null;
     let value: number;

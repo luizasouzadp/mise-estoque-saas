@@ -208,8 +208,9 @@ export const finalizeInventory = createServerFn({ method: "POST" })
 
     for (const [ingredientId, total] of totals) {
       const current = stockMap.get(ingredientId) ?? 0;
+      // Delta 0 também é registrado: o ajuste fixa a contagem caso uma
+      // movimentação anterior seja corrigida depois.
       const delta = total - current;
-      if (delta === 0) continue;
       movements.push({
         restaurant_id: inv.restaurant_id,
         ingredient_id: ingredientId,

@@ -193,6 +193,8 @@ function MovementsPage() {
       });
     }
     for (const m of stockMv) {
+      // Contagem que bateu com o sistema: sem efeito no estoque, não aparece
+      if (Number(m.quantity) === 0) continue;
       const ing = ingMap.get(m.ingredient_id);
       const isProduction = (m.notes ?? "").startsWith("production:");
       const prodId = isProduction ? (m.notes ?? "").slice("production:".length) : null;
