@@ -5,6 +5,7 @@ import { getMyRestaurantId } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SupplierSelect } from "@/components/SupplierSelect";
 import {
   Dialog,
   DialogContent,
@@ -877,7 +878,7 @@ function MovementsPage() {
               {quick.purchase && (
                 <div>
                   <Label>Fornecedor</Label>
-                  <Input value={quickSupplier} onChange={(e) => setQuickSupplier(e.target.value)} />
+                  <SupplierSelect value={quickSupplier} onChange={setQuickSupplier} />
                 </div>
               )}
               {quick.source === "inventory" && (
