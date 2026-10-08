@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 
 export type HistIngredient = {
   id: string;
@@ -77,25 +78,36 @@ export async function loadStockHistory(): Promise<{
       .from("ingredients")
       .select("id, name, unit, category, created_at, avg_cost, current_stock, min_stock, is_active")
       .order("name"),
-    supabase
-      .from("stock_movements")
-      .select("id, ingredient_id, type, quantity, unit_cost, reason, notes, occurred_at")
-      .order("occurred_at", { ascending: false })
-      .limit(5000),
-    supabase
-      .from("purchases")
-      .select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at")
-      .order("purchased_at", { ascending: false })
-      .limit(5000),
-    supabase
-      .from("inventory_items")
-      .select(
-        "id, ingredient_id, counted_qty, expected_qty, inventories!inner(name, completed_at, status)",
-      )
-      .not("counted_qty", "is", null)
-      .eq("inventories.status", "completed")
-      .limit(5000),
-    supabase.from("production_items").select("production_id, ingredient_id, quantity").limit(5000),
+    fetchAll((f, t) =>
+      supabase
+        .from("stock_movements")
+        .select("id, ingredient_id, type, quantity, unit_cost, reason, notes, occurred_at")
+        .order("occurred_at", { ascending: false })
+        .order("id")
+        .range(f, t),
+    ),
+    fetchAll((f, t) =>
+      supabase
+        .from("purchases")
+        .select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at")
+        .order("purchased_at", { ascending: false })
+        .order("id")
+        .range(f, t),
+    ),
+    fetchAll((f, t) =>
+      supabase
+        .from("inventory_items")
+        .select(
+          "id, ingredient_id, counted_qty, expected_qty, inventories!inner(name, completed_at, status)",
+        )
+        .not("counted_qty", "is", null)
+        .eq("inventories.status", "completed")
+        .order("id")
+        .range(f, t),
+    ),
+    fetchAll((f, t) =>
+      supabase.from("production_items").select("production_id, ingredient_id, quantity").order("id").range(f, t),
+    ),
   ]);
 
   const ingredients = (ing.data ?? []) as HistIngredient[];

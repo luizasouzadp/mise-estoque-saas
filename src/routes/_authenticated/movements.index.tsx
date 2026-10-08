@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { getMyRestaurantId } from "@/lib/profile";
+import { fetchAll } from "@/lib/fetch-all";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,15 +126,24 @@ function MovementsPage() {
     setLoading(true);
     const [ing, mv, pur, inv, pi] = await Promise.all([
       supabase.from("ingredients").select("id, name, unit, category, created_at, avg_cost, current_stock, composes_cmv").order("name"),
-      supabase.from("stock_movements").select("*").order("occurred_at", { ascending: false }).limit(1000),
-      supabase.from("purchases").select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at").order("purchased_at", { ascending: false }).limit(1000),
-      supabase
-        .from("inventory_items")
-        .select("id, ingredient_id, counted_qty, expected_qty, inventory_id, inventories!inner(name, completed_at, status)")
-        .not("counted_qty", "is", null)
-        .eq("inventories.status", "completed")
-        .limit(2000),
-      supabase.from("production_items").select("production_id, ingredient_id, quantity"),
+      fetchAll((f, t) =>
+        supabase.from("stock_movements").select("*").order("occurred_at", { ascending: false }).order("id").range(f, t),
+      ),
+      fetchAll((f, t) =>
+        supabase.from("purchases").select("id, ingredient_id, quantity, unit_cost, supplier, purchased_at").order("purchased_at", { ascending: false }).order("id").range(f, t),
+      ),
+      fetchAll((f, t) =>
+        supabase
+          .from("inventory_items")
+          .select("id, ingredient_id, counted_qty, expected_qty, inventory_id, inventories!inner(name, completed_at, status)")
+          .not("counted_qty", "is", null)
+          .eq("inventories.status", "completed")
+          .order("id")
+          .range(f, t),
+      ),
+      fetchAll((f, t) =>
+        supabase.from("production_items").select("production_id, ingredient_id, quantity").order("id").range(f, t),
+      ),
     ]);
     setIngredients((ing.data ?? []) as Ingredient[]);
     setStockMv((mv.data ?? []) as StockMovement[]);
