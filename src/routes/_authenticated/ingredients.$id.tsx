@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, TrendingDown, Pencil, Check, ChevronsUpDown, Plus } from "lucide-react";
+import { ArrowLeft, Trash2, TrendingDown, Pencil, Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ReferenceLine } from "recharts";
 import {
   AlertDialog,
@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn, fmtStock, normalizeName } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { convertIngredientUnit } from "@/lib/ingredient-unit.functions";
+import { packFromAlias } from "@/lib/mcp/lib/packs";
 
 export const Route = createFileRoute("/_authenticated/ingredients/$id")({
   component: IngredientDetail,
@@ -73,6 +74,17 @@ function IngredientDetail() {
     queryFn: async () => (await supabase.from("suppliers").select("id, name").order("name")).data ?? [],
   });
 
+  // Conversões memorizadas na entrada de nota (1 CX = 30 kg).
+  const { data: aliases } = useQuery({
+    queryKey: ["ingredient_aliases", id],
+    queryFn: async () =>
+      (await supabase
+        .from("ingredient_unit_aliases")
+        .select("id, from_unit, factor, updated_at")
+        .eq("ingredient_id", id)
+        .order("updated_at", { ascending: false })).data ?? [],
+  });
+
   const [period, setPeriod] = useState<30 | 60 | 90>(30);
   const { data: movements } = useQuery({
     queryKey: ["ingredient_movements", id, period],
@@ -96,6 +108,8 @@ function IngredientDetail() {
   const [catOpen, setCatOpen] = useState(false);
   const [catQuery, setCatQuery] = useState("");
   const [minStock, setMinStock] = useState("0");
+  const [packQty, setPackQty] = useState("");
+  const [packName, setPackName] = useState("");
   const [groupIds, setGroupIds] = useState<Set<string>>(new Set());
   const [composesCmv, setComposesCmv] = useState(true);
   const [isActive, setIsActive] = useState(true);
@@ -120,6 +134,8 @@ function IngredientDetail() {
       setUnit(data.unit);
       setCategory(data.category ?? "");
       setMinStock(Number(data.min_stock).toFixed(3));
+      setPackQty(data.purchase_pack_qty != null ? String(Number(data.purchase_pack_qty)) : "");
+      setPackName(data.purchase_pack_name ?? "");
       setGroupIds(new Set(data.groupIds));
       setComposesCmv(data.composes_cmv ?? true);
       setIsActive((data as { is_active?: boolean }).is_active ?? true);
@@ -178,10 +194,14 @@ function IngredientDetail() {
     if (dup) {
       return toast.error(`Já existe um insumo chamado "${finalName}".`);
     }
+    const pack = Number(String(packQty).replace(",", "."));
+    if (packQty.trim() && !(pack > 0)) return toast.error("Quantidade da embalagem inválida.");
     setSaving(true);
     const firstGroup = groupIds.size > 0 ? Array.from(groupIds)[0] : null;
     const { error } = await supabase.from("ingredients").update({
       name: finalName, category: category || null, min_stock: Number(minStock) || 0, group_id: firstGroup, composes_cmv: composesCmv, is_active: isActive,
+      purchase_pack_qty: packQty.trim() ? pack : null,
+      purchase_pack_name: packQty.trim() ? packName.trim() || null : null,
     } as never).eq("id", id);
     if (error) {
       setSaving(false);
@@ -270,6 +290,13 @@ function IngredientDetail() {
     if (data) setUnit(data.unit);
     setUnitConvOpen(false);
     setPendingNewUnit(null);
+  }
+
+  async function removeAlias(aliasId: string) {
+    const { error } = await supabase.from("ingredient_unit_aliases").delete().eq("id", aliasId);
+    if (error) return toast.error(error.message);
+    toast.success("Conversão esquecida");
+    qc.invalidateQueries({ queryKey: ["ingredient_aliases", id] });
   }
 
   async function remove() {
@@ -624,6 +651,61 @@ function IngredientDetail() {
         <div>
           <Label htmlFor="min">Estoque mínimo</Label>
           <Input id="min" type="number" step="0.001" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+        </div>
+        <div className="rounded-lg border p-3">
+          <Label>Embalagem de compra</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Como você compra este insumo (caixa, fardo, saco…). A lista de compras arredonda o pedido para embalagens inteiras.
+            Deixe a quantidade vazia se compra a granel.
+          </p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="pack-name" className="text-xs">Nome da embalagem</Label>
+              <Input id="pack-name" value={packName} onChange={(e) => setPackName(e.target.value)} placeholder="Ex.: caixa, fardo" />
+            </div>
+            <div>
+              <Label htmlFor="pack-qty" className="text-xs">Quantidade na embalagem ({unit})</Label>
+              <Input id="pack-qty" inputMode="decimal" value={packQty} onChange={(e) => setPackQty(e.target.value)} placeholder="Ex.: 12 ou 30" />
+            </div>
+          </div>
+          {(aliases ?? []).length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-muted-foreground">Conversões memorizadas nas notas</p>
+              <div className="mt-1 space-y-1">
+                {(aliases ?? []).map((a) => {
+                  const asPack = data ? packFromAlias(a.from_unit, Number(a.factor), data.unit) : null;
+                  return (
+                    <div key={a.id} className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">
+                      <span className="flex-1">
+                        1 {a.from_unit} = {fmtStock(Number(a.factor), 3)} {data?.unit}
+                      </span>
+                      {asPack && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPackName(asPack.purchase_pack_name);
+                            setPackQty(String(asPack.purchase_pack_qty));
+                          }}
+                          className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+                          title="Preencher a embalagem de compra com esta conversão"
+                        >
+                          Usar como embalagem
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeAlias(a.id)}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                        title="Esquecer esta conversão"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>

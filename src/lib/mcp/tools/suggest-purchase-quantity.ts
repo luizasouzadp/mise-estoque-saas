@@ -54,7 +54,7 @@ export default defineTool({
     const asOf = todaySaoPaulo();
     const horizon = horizon_days ?? 15;
     const safety = safety_days ?? DEFAULT_SAFETY_DAYS;
-    const [closed, effStockRaw, series, counts, pending] = await Promise.all([
+    const [closed, effStockRaw, series, counts, pending, aliasRes] = await Promise.all([
       getClosedWeekdays(supabase, ctx.getUserId()),
       effectiveStock(supabase, ingredient_id),
       dailyConsumption(supabase, ingredient_id, CONSUMPTION_DAYS),
@@ -67,7 +67,9 @@ export default defineTool({
         .select("quantity, unit, expected_at")
         .eq("ingredient_id", ingredient_id)
         .eq("status", "pending"),
+      supabase.from("ingredient_unit_aliases").select("from_unit, factor").eq("ingredient_id", ingredient_id),
     ]);
+    const aliases = (aliasRes.data ?? []) as { from_unit: string; factor: number }[];
     const stock = Number(ing.current_stock ?? 0);
     const effStock = effStockRaw ?? stock;
     const window = series.slice(-CONSUMPTION_DAYS);
@@ -85,7 +87,7 @@ export default defineTool({
     const end = new Date(parseDate(asOf).getTime() + horizon * 86400000);
     const orders = ((pending.data ?? []) as { quantity: number; unit: string | null; expected_at: string | null }[]).map(
       (o) => ({
-        qty: toIngredientUnit(Number(o.quantity ?? 0), o.unit, ing).qty,
+        qty: toIngredientUnit(Number(o.quantity ?? 0), o.unit, ing, aliases).qty,
         expected_at: o.expected_at ? o.expected_at.slice(0, 10) : null,
       }),
     );

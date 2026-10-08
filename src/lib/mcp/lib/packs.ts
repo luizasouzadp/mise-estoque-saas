@@ -37,21 +37,44 @@ const PACK_WORDS = new Set([
   "rodela", "rodelas", "emb", "embalagem", "embalagens", "pack", "engradado", "galao",
 ]);
 
+/** Conversão memorizada na entrada de nota: 1 from_unit = factor (unidade do insumo). */
+export type UnitAlias = { from_unit: string; factor: number };
+
+/**
+ * Embalagem de compra a partir de uma conversão memorizada na nota (1 CX = 30 kg →
+ * caixa de 30). null quando é só troca de medida (kg→g) ou a mesma unidade.
+ */
+export function packFromAlias(
+  fromUnit: string,
+  factor: number,
+  ingUnit: string,
+): { purchase_pack_qty: number; purchase_pack_name: string } | null {
+  const from = normalizeUnit(fromUnit);
+  const to = normalizeUnit(ingUnit);
+  if (!from || !(factor > 0) || factor === 1 || from === to) return null;
+  if (convert(1, from, to) !== null) return null;
+  return { purchase_pack_qty: factor, purchase_pack_name: fromUnit.trim().toLowerCase() };
+}
+
 /**
  * Converte a quantidade de uma encomenda para a unidade do insumo:
- * mesma unidade → igual; kg↔g, L↔ml → converte; nome da embalagem (caixa, fardo…) →
- * multiplica por purchase_pack_qty (1 caixa de mussarela = 30 kg).
+ * mesma unidade → igual; kg↔g, L↔ml → converte; conversão memorizada na nota →
+ * multiplica pelo fator; nome da embalagem (caixa, fardo…) → multiplica por
+ * purchase_pack_qty (1 caixa de mussarela = 30 kg).
  */
 export function toIngredientUnit(
   qty: number,
   orderUnit: string | null | undefined,
   ing: PackInfo,
-): { qty: number; converted_by: "same" | "unit" | "pack" | "unknown" } {
+  aliases: UnitAlias[] = [],
+): { qty: number; converted_by: "same" | "unit" | "alias" | "pack" | "unknown" } {
   const from = normalizeUnit(orderUnit);
   const to = normalizeUnit(ing.unit);
   if (!from || from === to) return { qty, converted_by: "same" };
   const c = convert(qty, from, to);
   if (c !== null) return { qty: c, converted_by: "unit" };
+  const alias = aliases.find((a) => normalizeUnit(a.from_unit) === from && Number(a.factor) > 0);
+  if (alias) return { qty: qty * Number(alias.factor), converted_by: "alias" };
   const pack = Number(ing.purchase_pack_qty ?? 0);
   if (pack > 0) {
     const packName = plain(ing.purchase_pack_name);

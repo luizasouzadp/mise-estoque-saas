@@ -20,6 +20,7 @@ type Row = {
     unit: string;
     purchase_pack_qty: number | null;
     purchase_pack_name: string | null;
+    ingredient_unit_aliases: { from_unit: string; factor: number }[] | null;
   } | null;
 };
 
@@ -65,7 +66,7 @@ export default defineTool({
     let q = supabase
       .from("purchase_orders")
       .select(
-        "id, supplier_id, supplier_name, ingredient_id, quantity, unit, expected_at, status, notes, created_at, received_at, ingredient:ingredients(name, unit, purchase_pack_qty, purchase_pack_name)",
+        "id, supplier_id, supplier_name, ingredient_id, quantity, unit, expected_at, status, notes, created_at, received_at, ingredient:ingredients(name, unit, purchase_pack_qty, purchase_pack_name, ingredient_unit_aliases(from_unit, factor))",
       )
       .order("expected_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -100,10 +101,15 @@ export default defineTool({
         ingredient: r.ingredient?.name ?? null,
         quantity: Number(r.quantity),
         unit: r.unit,
-        // Na unidade do insumo (1 caixa de mussarela = 30 kg, pela embalagem cadastrada).
+        // Na unidade do insumo (1 caixa de mussarela = 30 kg, pela embalagem cadastrada ou conversão memorizada na nota).
         ...(r.ingredient
           ? (() => {
-              const c = toIngredientUnit(Number(r.quantity), r.unit, r.ingredient);
+              const c = toIngredientUnit(
+                Number(r.quantity),
+                r.unit,
+                r.ingredient,
+                r.ingredient.ingredient_unit_aliases ?? [],
+              );
               return {
                 quantity_in_ingredient_unit: c.qty,
                 ingredient_unit: r.ingredient.unit,

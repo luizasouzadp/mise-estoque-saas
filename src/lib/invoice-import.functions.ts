@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { packFromAlias } from "@/lib/mcp/lib/packs";
 
 // -------- Suggest ingredient matches --------
 function normalizeText(s: string): string {
@@ -218,6 +219,23 @@ export const saveImportedPurchase = createServerFn({ method: "POST" })
       await supabase
         .from("ingredient_unit_aliases")
         .upsert(aliasRows, { onConflict: "ingredient_id,from_unit" });
+
+      // Embalagem memorizada (caixa, fardo…) vira a embalagem de compra do insumo,
+      // usada para arredondar a lista de compras. Troca de medida (kg→g) não conta.
+      const { data: ingUnits } = await supabase
+        .from("ingredients")
+        .select("id, unit")
+        .in("id", Array.from(new Set(aliasesToLearn.map((it) => it.ingredient_id))));
+      const unitById = new Map((ingUnits ?? []).map((i) => [i.id, i.unit as string]));
+      const packs = new Map<string, NonNullable<ReturnType<typeof packFromAlias>>>();
+      for (const it of aliasesToLearn) {
+        const unit = unitById.get(it.ingredient_id);
+        const pack = unit ? packFromAlias(it.unit_nota, it.factor, unit) : null;
+        if (pack) packs.set(it.ingredient_id, pack);
+      }
+      for (const [ingredientId, pack] of packs) {
+        await supabase.from("ingredients").update(pack).eq("id", ingredientId);
+      }
     }
 
     // Learn text -> ingredient matches: one read + one bulk upsert, since a

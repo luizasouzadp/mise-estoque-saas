@@ -710,7 +710,7 @@ function ImportPurchase() {
                           <div className="mt-1 flex items-center gap-2">
                             <Switch id={`learn-${it.key}`} checked={it.learn_alias} onCheckedChange={(v) => updateItem(it.key, { learn_alias: !!v })} />
                             <Label htmlFor={`learn-${it.key}`} className="cursor-pointer text-xs font-normal">
-                              Memorizar essa embalagem para este insumo
+                              Memorizar essa embalagem para este insumo (também usada na lista de compras)
                             </Label>
                           </div>
                         </div>

@@ -9,7 +9,7 @@ import {
   loadRecipeGraph,
   normalizeName,
 } from "../lib/consumption";
-import { toIngredientUnit, type PackInfo } from "../lib/packs";
+import { toIngredientUnit, type PackInfo, type UnitAlias } from "../lib/packs";
 import {
   avgPerOpenDay,
   decideItem,
@@ -134,6 +134,7 @@ export default defineTool({
       unit: string | null;
       expected_at: string | null;
     };
+    type AliasRow = UnitAlias & { ingredient_id: string };
     type CountRow = {
       ingredient_id: string;
       inventories: { last_completed_at: string | null; completed_at: string | null } | null;
@@ -145,13 +146,14 @@ export default defineTool({
     let links: LinkRow[];
     let pendingOrders: OrderRow[];
     let counts: CountRow[];
+    let aliases: AliasRow[];
     let consumption: Awaited<ReturnType<typeof dailyConsumptionAll>>;
     let effective: Map<string, number>;
     let graph: Awaited<ReturnType<typeof loadRecipeGraph>>;
     try {
       graph = await loadRecipeGraph(supabase);
       effective = effectiveStockAll(graph);
-      [ings, suppliers, purchases, links, pendingOrders, counts, consumption] = await Promise.all([
+      [ings, suppliers, purchases, links, pendingOrders, counts, aliases, consumption] = await Promise.all([
         fetchAll<IngRow>(
           (from, to) =>
             supabase
@@ -209,6 +211,15 @@ export default defineTool({
               .select("ingredient_id, inventories!inner(last_completed_at, completed_at)")
               .order("id")
               .range(from, to) as unknown as QueryResult<CountRow>,
+        ),
+        // Conversões memorizadas na entrada de nota (1 CX = 30 kg).
+        fetchAll<AliasRow>(
+          (from, to) =>
+            supabase
+              .from("ingredient_unit_aliases")
+              .select("ingredient_id, from_unit, factor")
+              .order("id")
+              .range(from, to) as unknown as QueryResult<AliasRow>,
         ),
         dailyConsumptionAll(supabase, CONSUMPTION_DAYS, graph),
       ]);
@@ -270,15 +281,21 @@ export default defineTool({
       const prev = lastCount.get(c.ingredient_id);
       if (!prev || d > prev) lastCount.set(c.ingredient_id, d);
     }
+    const aliasesByIng = new Map<string, UnitAlias[]>();
+    for (const a of aliases) {
+      const list = aliasesByIng.get(a.ingredient_id) ?? [];
+      list.push(a);
+      aliasesByIng.set(a.ingredient_id, list);
+    }
     const ordersByIng = new Map<string, { qty: number; expected_at: string | null }[]>();
     const unitWarnings: string[] = [];
     for (const o of pendingOrders) {
       const ing = ingById.get(o.ingredient_id);
       if (!ing) continue;
-      const conv = toIngredientUnit(Number(o.quantity ?? 0), o.unit, ing);
+      const conv = toIngredientUnit(Number(o.quantity ?? 0), o.unit, ing, aliasesByIng.get(ing.id));
       if (conv.converted_by === "unknown") {
         unitWarnings.push(
-          `${ing.name}: encomenda em "${o.unit}" não converte para ${ing.unit}; usada como ${ing.unit}. Cadastre a embalagem (purchase_pack_qty) para converter.`,
+          `${ing.name}: encomenda em "${o.unit}" não converte para ${ing.unit}; usada como ${ing.unit}. Cadastre a embalagem no insumo (ou memorize a conversão na entrada de nota) para converter.`,
         );
       }
       const list = ordersByIng.get(o.ingredient_id) ?? [];
