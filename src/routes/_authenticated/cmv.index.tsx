@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getMyRestaurantId } from "@/lib/profile";
+import { fetchAll } from "@/lib/fetch-all";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -150,12 +151,18 @@ function CmvPage() {
     queryFn: async () => {
       const startISO = parseLocal(from).toISOString();
       const endISO = parseLocal(to, true).toISOString();
-      const { data, error } = await supabase
-        .from("stock_movements")
-        .select("ingredient_id, quantity, unit_cost, type, notes, occurred_at")
-        .eq("type", "out")
-        .gte("occurred_at", startISO)
-        .lte("occurred_at", endISO);
+      // Busca em páginas: o banco devolve no máximo 1000 linhas por pedido.
+      const { data, error } = await fetchAll<any>((f, t) =>
+        supabase
+          .from("stock_movements")
+          .select("id, ingredient_id, quantity, unit_cost, type, notes, occurred_at")
+          .eq("type", "out")
+          .gte("occurred_at", startISO)
+          .lte("occurred_at", endISO)
+          .order("occurred_at")
+          .order("id")
+          .range(f, t),
+      );
       if (error) throw error;
       return data ?? [];
     },
@@ -546,12 +553,17 @@ function TheoreticalCompareDialog({
     queryFn: async () => {
       const startISO = parseLocal(report!.period_start).toISOString();
       const endISO = parseLocal(report!.period_end, true).toISOString();
-      const { data, error } = await supabase
-        .from("stock_movements")
-        .select("ingredient_id, quantity, type, notes, occurred_at")
-        .eq("type", "out")
-        .gte("occurred_at", startISO)
-        .lte("occurred_at", endISO);
+      const { data, error } = await fetchAll<any>((f, t) =>
+        supabase
+          .from("stock_movements")
+          .select("id, ingredient_id, quantity, type, notes, occurred_at")
+          .eq("type", "out")
+          .gte("occurred_at", startISO)
+          .lte("occurred_at", endISO)
+          .order("occurred_at")
+          .order("id")
+          .range(f, t),
+      );
       if (error) throw error;
       return data ?? [];
     },

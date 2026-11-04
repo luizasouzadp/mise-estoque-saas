@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { supabaseForUser, notAuthed, err, ok } from "../lib/supabase-for-user";
+import { fetchAll } from "../lib/consumption";
 
 export default defineTool({
   name: "calculate_cmv",
@@ -27,13 +28,23 @@ export default defineTool({
       return ok({ source: "cmv_reports", report: existing });
     }
     // Compute
-    const { data: mv, error } = await supabase
-      .from("stock_movements")
-      .select("ingredient_id, quantity, reason, ingredients!inner(name, avg_cost, last_cost, composes_cmv)")
-      .eq("type", "out")
-      .gte("occurred_at", `${period_start}T00:00:00Z`)
-      .lte("occurred_at", `${period_end}T23:59:59Z`);
-    if (error) return err(error.message);
+    // Busca em páginas: o banco devolve no máximo 1000 linhas por pedido.
+    let mv: unknown[];
+    try {
+      mv = await fetchAll<unknown>((from, to) =>
+        supabase
+          .from("stock_movements")
+          .select("id, ingredient_id, quantity, reason, ingredients!inner(name, avg_cost, last_cost, composes_cmv)")
+          .eq("type", "out")
+          .gte("occurred_at", `${period_start}T00:00:00Z`)
+          .lte("occurred_at", `${period_end}T23:59:59Z`)
+          .order("occurred_at")
+          .order("id")
+          .range(from, to) as any,
+      );
+    } catch (e) {
+      return err((e as Error).message);
+    }
     type Row = {
       ingredient_id: string;
       quantity: number;
